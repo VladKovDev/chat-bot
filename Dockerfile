@@ -8,7 +8,7 @@ RUN apk add --no-cache git build-base libc6-compat
 WORKDIR /app
 
 # Copy go mod files first for better caching
-COPY go.mod ./
+COPY go.mod go.sum ./
 
 # Download Go modules
 RUN go mod download
