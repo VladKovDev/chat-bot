@@ -1,0 +1,10 @@
+logger:
+  level: debug
+  format: console
+  output: stdout
+  enable_colors: true
+  file_path: ./logs/promo_bots.log
+  max_size: 50
+  max_backups: 2
+  max_age: 7
+  compress: false

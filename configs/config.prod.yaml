@@ -1,0 +1,5 @@
+logger:
+  level: debug
+  format: json
+  output: stdout
+  enable_colors: false
