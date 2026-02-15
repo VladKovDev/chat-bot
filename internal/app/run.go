@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/VladKovDev/chat-bot/internal/config"
+	databaseCfg "github.com/VladKovDev/chat-bot/internal/config/database"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -25,6 +27,11 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("failed to load logger config: %w", err)
 	}
 
+	databaseConfig, err := databaseCfg.LoadConfig(viper)
+	if err != nil {
+		return fmt.Errorf("failed to load database config: %w", err)
+	}
+
 	// Initialize logger
 	logger, err := logger.New(loggerConfig)
 	if err != nil {
@@ -32,6 +39,13 @@ func Run(ctx context.Context) error {
 	}
 	logger.Debug("logger debug enabled")
 
+	// Initialize DB
+	pool, err := postgres.NewPool(ctx, &databaseConfig, logger)
+	if err != nil {
+		return fmt.Errorf("failed to init database: %w", err)
+	}
+
+	_ = pool
 	_ = loggerConfig
 	return nil
 }
