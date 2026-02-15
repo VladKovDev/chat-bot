@@ -1,9 +1,22 @@
+database:
+  host: localhost
+  port: 5442
+  user: postgres
+  password: postgres
+  name: chat-bot
+  sslmode: disable
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 1h
+  conn_max_idle_time: 15m
+  health_check_period: 1m
+
 logger:
   level: debug
   format: console
   output: stdout
   enable_colors: true
-  file_path: ./logs/promo_bots.log
+  file_path: ./logs/chat-bot.log
   max_size: 50
   max_backups: 2
   max_age: 7
