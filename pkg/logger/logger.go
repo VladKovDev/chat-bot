@@ -19,9 +19,13 @@ type Logger interface {
 	Fatal(msg string, fields ...Field)
 	With(fields ...Field) Logger
 	Sync() error
+
 	String(key, value string) Field
 	Int(key string, value int) Field
+	Int32(key string, value int32) Field
+	Int64(key string, value int64) Field
 	Bool(key string, value bool) Field
+	Err(err error) Field
 	Any(key string, value any) Field
 }
 
@@ -168,8 +172,26 @@ func (l *logger) Int(key string, value int) Field {
 	return Field{key: key, value: value}
 }
 
+func (l *logger) Int32(key string, value int32) Field {
+	return Field{key: key, value: value}
+}
+
+func (l *logger) Int64(key string, value int64) Field {
+	return Field{key: key, value: value}
+}
+
 func (l *logger) Bool(key string, value bool) Field {
 	return Field{key: key, value: value}
+}
+
+func (l *logger) Err(err error) Field {
+	if err == nil {
+		return Field{}
+	}
+	return Field{
+		key:   "error",
+		value: err,
+	}
 }
 
 func (l *logger) Any(key string, value any) Field {
@@ -185,8 +207,14 @@ func convertFields(fields []Field) []zapcore.Field {
 			zapFields[i] = zap.String(f.key, v)
 		case int:
 			zapFields[i] = zap.Int(f.key, v)
+		case int32:
+			zapFields[i] = zap.Int32(f.key, v)
+		case int64:
+			zapFields[i] = zap.Int64(f.key, v)
 		case bool:
 			zapFields[i] = zap.Bool(f.key, v)
+		case error:
+			zapFields[i] = zap.Error(v)
 		default:
 			zapFields[i] = zap.Any(f.key, v)
 		}
