@@ -3,15 +3,15 @@
 -- 1. Conversations
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id BIGINT NOT NULL,
     channel VARCHAR(50) NOT NULL,
-    state VARCHAR(50) NOT NULL,
-    version INT NOT NULL DEFAULT 1,
+    chat_id BIGINT NOT NULL,
+    "state" VARCHAR(50) NOT NULL,
+    "version" INT NOT NULL DEFAULT 1,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX idx_conversations_chat_id ON conversations(channel, chat_id);
 
 -- 2. Messages
 CREATE TABLE IF NOT EXISTS messages (
