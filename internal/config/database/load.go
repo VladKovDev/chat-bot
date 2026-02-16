@@ -10,7 +10,7 @@ func LoadConfig(v *viper.Viper) (repository.Config, error) {
 
 	cfg := SetDefaultConfig()
 
-	if err := v.UnmarshalKey("logger", &cfg); err != nil {
+	if err := v.UnmarshalKey("database", &cfg); err != nil {
 		return repository.Config{}, err
 	}
 
