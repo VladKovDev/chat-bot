@@ -3,10 +3,10 @@ package database
 import (
 	"fmt"
 
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 )
 
-func Validate(cfg repository.Config) error {
+func Validate(cfg postgres.Config) error {
 	if cfg.Host == "" {
 		return fmt.Errorf("host is empty")
 	}

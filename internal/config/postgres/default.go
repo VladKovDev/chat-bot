@@ -3,11 +3,11 @@ package database
 import (
 	"time"
 
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 )
 
-func SetDefaultConfig() repository.Config {
-	return repository.Config{
+func SetDefaultConfig() postgres.Config {
+	return postgres.Config{
 		Host:              "localhost",
 		Port:              5432,
 		User:              "postgres",

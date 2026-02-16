@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,7 +16,7 @@ type Pool struct {
 	logger logger.Logger
 }
 
-func NewPool(ctx context.Context, cfg *repository.Config, logger logger.Logger) (*Pool, error) {
+func NewPool(ctx context.Context, cfg *Config, logger logger.Logger) (*Pool, error) {
 	poolConfig, err := pgxpool.ParseConfig(getPostgresDSN(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse db config: %w", err)
@@ -80,7 +79,13 @@ func (p *Pool) Close() {
 	p.logger.Info("PostgreSQL connection pool closed")
 }
 
-func getPostgresDSN(cfg *repository.Config) string {
+func (p *Pool) Shutdown(ctx context.Context) error {
+	p.Pool.Close()
+	p.logger.Info("PostgreSQL connection pool closed")
+	return nil
+}
+
+func getPostgresDSN(cfg *Config) string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		cfg.User,

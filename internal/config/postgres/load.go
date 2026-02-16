@@ -1,21 +1,21 @@
 package database
 
 import (
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/spf13/viper"
 )
 
-func LoadConfig(v *viper.Viper) (repository.Config, error) {
+func LoadConfig(v *viper.Viper) (postgres.Config, error) {
 	bindEnv(v)
 
 	cfg := SetDefaultConfig()
 
 	if err := v.UnmarshalKey("database", &cfg); err != nil {
-		return repository.Config{}, err
+		return postgres.Config{}, err
 	}
 
 	if err := Validate(cfg); err != nil {
-		return repository.Config{}, err
+		return postgres.Config{}, err
 	}
 
 	return cfg, nil
