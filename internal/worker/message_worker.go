@@ -6,55 +6,66 @@ import (
 
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/telegram"
+	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 type MessageWorker struct {
 	convService *conversation.Service
+	logger      logger.Logger
+	classifier  EventClassifier
+
+	telegram *telegram.Client
 }
 
-func NewMessageWorker(convService *conversation.Service) *MessageWorker {
+type EventClassifier interface {
+	Classify(text string) (conversation.Event, error)
+}
+
+func NewMessageWorker(convService *conversation.Service, logger logger.Logger, classifier EventClassifier, telegram *telegram.Client) *MessageWorker {
 	return &MessageWorker{
 		convService: convService,
+		logger:      logger,
+		classifier:  classifier,
+		telegram:   telegram,
 	}
 }
 
 func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.IncomingMessage) error {
+	// load conversation
 	conv, err := w.convService.LoadConversation(ctx, msg.Channel, msg.ChatID)
 	if err != nil {
 		return fmt.Errorf("failed to load conversation: %w", err)
 	}
 
-	switch conv.State {
-	case conversation.StateNew:
-		return w.handleNewConversation(ctx, msg, conv)
-	case conversation.StateInProgress:
-		return w.handleInProgressConversation(ctx, msg, conv)
-	case conversation.StateClosed:
-		return w.handleClosedConversation(ctx, msg)
-	default:
-		return fmt.Errorf("unknown conversation state: %s", conv.State)
+	// classify event
+	event, err := w.classifier.Classify(msg.Text)
+	if err != nil {
+		return fmt.Errorf("failed to classify event: %w", err)
 	}
-}
 
-func (w *MessageWorker) handleNewConversation(ctx context.Context, msg contracts.IncomingMessage, conv *conversation.Conversation) error {
-	// TODO: Implement new conversation logic
-	// For now, just return nil to indicate success
-	fmt.Printf("New conversation: ID=%s, Channel=%s, ChatID=%d, Text=%s\n",
-		conv.ID, conv.Channel, conv.ChatID, msg.Text)
-	return nil
-}
+	// transition conversation
+	transCtx := conversation.TransitionContext{
+		UserText: msg.Text,
+	}
 
-func (w *MessageWorker) handleInProgressConversation(ctx context.Context, msg contracts.IncomingMessage, conv *conversation.Conversation) error {
-	// TODO: Implement in-progress conversation logic
-	fmt.Printf("In-progress conversation: ID=%s, Channel=%s, ChatID=%d, Text=%s\n",
-		conv.ID, conv.Channel, conv.ChatID, msg.Text)
-	return nil
-}
+	newState, response, err := conv.Transition(event, transCtx)
+	if err != nil {
+		return fmt.Errorf("failed to transition conversation: %w", err)
+	}
 
-func (w *MessageWorker) handleClosedConversation(ctx context.Context, msg contracts.IncomingMessage) error {
-	// TODO: Implement closed conversation logic
-	// May create a new conversation or show a message
-	fmt.Printf("Message to closed conversation: Channel=%s, ChatID=%d, Text=%s\n",
-		msg.Channel, msg.ChatID, msg.Text)
+	// update conversation state
+	conv.State = newState
+
+	_, err = w.convService.UpdateConversationState(ctx, conv)
+	if err != nil {
+		return fmt.Errorf("failed to update conversation state: %w", err)
+	}
+
+	w.logger.Info("Response", 
+		w.logger.String("chat_id", fmt.Sprint(conv.ChatID)), 
+		w.logger.String("text", response.Text))
+	w.telegram.SendMessage(conv.ChatID, response.Text)
+
 	return nil
 }
