@@ -14,11 +14,3 @@ type Channel string
 const (
 	ChannelTelegram Channel = "telegram"
 )
-
-type State string
-
-const (
-	StateNew        State = "new"
-	StateInProgress State = "in_progress"
-	StateClosed     State = "closed"
-)
