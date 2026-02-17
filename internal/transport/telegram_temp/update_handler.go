@@ -13,7 +13,7 @@ import (
 
 func HandleUpdate(bot *Bot, update tgbotapi.Update) error {
 	if !update.Message.IsCommand() {
-		return nil
+		return handleMessage(bot, update)
 	}
 
 	switch update.Message.Command() {
@@ -24,9 +24,10 @@ func HandleUpdate(bot *Bot, update tgbotapi.Update) error {
 	}
 }
 
-func handleStart(bot *Bot, update tgbotapi.Update) error {
-	ctx := context.Background()
 
+func handleMessage(bot *Bot, update tgbotapi.Update) error {
+	ctx := context.Background()
+	
 	incomingMsg := contracts.IncomingMessage{
 		EventID:   uuid.New(),
 		Channel:   conversation.ChannelTelegram,
@@ -34,21 +35,17 @@ func handleStart(bot *Bot, update tgbotapi.Update) error {
 		Text:      update.Message.Text,
 		Timestamp: time.Now(),
 	}
-
+	
 	if err := bot.msgWorker.HandleMessage(ctx, incomingMsg); err != nil {
 		return fmt.Errorf("failed to handle message: %w", err)
 	}
 	return nil
 }
 
+func handleStart(bot *Bot, update tgbotapi.Update) error {
+	return nil
+}
+
 func handleUnknown(bot *Bot, update tgbotapi.Update) error {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Unknown command. Use /start to begin.")
-	msg.ParseMode = "Markdown"
-
-	_, err := bot.API().Send(msg)
-	if err != nil {
-		return fmt.Errorf("failed to send unknown command message: %w", err)
-	}
-
 	return nil
 }

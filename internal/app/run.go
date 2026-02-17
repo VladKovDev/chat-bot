@@ -10,7 +10,9 @@ import (
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/telegram"
 	"github.com/VladKovDev/chat-bot/internal/transport/telegram_temp"
 	"github.com/VladKovDev/chat-bot/internal/worker"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -22,17 +24,20 @@ type App struct {
 
 	Logger logger.Logger
 	DB     *postgres.Pool
+	NLP    *nlp.RuleBased
+	Telegram *telegram.Client
 
 	ConversationRepo    conversation.Repository
 	ConversationService *conversation.Service
 
-	Bot *telegram_temp.Bot
+	TelegramTransport *telegram_temp.Bot
 }
 
 func NewApp(loggerConfig *logger.Config,
 	postgresConfig *postgres.Config,
 	logger logger.Logger,
-	db *postgres.Pool) *App {
+	db *postgres.Pool,
+	nlp *nlp.RuleBased) *App {
 
 	var conversationRepo = postgres.NewConversationRepo(db)
 	var conversationService = conversation.NewService(conversationRepo)
@@ -42,6 +47,7 @@ func NewApp(loggerConfig *logger.Config,
 		PostgresConfig: postgresConfig,
 		Logger:         logger,
 		DB:             db,
+		NLP:            nlp,
 
 		ConversationRepo:    conversationRepo,
 		ConversationService: conversationService,
@@ -81,21 +87,30 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
 
-	app := NewApp(&loggerConfig, &postgresConfig, logger, pool)
+	// Initialize nlp
+	nlp := nlp.NewRuleBased()
+
+	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp)
+
+	// Initialize Telegram client
+	telegramClient, err := telegram.NewClient(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	if err != nil {
+		return fmt.Errorf("failed to create telegram client: %w", err)
+	}
+	app.Telegram = telegramClient
 
 	// Initialize message worker
-	msgWorker := worker.NewMessageWorker(app.ConversationService)
+	msgWorker := worker.NewMessageWorker(app.ConversationService, logger, app.NLP, app.Telegram)
 
-	// Initialize Telegram bot
-	bot, err := telegram_temp.NewBot(os.Getenv("TELEGRAM_BOT_TOKEN"), msgWorker, app.ConversationService)
+	telegramTransport, err := telegram_temp.NewBot(app.Telegram.Bot, msgWorker, app.ConversationService)
 	if err != nil {
-		return fmt.Errorf("failed to create telegram bot: %w", err)
+		return fmt.Errorf("failed to create telegram transport: %w", err)
 	}
-	app.Bot = bot
+	app.TelegramTransport = telegramTransport
 
 	// Start bot in goroutine
 	go func() {
-		if err := bot.Start(ctx); err != nil {
+		if err := telegramTransport.Start(ctx); err != nil {
 			logger.Error("bot stopped with error", logger.Err(err))
 		}
 	}()
@@ -103,7 +118,7 @@ func Run(ctx context.Context) error {
 	logger.Info("application started")
 
 	// Graceful shutdown
-	if err := GracefulShutdown(ctx, 30*time.Second, logger, app.Bot, app.DB); err != nil {
+	if err := GracefulShutdown(ctx, 30*time.Second, logger, app.TelegramTransport, app.DB); err != nil {
 		logger.Error("error during shutdown", logger.Err(err))
 		return err
 	}
