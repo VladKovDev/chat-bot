@@ -20,9 +20,10 @@ func NewClassifier(ruleBasedClassifier *rule_based.RuleBased, logger logger.Logg
 }
 
 func (c *Classifier) Classify(textRow string) (conversation.Event, error) {
-	text := normalization.Normalize(textRow)
+	textTokens := normalization.Normalize(textRow)
+	c.logger.Debug("text normalized", c.logger.Any("tokens", textTokens))
 
-	event, err := c.RuleBased.Classify(text)
+	event, err := c.RuleBased.Classify(textRow)
 	if err != nil {
 		return conversation.Event(""), err
 	}

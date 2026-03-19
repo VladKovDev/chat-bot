@@ -1,48 +1,61 @@
 package normalization
 
 import (
-	"regexp"
-	"strings"
+	"context"
+	"time"
+
+	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
-// CaseFolding converts text to lowercase
-func CaseFolding(text string) string {
-	return strings.ToLower(text)
+type Pipeline struct {
+	lemma             *lemmatizerStep
+	lemmatizerTimeout time.Duration
+	logger            logger.Logger
 }
 
-// Strip removes leading, trailing and multiple internal spaces
-func Strip(text string) string {
-	space := regexp.MustCompile(`\s+`)
-	text = space.ReplaceAllString(text, " ")
-
-	return strings.TrimSpace(text)
+func NewPipeline(port LemmatizerPort, lemmatizerTimeout time.Duration, logger logger.Logger) *Pipeline {
+	return &Pipeline{
+		lemma:             newLemmatizerStep(port, logger),
+		logger:            logger,
+		lemmatizerTimeout: lemmatizerTimeout,
+	}
 }
 
-// Tokenize splits text into words (tokens)
-func Tokenize(text string) []string {
-	tokens := strings.Fields(text)
-
-	// Filter out empty tokens
-	result := make([]string, 0, len(tokens))
-	for _, token := range tokens {
-		if token != "" {
-			result = append(result, token)
-		}
+func (p *Pipeline) Normalize(ctx context.Context, text string) []string {
+	// Stage 1: Tokenize
+	// NFC normalization + lowercase + regex word extraction.
+	tokens := Tokenize(text)
+	if len(tokens) == 0 {
+		return []string{}
 	}
 
-	return result
+	// Stage 2: Remove stopwords
+	tokens = RemoveStopwords(tokens)
+	if len(tokens) == 0 {
+		return []string{}
+	}
+
+	// Stage 3: Lemmatize
+	lctx, cancel := context.WithTimeout(ctx, p.lemmatizerTimeout)
+	defer cancel()
+
+	tokens = p.lemma.lemmatize(lctx, tokens)
+
+	// Stage 4: MWE
+	tokens = ApplyMWE(tokens)
+
+	return tokens
 }
 
-// NormalizeSymbols removes extra spaces, special chars, and normalizes text
-func Normalize(text string) string {
-	text = CaseFolding(text)
+// Normalize is a package-level convenience function for callers that don't
+// need pipeline configuration (tests, scripts, simple CLIs).
 
-	// Remove punctuation and special characters (keep only letters, digits and spaces)
-	// This preserves Cyrillic and Latin letters
-	reg := regexp.MustCompile(`[^\p{L}\p{N}\s]+`)
-	text = reg.ReplaceAllString(text, "")
-
-	text = Strip(text)
-
-	return text
+func Normalize(text string) []string {
+	tokens := Tokenize(text)
+	if len(tokens) == 0 {
+		return []string{}
+	}
+	tokens = RemoveStopwords(tokens)
+	tokens = ApplyMWE(tokens)
+	return tokens
 }
