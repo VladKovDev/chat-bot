@@ -11,6 +11,7 @@ import (
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/telegram"
 	"github.com/VladKovDev/chat-bot/internal/transport/telegram_temp"
@@ -24,7 +25,7 @@ type App struct {
 
 	Logger logger.Logger
 	DB     *postgres.Pool
-	NLP    *nlp.RuleBased
+	NLP    *nlp.Classifier
 	Telegram *telegram.Client
 
 	ConversationRepo    conversation.Repository
@@ -37,7 +38,7 @@ func NewApp(loggerConfig *logger.Config,
 	postgresConfig *postgres.Config,
 	logger logger.Logger,
 	db *postgres.Pool,
-	nlp *nlp.RuleBased) *App {
+	nlp *nlp.Classifier) *App {
 
 	var conversationRepo = postgres.NewConversationRepo(db)
 	var conversationService = conversation.NewService(conversationRepo)
@@ -86,10 +87,18 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
+	
+	// Initialize rule-based classifier
+	ruleBasedConfig, err := rule_based.LoadRules("internal/infrastructure/nlp/rule_based/rules.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to load rule-based config: %w", err)
+	}
+	ruleBasedClassifier := rule_based.NewRuleBased(ruleBasedConfig, logger)
+	
+	// Initialize NLP
+	nlp := nlp.NewClassifier(ruleBasedClassifier, logger)
 
-	// Initialize nlp
-	nlp := nlp.NewRuleBased()
-
+	// Initialize application
 	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp)
 
 	// Initialize Telegram client

@@ -19,7 +19,7 @@ type TransitionContext struct {
 
 var transitions = map[transitionKey]transitionResult{
 	// New
-	{From: StateNew, Event: EventMessageReceived}: {
+	{From: StateNew, Event: EventUnknown}: {
 		To: StateWaitingForCategory,
 		Response: func(_ TransitionContext) BotResponse {
 			return BotResponse{
@@ -38,7 +38,7 @@ var transitions = map[transitionKey]transitionResult{
 		},
 	},
 	// WaitingClarification
-	{From: StateWaitingClarification, Event: EventMessageReceived}: {
+	{From: StateWaitingClarification, Event: EventUnknown}: {
 		To: StateSolutionOffered,
 		Response: func(ctx TransitionContext) BotResponse {
 			return BotResponse{

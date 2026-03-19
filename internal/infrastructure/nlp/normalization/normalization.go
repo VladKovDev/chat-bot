@@ -1,4 +1,4 @@
-package nlp
+package normalization
 
 import (
 	"regexp"
