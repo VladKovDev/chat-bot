@@ -9,6 +9,7 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/config"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
+	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
@@ -17,15 +18,16 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/transport/telegram_temp"
 	"github.com/VladKovDev/chat-bot/internal/worker"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
+	"github.com/google/uuid"
 )
 
 type App struct {
 	LoggerConfig   *logger.Config
 	PostgresConfig *postgres.Config
 
-	Logger logger.Logger
-	DB     *postgres.Pool
-	NLP    *nlp.Classifier
+	Logger   logger.Logger
+	DB       *postgres.Pool
+	NLP      *nlp.Classifier
 	Telegram *telegram.Client
 
 	ConversationRepo    conversation.Repository
@@ -87,14 +89,14 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
-	
+
 	// Initialize rule-based classifier
 	ruleBasedConfig, err := rule_based.LoadRules("internal/infrastructure/nlp/rule_based/rules.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to load rule-based config: %w", err)
 	}
 	ruleBasedClassifier := rule_based.NewRuleBased(ruleBasedConfig, logger)
-	
+
 	// Initialize NLP
 	nlp := nlp.NewClassifier(ruleBasedClassifier, logger)
 
@@ -102,27 +104,35 @@ func Run(ctx context.Context) error {
 	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp)
 
 	// Initialize Telegram client
-	telegramClient, err := telegram.NewClient(os.Getenv("TELEGRAM_BOT_TOKEN"))
-	if err != nil {
-		return fmt.Errorf("failed to create telegram client: %w", err)
-	}
-	app.Telegram = telegramClient
+	// telegramClient, err := telegram.NewClient(os.Getenv("TELEGRAM_BOT_TOKEN"))
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create telegram client: %w", err)
+	// }
+	// app.Telegram = telegramClient
 
 	// Initialize message worker
 	msgWorker := worker.NewMessageWorker(app.ConversationService, logger, app.NLP, app.Telegram)
 
-	telegramTransport, err := telegram_temp.NewBot(app.Telegram.Bot, msgWorker, app.ConversationService)
-	if err != nil {
-		return fmt.Errorf("failed to create telegram transport: %w", err)
+	// telegramTransport, err := telegram_temp.NewBot(app.Telegram.Bot, msgWorker, app.ConversationService)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create telegram transport: %w", err)
+	// }
+	// app.TelegramTransport = telegramTransport
+	mockMessage := contracts.IncomingMessage{
+		EventID:   uuid.New(),
+		Channel:   conversation.ChannelTelegram,
+		ChatID:    123456789,
+		Text:      "Здравствуйте, у менЯ Возникла ошибка. Программа НЕ РАБОТАЕТ!",
+		Timestamp: time.Now(),
 	}
-	app.TelegramTransport = telegramTransport
+	msgWorker.HandleMessage(ctx, mockMessage)
 
 	// Start bot in goroutine
-	go func() {
-		if err := telegramTransport.Start(ctx); err != nil {
-			logger.Error("bot stopped with error", logger.Err(err))
-		}
-	}()
+	// go func() {
+	// 	if err := telegramTransport.Start(ctx); err != nil {
+	// 		logger.Error("bot stopped with error", logger.Err(err))
+	// 	}
+	// }()
 
 	logger.Info("application started")
 
