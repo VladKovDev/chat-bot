@@ -12,5 +12,5 @@ type Conversation struct {
 type Channel string
 
 const (
-	ChannelTelegram Channel = "telegram"
+	ChannelWeb Channel = "web"
 )

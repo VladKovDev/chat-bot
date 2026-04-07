@@ -10,43 +10,41 @@ import (
 	lemmatizerCfg "github.com/VladKovDev/chat-bot/internal/config/lemmatizer"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
-	"github.com/VladKovDev/chat-bot/internal/contracts"
+	transportCfg "github.com/VladKovDev/chat-bot/internal/config/transport"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/lemmatizer"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/telegram"
-	"github.com/VladKovDev/chat-bot/internal/transport/telegram_temp"
+	"github.com/VladKovDev/chat-bot/internal/transport/http"
 	"github.com/VladKovDev/chat-bot/internal/worker"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
-	"github.com/google/uuid"
 )
 
 type App struct {
 	LoggerConfig   *logger.Config
 	PostgresConfig *postgres.Config
 
-	Logger   logger.Logger
-	DB       *postgres.Pool
-	NLP      *nlp.Classifier
-	Telegram *telegram.Client
+	Logger logger.Logger
+	DB     *postgres.Pool
+	NLP    *nlp.Classifier
+	HTTP   *http.Server
 
 	ConversationRepo    conversation.Repository
 	ConversationService *conversation.Service
-
-	TelegramTransport *telegram_temp.Bot
+	Worker              *worker.MessageWorker
 }
 
 func NewApp(loggerConfig *logger.Config,
 	postgresConfig *postgres.Config,
 	logger logger.Logger,
 	db *postgres.Pool,
-	nlp *nlp.Classifier) *App {
-
-	var conversationRepo = postgres.NewConversationRepo(db)
-	var conversationService = conversation.NewService(conversationRepo)
+	nlp *nlp.Classifier,
+	httpServer *http.Server,
+	messageWorker *worker.MessageWorker,
+	conversationRepo conversation.Repository,
+	conversationService *conversation.Service) *App {
 
 	return &App{
 		LoggerConfig:   loggerConfig,
@@ -54,6 +52,8 @@ func NewApp(loggerConfig *logger.Config,
 		Logger:         logger,
 		DB:             db,
 		NLP:            nlp,
+		HTTP:           httpServer,
+		Worker:         messageWorker,
 
 		ConversationRepo:    conversationRepo,
 		ConversationService: conversationService,
@@ -83,6 +83,11 @@ func Run(ctx context.Context) error {
 	lemmatizerConfig, err := lemmatizerCfg.LoadConfig(viper)
 	if err != nil {
 		return fmt.Errorf("failed to load lemmatizer config: %w", err)
+	}
+
+	httpConfig, err := transportCfg.LoadConfig(viper)
+	if err != nil {
+		return fmt.Errorf("failed to load http config: %w", err)
 	}
 
 	// Initialize logger
@@ -118,44 +123,29 @@ func Run(ctx context.Context) error {
 
 	nlp := nlp.NewClassifier(ruleBasedClassifier, normalizer, logger)
 
-	// Initialize application
-	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp)
-
-	// Initialize Telegram client
-	// telegramClient, err := telegram.NewClient(os.Getenv("TELEGRAM_BOT_TOKEN"))
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create telegram client: %w", err)
-	// }
-	// app.Telegram = telegramClient
+	// Initialize conversation repository and service
+	conversationRepo := postgres.NewConversationRepo(pool)
+	conversationService := conversation.NewService(conversationRepo)
 
 	// Initialize message worker
-	msgWorker := worker.NewMessageWorker(app.ConversationService, logger, app.NLP, app.Telegram)
+	msgWorker := worker.NewMessageWorker(conversationService, logger, nlp)
 
-	// telegramTransport, err := telegram_temp.NewBot(app.Telegram.Bot, msgWorker, app.ConversationService)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create telegram transport: %w", err)
-	// }
-	// app.TelegramTransport = telegramTransport
-	mockMessage := contracts.IncomingMessage{
-		EventID:   uuid.New(),
-		Channel:   conversation.ChannelTelegram,
-		ChatID:    123456789,
-		Text:      "Здравствуйте, у меня уже второй день подряд не проходит оплата подписки через карту, хотя банк подтверждает что транзакция проходит успешно, деньги списываются но в системе у вас статус остается ожидание, пробовал с другого браузера и даже с телефона, результат тот же, можете проверить что происходит и не потеряются ли деньги?",
-		Timestamp: time.Now(),
+	// Initialize HTTP transport
+	router := http.NewRouter(msgWorker, logger, httpConfig)
+	httpServer := http.NewServer(httpConfig, logger, router)
+
+	// Initialize application
+	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp, httpServer, msgWorker, conversationRepo, conversationService)
+
+	// Start HTTP server (goroutine is managed internally)
+	if err := app.HTTP.Run(ctx); err != nil {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
 	}
-	msgWorker.HandleMessage(ctx, mockMessage)
-
-	// Start bot in goroutine
-	// go func() {
-	// 	if err := telegramTransport.Start(ctx); err != nil {
-	// 		logger.Error("bot stopped with error", logger.Err(err))
-	// 	}
-	// }()
 
 	logger.Info("application started")
 
 	// Graceful shutdown
-	if err := GracefulShutdown(ctx, 30*time.Second, logger, app.TelegramTransport, app.DB); err != nil {
+	if err := GracefulShutdown(ctx, 30*time.Second, logger, app.HTTP, app.DB); err != nil {
 		logger.Error("error during shutdown", logger.Err(err))
 		return err
 	}
