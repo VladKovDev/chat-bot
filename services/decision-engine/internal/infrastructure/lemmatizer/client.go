@@ -36,7 +36,7 @@ type Client struct {
 	logger  logger.Logger
 }
 
-func New(cfg Config, logger logger.Logger) *Client {
+func NewClient(cfg Config, logger logger.Logger) *Client {
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        "lemmatizer-http",
 		MaxRequests: cfg.CBMaxRequests,
@@ -85,7 +85,7 @@ func (c *Client) post(ctx context.Context, body []byte, expectedLen int) ([]stri
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		c.cfg.BaseURL+"/lemmatize",
+		c.cfg.BaseURL+"/api/lemmatize",
 		bytes.NewReader(body),
 	)
 	if err != nil {

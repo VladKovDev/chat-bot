@@ -7,11 +7,14 @@ import (
 	"time"
 
 	"github.com/VladKovDev/chat-bot/internal/config"
+	lemmatizerCfg "github.com/VladKovDev/chat-bot/internal/config/lemmatizer"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/lemmatizer"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
+	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/telegram"
@@ -77,6 +80,11 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("failed to load database config: %w", err)
 	}
 
+	lemmatizerConfig, err := lemmatizerCfg.LoadConfig(viper)
+	if err != nil {
+		return fmt.Errorf("failed to load lemmatizer config: %w", err)
+	}
+
 	// Initialize logger
 	logger, err := logger.New(loggerConfig)
 	if err != nil {
@@ -84,21 +92,31 @@ func Run(ctx context.Context) error {
 	}
 	logger.Debug("logger debug enabled")
 
+	// Initialize infrastructure components
+
 	// Initialize DB
 	pool, err := postgres.NewPool(ctx, &postgresConfig, logger)
 	if err != nil {
 		return fmt.Errorf("failed to init database: %w", err)
 	}
 
+	// Initialize lemmatizer
+	lemmatizerClient := lemmatizer.NewClient(lemmatizerConfig, logger)
+
+	// Initialize NLP normalizer pipeline
+	normalizer := normalization.NewPipeline(lemmatizerClient, 5*time.Second, logger)
+
 	// Initialize rule-based classifier
 	ruleBasedConfig, err := rule_based.LoadRules("internal/infrastructure/nlp/rule_based/rules.yaml")
 	if err != nil {
 		return fmt.Errorf("failed to load rule-based config: %w", err)
 	}
-	ruleBasedClassifier := rule_based.NewRuleBased(ruleBasedConfig, logger)
+	ruleBasedClassifier, err := rule_based.NewRuleBased(ruleBasedConfig, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize rule-based classifier: %w", err)
+	}
 
-	// Initialize NLP
-	nlp := nlp.NewClassifier(ruleBasedClassifier, logger)
+	nlp := nlp.NewClassifier(ruleBasedClassifier, normalizer, logger)
 
 	// Initialize application
 	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp)
@@ -122,7 +140,7 @@ func Run(ctx context.Context) error {
 		EventID:   uuid.New(),
 		Channel:   conversation.ChannelTelegram,
 		ChatID:    123456789,
-		Text:      "Здравствуйте, у менЯ Возникла ошибка. Программа НЕ РАБОТАЕТ!",
+		Text:      "Здравствуйте, у меня уже второй день подряд не проходит оплата подписки через карту, хотя банк подтверждает что транзакция проходит успешно, деньги списываются но в системе у вас статус остается ожидание, пробовал с другого браузера и даже с телефона, результат тот же, можете проверить что происходит и не потеряются ли деньги?",
 		Timestamp: time.Now(),
 	}
 	msgWorker.HandleMessage(ctx, mockMessage)

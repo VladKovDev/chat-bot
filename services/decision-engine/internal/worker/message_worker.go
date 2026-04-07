@@ -19,7 +19,7 @@ type MessageWorker struct {
 }
 
 type EventClassifier interface {
-	Classify(text string) (conversation.Event, error)
+	Classify(ctx context.Context, text string) (conversation.Event, error)
 }
 
 func NewMessageWorker(convService *conversation.Service, logger logger.Logger, classifier EventClassifier, telegram *telegram.Client) *MessageWorker {
@@ -39,7 +39,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	}
 
 	// classify event
-	event, err := w.classifier.Classify(msg.Text)
+	event, err := w.classifier.Classify(ctx, msg.Text)
 	if err != nil {
 		return fmt.Errorf("failed to classify event: %w", err)
 	}
