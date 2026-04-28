@@ -11,12 +11,12 @@ import (
 )
 
 type Querier interface {
-	CountConversationsByChannel(ctx context.Context, dollar_1 string) (int64, error)
+	CountConversations(ctx context.Context) (int64, error)
 	CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error)
 	DeleteConversation(ctx context.Context, dollar_1 pgtype.UUID) error
-	GetConversationByChannelAndChatID(ctx context.Context, arg GetConversationByChannelAndChatIDParams) (Conversation, error)
+	GetConversationByChatID(ctx context.Context, dollar_1 int64) (Conversation, error)
 	GetConversationByID(ctx context.Context, dollar_1 pgtype.UUID) (Conversation, error)
-	ListConversationsByChannel(ctx context.Context, arg ListConversationsByChannelParams) ([]Conversation, error)
+	ListConversations(ctx context.Context, arg ListConversationsParams) ([]Conversation, error)
 	ListConversationsByState(ctx context.Context, arg ListConversationsByStateParams) ([]Conversation, error)
 	UpdateConversationState(ctx context.Context, arg UpdateConversationStateParams) (Conversation, error)
 	UpdateConversationWithVersion(ctx context.Context, arg UpdateConversationWithVersionParams) (Conversation, error)

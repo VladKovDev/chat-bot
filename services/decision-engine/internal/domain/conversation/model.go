@@ -1,16 +1,12 @@
 package conversation
 
-import "github.com/google/uuid"
+import (
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
+	"github.com/google/uuid"
+)
 
 type Conversation struct {
-	ID      uuid.UUID
-	Channel Channel
-	ChatID  int64
-	State   State
+	ID     uuid.UUID
+	ChatID int64
+	State  state.State
 }
-
-type Channel string
-
-const (
-	ChannelWeb Channel = "web"
-)

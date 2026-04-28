@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -113,13 +113,13 @@ func (r *RuleBased) compile() error {
 	return nil
 }
 
-func (r *RuleBased) Classify(tokens []string) (conversation.Event, error) {
+func (r *RuleBased) Classify(tokens []string) (state.Event, error) {
 	if err := r.compile(); err != nil {
 		r.logger.Error("failed to compile rule-based classifier", r.logger.Err(err))
-		return conversation.EventUnknown, err
+		return state.EventUnknown, err
 	}
 	if len(tokens) == 0 {
-		return conversation.EventUnknown, nil
+		return state.EventUnknown, nil
 	}
 
 	tokenSet := make(map[string]struct{}, len(tokens))
@@ -180,19 +180,19 @@ func (r *RuleBased) Classify(tokens []string) (conversation.Event, error) {
 
 	best, second := topTwo(scores)
 	if best.name == "" || best.score == 0 {
-		return conversation.EventUnknown, nil
+		return state.EventUnknown, nil
 	}
 
 	max := r.maxPossible[best.name]
 	if max <= 0 {
-		return conversation.EventUnknown, nil
+		return state.EventUnknown, nil
 	}
 
 	confidence := best.score / max
 	r.logger.Debug("classification confidence", r.logger.Any("confidence", confidence))
 
 	if confidence < r.cfg.Threshold.MinConfidence {
-		return conversation.EventUnknown, nil
+		return state.EventUnknown, nil
 	}
 
 	if second.name != "" && best.score-second.score < r.cfg.Threshold.AmbiguityDelta*max {
@@ -205,7 +205,7 @@ func (r *RuleBased) Classify(tokens []string) (conversation.Event, error) {
 		)
 	}
 
-	return conversation.Event(best.name), nil
+	return state.Event(best.name), nil
 }
 
 func equalTokens(a, b []string) bool {

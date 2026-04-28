@@ -1,12 +1,11 @@
 -- name: CreateConversation :one
-INSERT INTO "conversations" ("channel", "chat_id", "state", "version")
-VALUES ($1::VARCHAR(50), $2::BIGINT, $3::VARCHAR(50), 1)
+INSERT INTO "conversations" ("chat_id", "state", "version")
+VALUES ($1::BIGINT, $2::VARCHAR(50), 1)
 RETURNING *;
 
--- name: GetConversationByChannelAndChatID :one
+-- name: GetConversationByChatID :one
 SELECT * FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50)
-  AND "chat_id" = $2::BIGINT
+WHERE "chat_id" = $1::BIGINT
 ORDER BY "created_at" DESC
 LIMIT 1;
 
@@ -29,11 +28,10 @@ SET "state" = $2::VARCHAR(50),
 WHERE "id" = $1::UUID
 RETURNING *;
 
--- name: ListConversationsByChannel :many
+-- name: ListConversations :many
 SELECT * FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50)
 ORDER BY "updated_at" DESC
-LIMIT $2::INT OFFSET $3::INT;
+LIMIT $1::INT OFFSET $2::INT;
 
 -- name: ListConversationsByState :many
 SELECT * FROM "conversations"
@@ -46,6 +44,5 @@ DELETE FROM "conversations"
 WHERE "id" = $1::UUID;
 
 
--- name: CountConversationsByChannel :one
-SELECT COUNT(*)::BIGINT FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50);
+-- name: CountConversations :one
+SELECT COUNT(*)::BIGINT FROM "conversations";

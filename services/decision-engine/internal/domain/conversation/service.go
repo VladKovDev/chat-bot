@@ -3,28 +3,28 @@ package conversation
 import (
 	"context"
 
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repo       Repository
+	repo Repository
 }
 
 func NewService(repo Repository) *Service {
 	return &Service{
-		repo:       repo,
+		repo: repo,
 	}
 }
 
-func (s *Service) LoadConversation(ctx context.Context, channel Channel, chatID int64) (*Conversation, error) {
-	conv, err := s.repo.GetByChannelAndChatID(ctx, channel, chatID)
+func (s *Service) LoadConversation(ctx context.Context, chatID int64) (*Conversation, error) {
+	conv, err := s.repo.GetByChatID(ctx, chatID)
 	if err != nil {
 		if err == ErrNotFound {
 			conv := Conversation{
 				ID:      uuid.New(),
-				Channel: channel,
 				ChatID:  chatID,
-				State:   StateNew,
+				State:   state.StateNew,
 			}
 			createdConv, err := s.repo.Create(ctx, conv)
 			if err != nil {

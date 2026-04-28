@@ -66,10 +66,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Shutdown HTTP server - this will:
-	// 1. Close the listener (stop accepting new connections)
-	// 2. Wait for active connections to complete
-	// 3. Return http.ErrServerClosed when done
 	if err := s.httpServer.Shutdown(shutdownCtx); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			s.logger.Warn("HTTP server shutdown timeout, forcing close")

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres/sqlc"
 	"github.com/google/uuid"
 )
@@ -24,9 +25,8 @@ func NewConversationRepo(pool *Pool) conversation.Repository {
 
 func (r *conversationRepo) Create(ctx context.Context, conv conversation.Conversation) (conversation.Conversation, error) {
 	dbConv, err := r.querier.CreateConversation(ctx, sqlc.CreateConversationParams{
-		Column1: string(conv.Channel),
-		Column2: conv.ChatID,
-		Column3: string(conv.State),
+		Column1: conv.ChatID,
+		Column2: string(conv.State),
 	})
 	if err != nil {
 		return conversation.Conversation{}, fmt.Errorf("failed to create conversation: %w", err)
@@ -47,16 +47,12 @@ func (r *conversationRepo) GetByID(ctx context.Context, id uuid.UUID) (conversat
 	return domainConversationFromDB(dbConv), nil
 }
 
-// GetByChannelAndChatID retrieves a conversation by channel and chat ID
-func (r *conversationRepo) GetByChannelAndChatID(
+// GetByChatID retrieves a conversation by chat ID
+func (r *conversationRepo) GetByChatID(
 	ctx context.Context,
-	channel conversation.Channel,
 	chatID int64,
 ) (conversation.Conversation, error) {
-	dbConv, err := r.querier.GetConversationByChannelAndChatID(ctx, sqlc.GetConversationByChannelAndChatIDParams{
-		Column1: string(channel),
-		Column2: chatID,
-	})
+	dbConv, err := r.querier.GetConversationByChatID(ctx, chatID)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return conversation.Conversation{}, err
@@ -70,7 +66,7 @@ func (r *conversationRepo) GetByChannelAndChatID(
 func (r *conversationRepo) UpdateState(
 	ctx context.Context,
 	id uuid.UUID,
-	state conversation.State,
+	state state.State,
 ) (conversation.Conversation, error) {
 	dbConv, err := r.querier.UpdateConversationState(ctx, sqlc.UpdateConversationStateParams{
 		Column1: uuidToPgUUID(id),
@@ -89,7 +85,7 @@ func (r *conversationRepo) UpdateState(
 func (r *conversationRepo) UpdateStateWithVersion(
 	ctx context.Context,
 	id uuid.UUID,
-	state conversation.State,
+	state state.State,
 ) (conversation.Conversation, error) {
 	dbConv, err := r.querier.UpdateConversationWithVersion(ctx, sqlc.UpdateConversationWithVersionParams{
 		Column1: uuidToPgUUID(id),
@@ -105,19 +101,17 @@ func (r *conversationRepo) UpdateStateWithVersion(
 	return domainConversationFromDB(dbConv), nil
 }
 
-func (r *conversationRepo) ListByChannel(
+func (r *conversationRepo) List(
 	ctx context.Context,
-	channel conversation.Channel,
 	limit int32,
 	offset int32,
 ) ([]conversation.Conversation, error) {
-	dbConvs, err := r.querier.ListConversationsByChannel(ctx, sqlc.ListConversationsByChannelParams{
-		Column1: string(channel),
-		Column2: limit,
-		Column3: offset,
+	dbConvs, err := r.querier.ListConversations(ctx, sqlc.ListConversationsParams{
+		Column1: limit,
+		Column2: offset,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list conversations by channel: %w", err)
+		return nil, fmt.Errorf("failed to list conversations: %w", err)
 	}
 
 	return domainConversationsFromDB(dbConvs), nil
@@ -125,7 +119,7 @@ func (r *conversationRepo) ListByChannel(
 
 func (r *conversationRepo) ListByState(
 	ctx context.Context,
-	state conversation.State,
+	state state.State,
 	limit int32,
 	offset int32,
 ) ([]conversation.Conversation, error) {
@@ -152,13 +146,10 @@ func (r *conversationRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *conversationRepo) CountByChannel(
-	ctx context.Context,
-	channel conversation.Channel,
-) (int64, error) {
-	count, err := r.querier.CountConversationsByChannel(ctx, string(channel))
+func (r *conversationRepo) Count(ctx context.Context) (int64, error) {
+	count, err := r.querier.CountConversations(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count conversations by channel: %w", err)
+		return 0, fmt.Errorf("failed to count conversations: %w", err)
 	}
 	return count, nil
 }

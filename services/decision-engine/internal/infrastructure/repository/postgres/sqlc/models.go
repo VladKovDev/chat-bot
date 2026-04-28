@@ -10,7 +10,6 @@ import (
 
 type Conversation struct {
 	ID        pgtype.UUID      `json:"id"`
-	Channel   string           `json:"channel"`
 	ChatID    int64            `json:"chat_id"`
 	State     string           `json:"state"`
 	Version   int32            `json:"version"`

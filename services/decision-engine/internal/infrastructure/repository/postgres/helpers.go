@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres/sqlc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -10,10 +11,9 @@ import (
 // domainConversationFromDB converts sqlc.Conversation to domain.Conversation
 func domainConversationFromDB(dbConv sqlc.Conversation) conversation.Conversation {
 	return conversation.Conversation{
-		ID:      pgUUIDToUUID(dbConv.ID),
-		Channel: conversation.Channel(dbConv.Channel),
-		ChatID:  dbConv.ChatID,
-		State:   conversation.State(dbConv.State),
+		ID:     pgUUIDToUUID(dbConv.ID),
+		ChatID: dbConv.ChatID,
+		State:  state.State(dbConv.State),
 	}
 }
 

@@ -3,7 +3,6 @@
 -- 1. Conversations
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    channel VARCHAR(50) NOT NULL,
     chat_id BIGINT NOT NULL,
     "state" VARCHAR(50) NOT NULL,
     "version" INT NOT NULL DEFAULT 1,
@@ -11,7 +10,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_conversations_chat_id ON conversations(channel, chat_id);
+CREATE INDEX idx_conversations_chat_id ON conversations(chat_id);
 
 -- 2. Messages
 CREATE TABLE IF NOT EXISTS messages (

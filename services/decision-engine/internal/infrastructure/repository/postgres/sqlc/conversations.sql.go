@@ -11,36 +11,33 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countConversationsByChannel = `-- name: CountConversationsByChannel :one
+const countConversations = `-- name: CountConversations :one
 SELECT COUNT(*)::BIGINT FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50)
 `
 
-func (q *Queries) CountConversationsByChannel(ctx context.Context, dollar_1 string) (int64, error) {
-	row := q.db.QueryRow(ctx, countConversationsByChannel, dollar_1)
+func (q *Queries) CountConversations(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countConversations)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
 }
 
 const createConversation = `-- name: CreateConversation :one
-INSERT INTO "conversations" ("channel", "chat_id", "state", "version")
-VALUES ($1::VARCHAR(50), $2::BIGINT, $3::VARCHAR(50), 1)
-RETURNING id, channel, chat_id, state, version, created_at, updated_at
+INSERT INTO "conversations" ("chat_id", "state", "version")
+VALUES ($1::BIGINT, $2::VARCHAR(50), 1)
+RETURNING id, chat_id, state, version, created_at, updated_at
 `
 
 type CreateConversationParams struct {
-	Column1 string `json:"column_1"`
-	Column2 int64  `json:"column_2"`
-	Column3 string `json:"column_3"`
+	Column1 int64  `json:"column_1"`
+	Column2 string `json:"column_2"`
 }
 
 func (q *Queries) CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error) {
-	row := q.db.QueryRow(ctx, createConversation, arg.Column1, arg.Column2, arg.Column3)
+	row := q.db.QueryRow(ctx, createConversation, arg.Column1, arg.Column2)
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
-		&i.Channel,
 		&i.ChatID,
 		&i.State,
 		&i.Version,
@@ -60,25 +57,18 @@ func (q *Queries) DeleteConversation(ctx context.Context, dollar_1 pgtype.UUID) 
 	return err
 }
 
-const getConversationByChannelAndChatID = `-- name: GetConversationByChannelAndChatID :one
-SELECT id, channel, chat_id, state, version, created_at, updated_at FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50)
-  AND "chat_id" = $2::BIGINT
+const getConversationByChatID = `-- name: GetConversationByChatID :one
+SELECT id, chat_id, state, version, created_at, updated_at FROM "conversations"
+WHERE "chat_id" = $1::BIGINT
 ORDER BY "created_at" DESC
 LIMIT 1
 `
 
-type GetConversationByChannelAndChatIDParams struct {
-	Column1 string `json:"column_1"`
-	Column2 int64  `json:"column_2"`
-}
-
-func (q *Queries) GetConversationByChannelAndChatID(ctx context.Context, arg GetConversationByChannelAndChatIDParams) (Conversation, error) {
-	row := q.db.QueryRow(ctx, getConversationByChannelAndChatID, arg.Column1, arg.Column2)
+func (q *Queries) GetConversationByChatID(ctx context.Context, dollar_1 int64) (Conversation, error) {
+	row := q.db.QueryRow(ctx, getConversationByChatID, dollar_1)
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
-		&i.Channel,
 		&i.ChatID,
 		&i.State,
 		&i.Version,
@@ -89,7 +79,7 @@ func (q *Queries) GetConversationByChannelAndChatID(ctx context.Context, arg Get
 }
 
 const getConversationByID = `-- name: GetConversationByID :one
-SELECT id, channel, chat_id, state, version, created_at, updated_at FROM "conversations"
+SELECT id, chat_id, state, version, created_at, updated_at FROM "conversations"
 WHERE "id" = $1::UUID
 `
 
@@ -98,7 +88,6 @@ func (q *Queries) GetConversationByID(ctx context.Context, dollar_1 pgtype.UUID)
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
-		&i.Channel,
 		&i.ChatID,
 		&i.State,
 		&i.Version,
@@ -108,21 +97,19 @@ func (q *Queries) GetConversationByID(ctx context.Context, dollar_1 pgtype.UUID)
 	return i, err
 }
 
-const listConversationsByChannel = `-- name: ListConversationsByChannel :many
-SELECT id, channel, chat_id, state, version, created_at, updated_at FROM "conversations"
-WHERE "channel" = $1::VARCHAR(50)
+const listConversations = `-- name: ListConversations :many
+SELECT id, chat_id, state, version, created_at, updated_at FROM "conversations"
 ORDER BY "updated_at" DESC
-LIMIT $2::INT OFFSET $3::INT
+LIMIT $1::INT OFFSET $2::INT
 `
 
-type ListConversationsByChannelParams struct {
-	Column1 string `json:"column_1"`
-	Column2 int32  `json:"column_2"`
-	Column3 int32  `json:"column_3"`
+type ListConversationsParams struct {
+	Column1 int32 `json:"column_1"`
+	Column2 int32 `json:"column_2"`
 }
 
-func (q *Queries) ListConversationsByChannel(ctx context.Context, arg ListConversationsByChannelParams) ([]Conversation, error) {
-	rows, err := q.db.Query(ctx, listConversationsByChannel, arg.Column1, arg.Column2, arg.Column3)
+func (q *Queries) ListConversations(ctx context.Context, arg ListConversationsParams) ([]Conversation, error) {
+	rows, err := q.db.Query(ctx, listConversations, arg.Column1, arg.Column2)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +119,6 @@ func (q *Queries) ListConversationsByChannel(ctx context.Context, arg ListConver
 		var i Conversation
 		if err := rows.Scan(
 			&i.ID,
-			&i.Channel,
 			&i.ChatID,
 			&i.State,
 			&i.Version,
@@ -150,7 +136,7 @@ func (q *Queries) ListConversationsByChannel(ctx context.Context, arg ListConver
 }
 
 const listConversationsByState = `-- name: ListConversationsByState :many
-SELECT id, channel, chat_id, state, version, created_at, updated_at FROM "conversations"
+SELECT id, chat_id, state, version, created_at, updated_at FROM "conversations"
 WHERE "state" = $1::VARCHAR(50)
 ORDER BY "updated_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -173,7 +159,6 @@ func (q *Queries) ListConversationsByState(ctx context.Context, arg ListConversa
 		var i Conversation
 		if err := rows.Scan(
 			&i.ID,
-			&i.Channel,
 			&i.ChatID,
 			&i.State,
 			&i.Version,
@@ -195,7 +180,7 @@ UPDATE "conversations"
 SET "state" = $2::VARCHAR(50),
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, channel, chat_id, state, version, created_at, updated_at
+RETURNING id, chat_id, state, version, created_at, updated_at
 `
 
 type UpdateConversationStateParams struct {
@@ -208,7 +193,6 @@ func (q *Queries) UpdateConversationState(ctx context.Context, arg UpdateConvers
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
-		&i.Channel,
 		&i.ChatID,
 		&i.State,
 		&i.Version,
@@ -224,7 +208,7 @@ SET "state" = $2::VARCHAR(50),
     "version" = "version" + 1,
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, channel, chat_id, state, version, created_at, updated_at
+RETURNING id, chat_id, state, version, created_at, updated_at
 `
 
 type UpdateConversationWithVersionParams struct {
@@ -237,7 +221,6 @@ func (q *Queries) UpdateConversationWithVersion(ctx context.Context, arg UpdateC
 	var i Conversation
 	err := row.Scan(
 		&i.ID,
-		&i.Channel,
 		&i.ChatID,
 		&i.State,
 		&i.Version,

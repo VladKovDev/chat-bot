@@ -3,7 +3,7 @@ package nlp
 import (
 	"context"
 
-	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -23,16 +23,16 @@ func NewClassifier(ruleBasedClassifier *rule_based.RuleBased, normalizer *normal
 	}
 }
 
-func (c *Classifier) Classify(ctx context.Context, textRow string) (conversation.Event, error) {
+func (c *Classifier) Classify(ctx context.Context, textRow string) (state.Event, error) {
 	textTokens := c.Normalizer.Normalize(ctx, textRow)
 
 	c.logger.Debug("text normalized", c.logger.Any("tokens", textTokens))
 
 	event, err := c.RuleBased.Classify(textTokens)
 	if err != nil {
-		return conversation.Event(""), err
+		return state.Event(""), err
 	}
-	if event == conversation.EventUnknown {
+	if event == state.EventUnknown {
 		// TODO embeddings-based classifier
 	}
 
