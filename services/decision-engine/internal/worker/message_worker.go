@@ -42,12 +42,22 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		return response.Response{}, fmt.Errorf("failed to classify event: %w", err)
 	}
 
-	// check for global events first (these override normal transitions)
-	transCtx := conversation.TransitionContext{
-		UserText: msg.Text,
+	// prepare handler context
+	handlerCtx := conversation.HandlerContext{
+		UserText:        msg.Text,
+		ResponseLoader:  w.convService.GetResponseLoader(),
+		Data:            make(map[string]interface{}),
 	}
 
-	globalResult := conversation.CheckGlobalEvents(event, conv.State, transCtx)
+	// check for global events first (these override normal transitions)
+	globalResult, err := conversation.CheckGlobalEvents(event, conv.State, handlerCtx)
+	if err != nil {
+		w.logger.Error("global event check error",
+			w.logger.String("chat_id", fmt.Sprint(conv.ChatID)),
+			w.logger.String("event", string(event)),
+			w.logger.Err(err))
+		return response.Response{}, fmt.Errorf("failed to check global events: %w", err)
+	}
 
 	var newState state.State
 	var resp response.Response
@@ -64,7 +74,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 			w.logger.String("to_state", string(newState)))
 	} else {
 		// No global event, proceed with normal transition
-		newState, resp, err = conv.Transition(event, transCtx)
+		newState, resp, err = conv.TransitionWithResponse(event, handlerCtx)
 		if err != nil {
 			return response.Response{}, fmt.Errorf("failed to transition conversation: %w", err)
 		}
@@ -81,7 +91,8 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	w.logger.Info("Response generated",
 		w.logger.String("chat_id", fmt.Sprint(conv.ChatID)),
 		w.logger.String("text", resp.Text),
-		w.logger.String("state", string(newState)))
+		w.logger.String("state", string(newState)),
+		w.logger.Int("options_count", len(resp.Options)))
 
 	return resp, nil
 }

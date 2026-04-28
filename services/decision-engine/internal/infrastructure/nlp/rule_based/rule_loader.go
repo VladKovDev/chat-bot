@@ -1,10 +1,9 @@
 package rule_based
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
-
-	"go.yaml.in/yaml/v3"
 )
 
 func LoadRules(path string) (Config, error) {
@@ -15,7 +14,7 @@ func LoadRules(path string) (Config, error) {
 
 	var config Config
 
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	if err := json.Unmarshal(data, &config); err != nil {
 		return Config{}, fmt.Errorf("failed to unmarshal rules: %w", err)
 	}
 	return config, nil

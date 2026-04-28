@@ -12,6 +12,7 @@ import (
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	transportCfg "github.com/VladKovDev/chat-bot/internal/config/transport"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/lemmatizer"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
@@ -112,7 +113,7 @@ func Run(ctx context.Context) error {
 	normalizer := normalization.NewPipeline(lemmatizerClient, 5*time.Second, logger)
 
 	// Initialize rule-based classifier
-	ruleBasedConfig, err := rule_based.LoadRules("internal/infrastructure/nlp/rule_based/rules.yaml")
+	ruleBasedConfig, err := rule_based.LoadRules(configPath + "/rules.json")
 	if err != nil {
 		return fmt.Errorf("failed to load rule-based config: %w", err)
 	}
@@ -123,9 +124,15 @@ func Run(ctx context.Context) error {
 
 	nlp := nlp.NewClassifier(ruleBasedClassifier, normalizer, logger)
 
+	// Initialize response loader
+	responseLoader, err := response.NewResponseLoader(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to initialize response loader: %w", err)
+	}
+
 	// Initialize conversation repository and service
 	conversationRepo := postgres.NewConversationRepo(pool)
-	conversationService := conversation.NewService(conversationRepo)
+	conversationService := conversation.NewService(conversationRepo, responseLoader)
 
 	// Initialize message worker
 	msgWorker := worker.NewMessageWorker(conversationService, logger, nlp)

@@ -3,17 +3,20 @@ package conversation
 import (
 	"context"
 
+	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repo Repository
+	repo            Repository
+	responseLoader  *response.ResponseLoader
 }
 
-func NewService(repo Repository) *Service {
+func NewService(repo Repository, responseLoader *response.ResponseLoader) *Service {
 	return &Service{
-		repo: repo,
+		repo:           repo,
+		responseLoader: responseLoader,
 	}
 }
 
@@ -39,4 +42,24 @@ func (s *Service) LoadConversation(ctx context.Context, chatID int64) (*Conversa
 
 func (s *Service) UpdateConversationState(ctx context.Context, conv *Conversation) (Conversation, error) {
 	return s.repo.UpdateState(ctx, conv.ID, conv.State)
+}
+
+// TransitionWithResponse executes state transition and returns response from loader
+func (s *Service) TransitionWithResponse(ctx context.Context, conv *Conversation, event state.Event, userText string) (state.State, response.Response, error) {
+	handlerCtx := HandlerContext{
+		UserText:        userText,
+		ResponseLoader:  s.responseLoader,
+		Data:            make(map[string]interface{}),
+	}
+
+	newState, resp, err := conv.TransitionWithResponse(event, handlerCtx)
+	if err != nil {
+		return conv.State, response.Response{}, err
+	}
+	return newState, resp, nil
+}
+
+// GetResponseLoader returns the response loader (useful for testing or external access)
+func (s *Service) GetResponseLoader() *response.ResponseLoader {
+	return s.responseLoader
 }
