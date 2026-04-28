@@ -46,6 +46,10 @@ class ConsoleChat:
             print(f"\n🤖 Bot: {response.get('text', '')}")
             if response.get("state"):
                 print(f"   State: {response.get('state')}")
+            if response.get("options"):
+                print("   Options:")
+                for i, option in enumerate(response.get("options", []), 1):
+                    print(f"      {i}. {option}")
         else:
             print(f"\n❌ Error: {response.get('error', 'Unknown error')}")
         print()
