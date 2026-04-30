@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres/sqlc"
 	"github.com/google/uuid"
 )
@@ -63,10 +62,19 @@ func (r *conversationRepo) GetByChatID(
 	return domainConversationFromDB(dbConv), nil
 }
 
+func (r *conversationRepo) Update(
+	ctx context.Context,
+	conv conversation.Conversation,
+) (conversation.Conversation, error) {
+	// TODO: Implement Update method with metadata support
+	// For now, just update state
+	return r.UpdateState(ctx, conv.ID, conv.State)
+}
+
 func (r *conversationRepo) UpdateState(
 	ctx context.Context,
 	id uuid.UUID,
-	state state.State,
+	state conversation.State,
 ) (conversation.Conversation, error) {
 	dbConv, err := r.querier.UpdateConversationState(ctx, sqlc.UpdateConversationStateParams{
 		Column1: uuidToPgUUID(id),
@@ -85,7 +93,7 @@ func (r *conversationRepo) UpdateState(
 func (r *conversationRepo) UpdateStateWithVersion(
 	ctx context.Context,
 	id uuid.UUID,
-	state state.State,
+	state conversation.State,
 ) (conversation.Conversation, error) {
 	dbConv, err := r.querier.UpdateConversationWithVersion(ctx, sqlc.UpdateConversationWithVersionParams{
 		Column1: uuidToPgUUID(id),
@@ -119,7 +127,7 @@ func (r *conversationRepo) List(
 
 func (r *conversationRepo) ListByState(
 	ctx context.Context,
-	state state.State,
+	state conversation.State,
 	limit int32,
 	offset int32,
 ) ([]conversation.Conversation, error) {

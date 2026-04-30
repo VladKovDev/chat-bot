@@ -6,20 +6,24 @@ import (
 	"os"
 	"time"
 
+	"github.com/VladKovDev/chat-bot/internal/app/actions"
+	"github.com/VladKovDev/chat-bot/internal/app/presenter"
+	"github.com/VladKovDev/chat-bot/internal/app/processor"
+	"github.com/VladKovDev/chat-bot/internal/app/transition"
+	appworker "github.com/VladKovDev/chat-bot/internal/app/worker"
 	"github.com/VladKovDev/chat-bot/internal/config"
 	lemmatizerCfg "github.com/VladKovDev/chat-bot/internal/config/lemmatizer"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	transportCfg "github.com/VladKovDev/chat-bot/internal/config/transport"
 	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
-	"github.com/VladKovDev/chat-bot/internal/domain/response"
+	"github.com/VladKovDev/chat-bot/internal/domain/intent"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/lemmatizer"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/internal/transport/http"
-	"github.com/VladKovDev/chat-bot/internal/worker"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -32,20 +36,20 @@ type App struct {
 	NLP    *nlp.Classifier
 	HTTP   *http.Server
 
-	ConversationRepo    conversation.Repository
-	ConversationService *conversation.Service
-	Worker              *worker.MessageWorker
+	ConversationRepo conversation.Repository
+	Worker           *appworker.MessageWorker
 }
 
-func NewApp(loggerConfig *logger.Config,
+func NewApp(
+	loggerConfig *logger.Config,
 	postgresConfig *postgres.Config,
 	logger logger.Logger,
 	db *postgres.Pool,
 	nlp *nlp.Classifier,
 	httpServer *http.Server,
-	messageWorker *worker.MessageWorker,
+	worker *appworker.MessageWorker,
 	conversationRepo conversation.Repository,
-	conversationService *conversation.Service) *App {
+) *App {
 
 	return &App{
 		LoggerConfig:   loggerConfig,
@@ -54,10 +58,8 @@ func NewApp(loggerConfig *logger.Config,
 		DB:             db,
 		NLP:            nlp,
 		HTTP:           httpServer,
-		Worker:         messageWorker,
-
-		ConversationRepo:    conversationRepo,
-		ConversationService: conversationService,
+		Worker:         worker,
+		ConversationRepo: conversationRepo,
 	}
 }
 
@@ -122,27 +124,70 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize rule-based classifier: %w", err)
 	}
 
-	nlp := nlp.NewClassifier(ruleBasedClassifier, normalizer, logger)
+	// Initialize Intent → Event mapping
+	intentToEvent := map[intent.Intent]conversation.Event{
+		intent.IntentGreeting:           conversation.EventGreeting,
+		intent.IntentCategorySelect:     conversation.EventCategorySelected,
+		intent.IntentRequestOperator:    conversation.EventRequestOperator,
+		intent.IntentResetConversation:  conversation.EventResetConversation,
+		intent.IntentResolved:           conversation.EventResolved,
+		intent.IntentNotResolved:        conversation.EventNotResolved,
+		intent.IntentOperatorClosed:     conversation.EventOperatorClosed,
+		intent.IntentUnknown:            conversation.EventMessageReceived, // default
+	}
 
-	// Initialize response loader
-	responseLoader, err := response.NewResponseLoader(configPath)
+	// Initialize Event adapter
+	eventAdapter := nlp.NewEventAdapter(intentToEvent)
+
+	// Initialize NLP classifier with Event adapter
+	nlpClassifier := nlp.NewClassifier(ruleBasedClassifier, normalizer, eventAdapter, logger)
+
+	// Load transition configuration
+	transitionConfig, err := transition.LoadConfig(configPath + "/transitions.json")
+	if err != nil {
+		return fmt.Errorf("failed to load transition config: %w", err)
+	}
+
+	// Build transition maps
+	transitions, globalEvents := transition.BuildTransitionMaps(transitionConfig)
+
+	// Initialize transition engine
+	transitionEngine := transition.NewEngine(transitions, globalEvents, logger)
+
+	// Initialize conversation repository
+	conversationRepo := postgres.NewConversationRepo(pool)
+
+	// Initialize conversation service
+	conversationService := conversation.NewService(conversationRepo)
+
+	// Initialize presenter
+	responseLoader, err := presenter.NewLoader(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to initialize response loader: %w", err)
 	}
+	presenter := presenter.NewPresenter(responseLoader)
 
-	// Initialize conversation repository and service
-	conversationRepo := postgres.NewConversationRepo(pool)
-	conversationService := conversation.NewService(conversationRepo, responseLoader)
+	// Initialize processor and register actions
+	proc := processor.NewProcessor(logger)
+	proc.Register("escalate_operator", actions.NewEscalateOperatorAction(logger))
+	proc.Register("reset_conversation", actions.NewResetConversationAction(conversationRepo, logger))
 
 	// Initialize message worker
-	msgWorker := worker.NewMessageWorker(conversationService, logger, nlp)
+	msgWorker := appworker.NewMessageWorker(
+		conversationService,
+		transitionEngine,
+		proc,
+		presenter,
+		nlpClassifier,
+		logger,
+	)
 
 	// Initialize HTTP transport
 	router := http.NewRouter(msgWorker, logger, httpConfig)
 	httpServer := http.NewServer(httpConfig, logger, router)
 
 	// Initialize application
-	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlp, httpServer, msgWorker, conversationRepo, conversationService)
+	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, nlpClassifier, httpServer, msgWorker, conversationRepo)
 
 	// Start HTTP server (goroutine is managed internally)
 	if err := app.HTTP.Run(ctx); err != nil {

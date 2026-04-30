@@ -10,6 +10,8 @@ COLOR_BOLD=\033[1m
 COLOR_GREEN=\033[32m
 COLOR_YELLOW=\033[33m
 
+DATABASE_URL ?= postgres://postgres:postgres@localhost:5442/chat-bot?sslmode=disable
+
 export CONFIG_PATH ?= ./configs
 
 build:

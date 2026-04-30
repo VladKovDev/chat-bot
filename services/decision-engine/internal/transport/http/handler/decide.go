@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/VladKovDev/chat-bot/internal/contracts"
+	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -75,7 +75,7 @@ func (h *Handler) Decide(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Process message
-	response, err := h.worker.HandleMessage(ctx, incomingMsg)
+	resp, err := h.worker.HandleMessage(ctx, incomingMsg)
 	if err != nil {
 		h.logger.Error("failed to handle message", h.logger.Err(err))
 		h.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("failed to process message: %v", err))
@@ -83,7 +83,7 @@ func (h *Handler) Decide(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Respond with success
-	h.respondWithSuccess(w, response.Text, response.Options, response.State, req.ChatID)
+	h.respondWithSuccess(w, resp.Text, resp.Options, resp.State, req.ChatID)
 }
 
 func (h *Handler) respondWithError(w http.ResponseWriter, status int, message string) {
@@ -95,7 +95,7 @@ func (h *Handler) respondWithError(w http.ResponseWriter, status int, message st
 	})
 }
 
-func (h *Handler) respondWithSuccess(w http.ResponseWriter, text string, options []string, state state.State, chatID int64) {
+func (h *Handler) respondWithSuccess(w http.ResponseWriter, text string, options []string, state conversation.State, chatID int64) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(DecideResponse{

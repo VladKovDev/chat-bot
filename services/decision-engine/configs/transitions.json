@@ -1,0 +1,93 @@
+{
+  "transitions": [
+    {
+      "from": "new",
+      "event": "message_received",
+      "to": "waiting_for_category",
+      "response_key": "start"
+    },
+    {
+      "from": "new",
+      "event": "greeting",
+      "to": "waiting_for_category",
+      "response_key": "start"
+    },
+    {
+      "from": "waiting_for_category",
+      "event": "category_selected",
+      "to": "waiting_clarification",
+      "response_key": "category_selected"
+    },
+    {
+      "from": "waiting_for_category",
+      "event": "message_received",
+      "to": "waiting_clarification",
+      "response_key": "category_selected"
+    },
+    {
+      "from": "waiting_clarification",
+      "event": "message_received",
+      "to": "solution_offered",
+      "response_key": "solution_offered"
+    },
+    {
+      "from": "waiting_clarification",
+      "event": "greeting",
+      "to": "waiting_clarification",
+      "response_key": "waiting_clarification"
+    },
+    {
+      "from": "solution_offered",
+      "event": "resolved",
+      "to": "closed",
+      "response_key": "resolved"
+    },
+    {
+      "from": "solution_offered",
+      "event": "not_resolved",
+      "to": "escalated_to_operator",
+      "response_key": "escalated_to_operator",
+      "actions": ["escalate_operator"]
+    },
+    {
+      "from": "solution_offered",
+      "event": "message_received",
+      "to": "waiting_clarification",
+      "response_key": "waiting_clarification"
+    },
+    {
+      "from": "escalated_to_operator",
+      "event": "operator_closed",
+      "to": "closed",
+      "response_key": "operator_closed"
+    },
+    {
+      "from": "closed",
+      "event": "message_received",
+      "to": "waiting_for_category",
+      "response_key": "start"
+    },
+    {
+      "from": "closed",
+      "event": "greeting",
+      "to": "waiting_for_category",
+      "response_key": "start"
+    }
+  ],
+  "global_events": {
+    "request_operator": {
+      "to": "escalated_to_operator",
+      "response_key": "escalated_to_operator",
+      "actions": ["escalate_operator"]
+    },
+    "reset_conversation": {
+      "to": "new",
+      "response_key": "start",
+      "actions": ["reset_conversation"]
+    },
+    "greeting": {
+      "to": "waiting_for_category",
+      "response_key": "start"
+    }
+  }
+}

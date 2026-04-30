@@ -1,4 +1,4 @@
-package state
+package conversation
 
 type State string
 
