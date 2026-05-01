@@ -16,9 +16,9 @@ const (
 )
 
 type Rule struct {
-	Type   RuleType
-	Weight float64
-	Values []string
+	Type   RuleType `json:"type"`
+	Weight float64 `json:"weight"`
+	Values []string `json:"values"`
 }
 
 type scoredIntent struct {
@@ -41,7 +41,6 @@ type RuleBased struct {
 	values       []compiledValue
 	keywordIndex map[string][]int // token -> compiledValue IDs
 	phraseIndex  map[string][]int // first token -> compiledValue IDs
-	maxPossible  map[string]float64
 }
 
 func NewRuleBased(cfg Config, logger logger.Logger) (*RuleBased, error) {
@@ -60,7 +59,6 @@ func (r *RuleBased) compile() error {
 		return nil
 	}
 
-	r.maxPossible = make(map[string]float64, len(r.cfg.Intents))
 	r.keywordIndex = make(map[string][]int)
 	r.phraseIndex = make(map[string][]int)
 
@@ -104,7 +102,6 @@ func (r *RuleBased) compile() error {
 				}
 
 				r.values = append(r.values, item)
-				r.maxPossible[intent.Name] += rule.Weight
 				id++
 			}
 		}
@@ -183,25 +180,28 @@ func (r *RuleBased) Classify(tokens []string) (intent.Intent, error) {
 		return intent.IntentUnknown, nil
 	}
 
-	max := r.maxPossible[best.name]
-	if max <= 0 {
+	r.logger.Debug("classification score", r.logger.Any("intent", best.name), r.logger.Any("score", best.score))
+
+	// Use absolute score threshold instead of relative confidence
+	if best.score < r.cfg.Threshold.MinScore {
+		r.logger.Debug(
+			"score below threshold",
+			r.logger.Any("score", best.score),
+			r.logger.Any("threshold", r.cfg.Threshold.MinScore),
+		)
 		return intent.IntentUnknown, nil
 	}
 
-	confidence := best.score / max
-	r.logger.Debug("classification confidence", r.logger.Any("confidence", confidence))
-
-	if confidence < r.cfg.Threshold.MinConfidence {
-		return intent.IntentUnknown, nil
-	}
-
-	if second.name != "" && best.score-second.score < r.cfg.Threshold.AmbiguityDelta*max {
+	// Use absolute ambiguity delta instead of relative to maxPossible
+	if second.name != "" && best.score-second.score < r.cfg.Threshold.AmbiguityDelta {
 		r.logger.Debug(
 			"classification ambiguity",
 			r.logger.Any("best", best.name),
 			r.logger.Any("best_score", best.score),
 			r.logger.Any("second", second.name),
 			r.logger.Any("second_score", second.score),
+			r.logger.Any("delta", best.score-second.score),
+			r.logger.Any("threshold", r.cfg.Threshold.AmbiguityDelta),
 		)
 	}
 

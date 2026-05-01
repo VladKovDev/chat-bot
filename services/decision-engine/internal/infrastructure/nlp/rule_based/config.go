@@ -1,16 +1,16 @@
 package rule_based
 
 type Intent struct {
-	Name  string `yaml:"name"`
-	Rules []Rule `yaml:"rules"`
+	Name  string `json:"name"`
+	Rules []Rule `json:"rules"`
 }
 
 type Threshold struct {
-	MinConfidence  float64 `yaml:"min_confidence"`
-	AmbiguityDelta float64 `yaml:"ambiguity_delta"`
+	MinScore       float64 `json:"min_score"`
+	AmbiguityDelta float64 `json:"ambiguity_delta"`
 }
 
 type Config struct {
-	Intents   []Intent  `yaml:"intents"`
-	Threshold Threshold `yaml:"threshold"`
+	Intents   []Intent  `json:"intents"`
+	Threshold Threshold `json:"threshold"`
 }
