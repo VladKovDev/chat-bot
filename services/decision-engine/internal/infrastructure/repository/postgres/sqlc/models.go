@@ -8,20 +8,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type Conversation struct {
+type ActionsLog struct {
+	ID              pgtype.UUID      `json:"id"`
+	SessionID       pgtype.UUID      `json:"session_id"`
+	ActionType      string           `json:"action_type"`
+	RequestPayload  []byte           `json:"request_payload"`
+	ResponsePayload []byte           `json:"response_payload"`
+	Error           *string          `json:"error"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+}
+
+type Message struct {
+	ID         pgtype.UUID      `json:"id"`
+	SessionID  pgtype.UUID      `json:"session_id"`
+	SenderType string           `json:"sender_type"`
+	Text       string           `json:"text"`
+	Intent     *string          `json:"intent"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+}
+
+type Session struct {
 	ID        pgtype.UUID      `json:"id"`
 	ChatID    int64            `json:"chat_id"`
+	UserID    pgtype.UUID      `json:"user_id"`
 	State     string           `json:"state"`
+	Summary   *string          `json:"summary"`
 	Version   int32            `json:"version"`
+	Status    string           `json:"status"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
 	UpdatedAt pgtype.Timestamp `json:"updated_at"`
 }
 
-type Message struct {
-	ID             pgtype.UUID      `json:"id"`
-	ConversationID pgtype.UUID      `json:"conversation_id"`
-	SenderType     string           `json:"sender_type"`
-	Payload        []byte           `json:"payload"`
-	Intent         *string          `json:"intent"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
+type TransitionsLog struct {
+	ID        pgtype.UUID      `json:"id"`
+	SessionID pgtype.UUID      `json:"session_id"`
+	FromState string           `json:"from_state"`
+	ToState   string           `json:"to_state"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+}
+
+type User struct {
+	ID         pgtype.UUID      `json:"id"`
+	ExternalID string           `json:"external_id"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
 }

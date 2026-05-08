@@ -1,4 +1,4 @@
-package conversation
+package session
 
 type Event string
 
@@ -12,4 +12,8 @@ const (
 	EventResolved          Event = "resolved"
 	EventNotResolved       Event = "not_resolved"
 	EventOperatorClosed    Event = "operator_closed"
+	EventConfirmation      Event = "confirmation"
+	EventNegation          Event = "negation"
+	EventGratitude         Event = "gratitude"
+	EventClarification     Event = "clarification"
 )

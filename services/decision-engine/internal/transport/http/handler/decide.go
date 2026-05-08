@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/VladKovDev/chat-bot/internal/contracts"
-	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -95,13 +95,13 @@ func (h *Handler) respondWithError(w http.ResponseWriter, status int, message st
 	})
 }
 
-func (h *Handler) respondWithSuccess(w http.ResponseWriter, text string, options []string, state conversation.State, chatID int64) {
+func (h *Handler) respondWithSuccess(w http.ResponseWriter, text string, options []string, st state.State, chatID int64) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(DecideResponse{
 		Text:    text,
 		Options: options,
-		State:   string(state),
+		State:   string(st),
 		ChatID:  chatID,
 		Success: true,
 	})
