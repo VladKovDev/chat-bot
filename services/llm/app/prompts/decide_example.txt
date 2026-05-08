@@ -1,0 +1,9 @@
+Input:
+State: initial
+Summary: User greets the bot
+Messages:
+  user: Привет
+  assistant: Добрый день! Чем могу помочь?
+
+Output:
+{{"intent": "greeting", "state": "initial", "actions": []}}

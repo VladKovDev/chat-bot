@@ -1,0 +1,87 @@
+### LLM Service API Requests
+### Base URL: http://localhost:8000
+
+###############################################################################
+
+### 1. Health Check
+GET http://localhost:8001/health
+
+###############################################################################
+
+### 2. Load Domain Configuration
+POST http://localhost:8001/llm/config
+Content-Type: application/json
+
+{
+  "data": {
+    "intents": ["greeting", "goodbye", "help", "complaint", "order_status"],
+    "states": ["initial", "authenticated", "menu", "processing"],
+    "actions": ["send_greeting", "ask_credentials", "show_menu", "check_order", "log_complaint"]
+  }
+}
+
+###############################################################################
+
+### 3. Decide - Simple greeting example
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "initial",
+    "summary": "User just started the conversation",
+    "messages": [
+      {"role": "user", "text": "Hello! How are you?"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 4. Decide - Multi-turn conversation
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "initial",
+    "summary": "User wants to check their order status",
+    "messages": [
+      {"role": "user", "text": "Hi, I want to check my order"},
+      {"role": "assistant", "text": "Hello! I'd be happy to help you check your order. Could you please provide your order number?"},
+      {"role": "user", "text": "Sure, it's ORDER-12345"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 5. Decide - Complaint handling
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "authenticated",
+    "summary": "User is unhappy with the service and wants to file a complaint",
+    "messages": [
+      {"role": "user", "text": "This is ridiculous! My order is late and nobody is helping me!"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 6. Decide - Help request
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "menu",
+    "summary": "User is confused and asking for help",
+    "messages": [
+      {"role": "user", "text": "I don't understand how to use this system. Can you help me?"}
+    ]
+  }
+}

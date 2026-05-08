@@ -1,0 +1,15 @@
+llm:
+  host: http://localhost:11434
+  model: qwen2.5:7b
+  timeout: 30
+  max_retries: 3
+  retry_delay: 1.0
+
+server:
+  host: 0.0.0.0
+  port: 8001
+
+logging:
+  level: DEBUG
+  format: text
+  output: console
