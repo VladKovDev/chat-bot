@@ -65,11 +65,6 @@ func NewClient(cfg Config, logger logger.Logger) *Client {
 	}
 }
 
-// Config sends a POST request to /llm/config
-func (c *Client) Config(ctx context.Context, data interface{}) (interface{}, error) {
-	return c.post(ctx, "/llm/config", data)
-}
-
 // Intent sends a POST request to /llm/intent
 func (c *Client) Intent(ctx context.Context, data interface{}) (interface{}, error) {
 	return c.post(ctx, "/llm/intent", data)

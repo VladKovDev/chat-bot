@@ -50,6 +50,6 @@ docker-build: ## Build Docker image
 	docker build -t llm-service .
 
 docker-run: ## Run Docker container
-	docker run -p 8001:8001 --env-file .env llm-service
+	docker run --name chat-bot-llm -p 8001:8001 --add-host=host.docker.internal:host-gateway --env-file .env llm-service
 
 all: install lint type-check test ## Install dependencies and run all checks

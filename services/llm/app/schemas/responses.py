@@ -1,16 +1,11 @@
+
 from pydantic import BaseModel
-from typing import List, Optional
 
 
 class DecideResponse(BaseModel):
     intent: str
     state: str
-    actions: List[str]
-
-
-class ConfigResponse(BaseModel):
-    status: str
-    message: str
+    actions: list[str]
 
 
 class HealthResponse(BaseModel):

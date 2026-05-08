@@ -1,8 +1,10 @@
 import asyncio
 import json
-from typing import Optional
 
-from app.core.exceptions import InvalidResponseError, LLMProviderError, ValidationRetryExhaustedError
+from app.core.exceptions import (
+    InvalidResponseError,
+    ValidationRetryExhaustedError,
+)
 from app.core.logging import get_logger
 from app.schemas.domain import DomainSchema
 from app.schemas.requests import DecideRequest
@@ -31,7 +33,7 @@ class DecideService:
 
     async def decide(self, request: DecideRequest) -> DecideResponse:
         domain = self.domain_service.get_schema()
-        retry_error: Optional[str] = None
+        retry_error: str | None = None
 
         for attempt in range(self.max_retries):
             try:

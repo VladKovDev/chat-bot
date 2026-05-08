@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from app.core.logging import get_logger
 from app.schemas.domain import DomainSchema
@@ -11,8 +10,8 @@ logger = get_logger(__name__)
 class PromptBuilder:
     def __init__(self, prompts_dir: Path):
         self.prompts_dir = prompts_dir
-        self._decide_prompt: Optional[str] = None
-        self._decide_example: Optional[str] = None
+        self._decide_prompt: str | None = None
+        self._decide_example: str | None = None
         self._load_prompts()
 
     def _load_prompts(self) -> None:
@@ -36,7 +35,7 @@ class PromptBuilder:
         self,
         domain: DomainSchema,
         request: DecideRequest,
-        retry_error: Optional[str] = None,
+        retry_error: str | None = None,
     ) -> str:
         if self._decide_prompt is None or self._decide_example is None:
             raise RuntimeError("Prompts not loaded")

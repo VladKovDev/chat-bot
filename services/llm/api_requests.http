@@ -9,16 +9,8 @@ GET http://localhost:8001/health
 ###############################################################################
 
 ### 2. Load Domain Configuration
-POST http://localhost:8001/llm/config
-Content-Type: application/json
+GET http://localhost:8080/config_llm
 
-{
-  "data": {
-    "intents": ["greeting", "goodbye", "help", "complaint", "order_status"],
-    "states": ["initial", "authenticated", "menu", "processing"],
-    "actions": ["send_greeting", "ask_credentials", "show_menu", "check_order", "log_complaint"]
-  }
-}
 
 ###############################################################################
 

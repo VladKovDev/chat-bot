@@ -1,5 +1,6 @@
-import pytest
 from pathlib import Path
+
+import pytest
 
 from app.schemas.domain import DomainSchema
 from app.schemas.requests import DecideRequest, Message

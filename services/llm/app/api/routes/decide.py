@@ -4,7 +4,6 @@ from fastapi.responses import JSONResponse
 from app.core.exceptions import DomainNotLoadedError, ValidationRetryExhaustedError
 from app.core.logging import get_logger
 from app.schemas.requests import DecideRequest
-from app.schemas.responses import DecideResponse
 from app.services.decide_service import DecideService
 
 router = APIRouter()

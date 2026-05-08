@@ -36,7 +36,7 @@ class OllamaClient:
 
             return result
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Ollama request timeout", timeout=self.timeout)
             raise LLMProviderError(f"Request timeout after {self.timeout}s")
 

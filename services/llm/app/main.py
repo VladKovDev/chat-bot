@@ -2,12 +2,12 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.api.routes.config import router as config_router
 from app.api.routes.decide import router as decide_router
 from app.api.routes.health import router as health_router
 from app.core.config import Settings
-from app.core.logging import setup_logging, get_logger
+from app.core.logging import get_logger, setup_logging
 from app.services.decide_service import DecideService
+from app.services.decision_engine_client import DecisionEngineClient
 from app.services.domain_service import DomainService
 from app.services.llm_client import OllamaClient
 from app.services.prompt_builder import PromptBuilder
@@ -35,6 +35,21 @@ async def startup_event():
 
     domain_service = DomainService()
 
+    # Fetch domain schema from decision-engine
+    logger.info("Fetching domain schema from decision-engine", url=settings.decision_engine_host)
+    try:
+        async with DecisionEngineClient(base_url=settings.decision_engine_host) as de_client:
+            schema = await de_client.fetch_config()
+            domain_service.load_schema(
+                intents=schema.intents,
+                states=schema.states,
+                actions=schema.actions,
+            )
+            logger.info("Domain schema loaded successfully from decision-engine")
+    except Exception as e:
+        logger.error("Failed to fetch domain schema from decision-engine", error=str(e))
+        raise RuntimeError(f"Failed to initialize domain schema: {e}") from e
+
     prompts_dir = Path(__file__).parent / "prompts"
     prompt_builder = PromptBuilder(prompts_dir=prompts_dir)
 
@@ -52,7 +67,6 @@ async def startup_event():
     app.state.decide_service = decide_service
 
     app.include_router(health_router)
-    app.include_router(config_router)
     app.include_router(decide_router)
 
     logger.info("LLM service started successfully")

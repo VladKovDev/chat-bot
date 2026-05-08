@@ -27,3 +27,6 @@ class Settings(BaseSettings):
     log_format: str = "text"  # text or json
     log_output: str = "console"  # console or file
     log_file_path: str = "logs/llm_service.log"
+
+    # Decision Engine configuration
+    decision_engine_host: str = "http://localhost:8002"

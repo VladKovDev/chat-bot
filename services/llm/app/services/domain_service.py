@@ -1,4 +1,3 @@
-from typing import Optional
 
 from app.core.exceptions import DomainNotLoadedError
 from app.core.logging import get_logger
@@ -9,7 +8,7 @@ logger = get_logger(__name__)
 
 class DomainService:
     def __init__(self):
-        self._schema: Optional[DomainSchema] = None
+        self._schema: DomainSchema | None = None
 
     def load_schema(self, intents: list[str], states: list[str], actions: list[str]) -> None:
         self._schema = DomainSchema(intents=intents, states=states, actions=actions)
