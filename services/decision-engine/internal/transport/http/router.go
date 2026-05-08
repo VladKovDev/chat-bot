@@ -44,5 +44,8 @@ func NewRouter(
 	h := handler.NewHandler(messageHandler, logger)
 	r.Post("/decide", h.Decide)
 
+	// LLM configuration endpoint
+	r.Get("/config_llm", h.ConfigLLM)
+
 	return r
 }
