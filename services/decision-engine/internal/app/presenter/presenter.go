@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 )
 
 // ResponseConfig represents a response template from JSON
@@ -16,28 +16,43 @@ type ResponseConfig struct {
 }
 
 // Loader loads response templates from JSON file
-type Loader struct {
+type Presenter struct {
 	configPath string
-	cache      map[string]*ResponseConfig
+	responses      map[string]*ResponseConfig
 }
 
-// NewLoader creates a new response loader
-func NewLoader(configPath string) (*Loader, error) {
-	l := &Loader{
+// NewPresenter creates a new presenter
+func NewPresenter(configPath string) (*Presenter, error) {
+	p := &Presenter{
 		configPath: configPath,
-		cache:      make(map[string]*ResponseConfig),
+		responses:      make(map[string]*ResponseConfig),
 	}
 
-	if err := l.load(); err != nil {
+	if err := p.load(); err != nil {
 		return nil, err
 	}
 
-	return l, nil
+	return p, nil
+
+}
+
+// Present creates a response from a template key and state
+func (p *Presenter) Present(responseKey string, st state.State) (response.Response, error) {
+	cfg, err := p.GetResponse(responseKey)
+	if err != nil {
+		return response.Response{}, fmt.Errorf("failed to load response config: %w", err)
+	}
+
+	return response.Response{
+		Text:    cfg.Message,
+		Options: cfg.Options,
+		State:   st,
+	}, nil
 }
 
 // load loads all response templates from JSON file
-func (l *Loader) load() error {
-	data, err := os.ReadFile(l.configPath + "/responses.json")
+func (p *Presenter) load() error {
+	data, err := os.ReadFile(p.configPath + "/responses.json")
 	if err != nil {
 		return fmt.Errorf("failed to read responses file: %w", err)
 	}
@@ -47,45 +62,32 @@ func (l *Loader) load() error {
 		return fmt.Errorf("failed to parse responses: %w", err)
 	}
 
-	l.cache = responses
+	p.responses = responses
 	return nil
 }
 
 // Load returns a response config by key
-func (l *Loader) Load(key string) (*ResponseConfig, error) {
-	if cfg, ok := l.cache[key]; ok {
-		return cfg, nil
+func (p *Presenter) GetResponse(key string) (*ResponseConfig, error) {
+	if response, ok := p.responses[key]; ok {
+		return response, nil
 	}
 
-	// Return default response if key not found
-	return &ResponseConfig{
-		Message: "Извините, произошла ошибка. Попробуйте позже.",
-		Options: []string{},
-	}, nil
+	return nil, ErrKeyNotFound
 }
 
-// Presenter formats responses using loaded templates
-type Presenter struct {
-	loader *Loader
+// GetAll returns all response configs
+func (p *Presenter) GetAll() map[string]*ResponseConfig {
+	return p.responses
 }
 
-// NewPresenter creates a new presenter
-func NewPresenter(loader *Loader) *Presenter {
-	return &Presenter{
-		loader: loader,
-	}
-}
+// GetAllKeys returns all loaded response keys
+func (p *Presenter) GetAllKeys() []string {
+	keys := make([]string, 0, len(p.responses))
 
-// Present creates a response from a template key and state
-func (p *Presenter) Present(responseKey string, state conversation.State) (response.Response, error) {
-	cfg, err := p.loader.Load(responseKey)
-	if err != nil {
-		return response.Response{}, fmt.Errorf("failed to load response config: %w", err)
+	for key := range p.responses {
+		keys = append(keys, key)
 	}
 
-	return response.Response{
-		Text:    cfg.Message,
-		Options: cfg.Options,
-		State:   state,
-	}, nil
+	return keys
 }
+

@@ -1,3 +1,38 @@
 .vscode
+.venv
 
 *_dock.md
+CLAUDE.md
+
+# Binary
+.bin
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+#Tests
+*.test
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+#IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+tmp/
+dist/
+
+# Logs
+*.log
+logs/
+
+*_cache
