@@ -97,7 +97,28 @@ func (p *Processor) ExecuteWithResults(
 				Error:   err.Error(),
 			}
 		} else {
-			results[name] = ActionResult{Success: true}
+			// Extract action result from context
+			actionResult, hasResult := data.Context["action_result"]
+
+			result := ActionResult{
+				Success: true,
+				Data:    actionResult,
+			}
+
+			if !hasResult {
+				result = ActionResult{Success: true}
+			}
+
+			results[name] = result
+
+			// Log action execution with data
+			p.logger.Debug("action executed",
+				p.logger.String("name", name),
+				p.logger.Bool("success", true),
+				p.logger.Any("data", actionResult))
+
+			// Clean up action_result from context after extraction
+			delete(data.Context, "action_result")
 		}
 	}
 

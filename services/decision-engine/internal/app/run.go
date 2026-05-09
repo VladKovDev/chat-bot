@@ -136,12 +136,22 @@ func Run(ctx context.Context) error {
 	// Initialize processor
 	processor := appprocessor.NewProcessor(logger)
 
-	// Register actions
-	escalateOperator := appactions.NewEscalateOperatorAction(logger)
-	processor.Register("escalate_operator", escalateOperator)
+	// Register business actions (read-only DB queries)
+	findBooking := appactions.NewFindBooking(logger)
+	processor.Register("find_booking", findBooking)
 
-	resetConversation := appactions.NewResetConversationAction(sessionRepo, logger)
-	processor.Register("reset_conversation", resetConversation)
+	findWorkspaceBooking := appactions.NewFindWorkspaceBooking(logger)
+	processor.Register("find_workspace_booking", findWorkspaceBooking)
+
+	findPayment := appactions.NewFindPayment(logger)
+	processor.Register("find_payment", findPayment)
+
+	findUserAccount := appactions.NewFindUserAccount(logger)
+	processor.Register("find_user_account", findUserAccount)
+
+	// Register utility actions
+	validateIdentifier := appactions.NewValidateIdentifier(logger)
+	processor.Register("validate_identifier", validateIdentifier)
 
 	// Initialize message worker
 	msgWorker := appworker.NewMessageWorker(sessionService, processor, presenter, messageRepo, llmClient, logger)

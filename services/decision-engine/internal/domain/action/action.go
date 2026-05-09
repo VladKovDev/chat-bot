@@ -23,40 +23,29 @@ type ActionData struct {
 // Бот ТОЛЬКО предоставляет информацию, уточняет запросы, показывает статус, предлагает решения
 
 const (
-	// Basic actions - базовые действия бота
-	ActionProvideInformation  string = "provide_information"   // Предоставить информацию из базы знаний
-	ActionClarifyRequest      string = "clarify_request"       // Уточнить запрос пользователя
-	ActionRequestIdentifier   string = "request_identifier"    // Запросить идентификатор (номер записи, телефон)
-	ActionShowStatus          string = "show_status"           // Показать статус объекта
-	ActionSuggestSolution     string = "suggest_solution"      // Предложить решение из базы знаний
-	ActionProvideInstruction  string = "provide_instruction"   // Дать инструкцию по действию
-	ActionEscalateToOperator  string = "escalate_to_operator"  // Перевести на оператора
+	// Business actions - поиск информации в основной БД (read-only)
+	ActionFindBooking           string = "find_booking"            // Найти запись на услугу (салон)
+	ActionFindWorkspaceBooking  string = "find_workspace_booking"  // Найти бронь рабочего места (коворкинг)
+	ActionFindPayment           string = "find_payment"            // Найти платеж
+	ActionFindUserAccount       string = "find_user_account"       // Найти пользовательский аккаунт
 
-	// Optional actions - опциональные действия
-	ActionShowContactInformation string = "show_contact_information" // Показать контактную информацию
-	ActionReturnToMenu           string = "return_to_menu"           // Вернуться в главное меню
-
-	// System actions - системные действия
-	ActionResetConversation string = "reset_conversation" // Сброс диалога
-	ActionLogAnalytics      string = "log_analytics"      // Логирование аналитики
+	// Utility actions - вспомогательные действия
+	ActionValidateIdentifier    string = "validate_identifier"     // Валидация формата идентификатора
+	ActionEscalateToOperator    string = "escalate_to_operator"    // Перевести на оператора
+	ActionResetConversation     string = "reset_conversation"      // Сброс диалога
 )
 
 // All returns all available action keys as a slice of strings
 func All() []string {
 	return []string{
-		// Basic
-		ActionProvideInformation,
-		ActionClarifyRequest,
-		ActionRequestIdentifier,
-		ActionShowStatus,
-		ActionSuggestSolution,
-		ActionProvideInstruction,
+		// Business actions
+		ActionFindBooking,
+		ActionFindWorkspaceBooking,
+		ActionFindPayment,
+		ActionFindUserAccount,
+		// Utility actions
+		ActionValidateIdentifier,
 		ActionEscalateToOperator,
-		// Optional
-		ActionShowContactInformation,
-		ActionReturnToMenu,
-		// System
 		ActionResetConversation,
-		ActionLogAnalytics,
 	}
 }

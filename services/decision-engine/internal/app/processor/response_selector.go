@@ -87,6 +87,46 @@ func (rs *ResponseSelector) getStateResponseKey(
 	currentState state.State,
 	actionResults map[string]ActionResult,
 ) string {
+	// Check find_booking action first
+	if status, ok := rs.getActionResultStatus(actionResults, "find_booking"); ok {
+		switch status {
+		case "found":
+			return "booking_found"
+		case "not_found":
+			return "booking_not_found"
+		}
+	}
+
+	// Check find_workspace_booking action
+	if status, ok := rs.getActionResultStatus(actionResults, "find_workspace_booking"); ok {
+		switch status {
+		case "found":
+			return "workspace_booking_found"
+		case "not_found":
+			return "workspace_booking_not_found"
+		}
+	}
+
+	// Check find_payment action
+	if status, ok := rs.getActionResultStatus(actionResults, "find_payment"); ok {
+		switch status {
+		case "found":
+			return "payment_found"
+		case "not_found":
+			return "payment_not_found"
+		}
+	}
+
+	// Check find_user_account action
+	if status, ok := rs.getActionResultStatus(actionResults, "find_user_account"); ok {
+		switch status {
+		case "found":
+			return "user_account_found"
+		case "not_found":
+			return "user_account_not_found"
+		}
+	}
+
 	// Special state handling
 	switch currentState {
 	case state.StateEscalatedToOperator:
@@ -164,6 +204,25 @@ func (rs *ResponseSelector) getActionResponseKey(action string) (string, bool) {
 
 	key, ok := actionResponses[action]
 	return key, ok
+}
+
+// getActionResultStatus extracts status from action data
+func (rs *ResponseSelector) getActionResultStatus(
+	actionResults map[string]ActionResult,
+	actionName string,
+) (string, bool) {
+	result, ok := actionResults[actionName]
+	if !ok || !result.Success {
+		return "", false
+	}
+
+	data, ok := result.Data.(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	status, ok := data["status"].(string)
+	return status, ok
 }
 
 // allActionsSucceeded checks if all actions completed successfully
