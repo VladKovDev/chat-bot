@@ -1,15 +1,17 @@
 import asyncio
+from typing import cast
 
 import ollama
 from ollama import AsyncClient
 
 from app.core.exceptions import LLMProviderError
 from app.core.logging import get_logger
+from app.services.llm.base import BaseLLMClient
 
 logger = get_logger(__name__)
 
 
-class OllamaClient:
+class OllamaClient(BaseLLMClient):
     def __init__(self, host: str, model: str, timeout: int):
         self.host = host
         self.model = model
@@ -31,7 +33,8 @@ class OllamaClient:
                 timeout=self.timeout,
             )
 
-            result = response.get("response", "")
+            # Type ignore: ollama response is dynamically typed
+            result = cast(str, response.get("response", ""))
             logger.debug("Received response from Ollama", response_length=len(result))
 
             return result

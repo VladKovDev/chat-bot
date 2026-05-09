@@ -1,4 +1,11 @@
+from enum import StrEnum
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class LLMProvider(StrEnum):
+    """Available LLM providers."""
+    OLLAMA = "ollama"
 
 
 class Settings(BaseSettings):
@@ -8,6 +15,9 @@ class Settings(BaseSettings):
         env_nested_delimiter="__",
         extra="ignore",
     )
+
+    # LLM Provider selection
+    llm_provider: LLMProvider = LLMProvider.OLLAMA
 
     # Ollama configuration
     ollama_host: str = "http://localhost:11434"
@@ -29,4 +39,4 @@ class Settings(BaseSettings):
     log_file_path: str = "logs/llm_service.log"
 
     # Decision Engine configuration
-    decision_engine_host: str = "http://localhost:8002"
+    decision_engine_host: str = "http://localhost:8080"

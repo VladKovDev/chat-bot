@@ -1,4 +1,4 @@
-.PHONY: help install update run dev test lint lint-fix format type-check clean docker-build docker-run
+.PHONY: help install update run dev test lint lint-fix format type-check clean docker-build docker-run docker-rebuild docker-config-linux docker-config-local
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -52,4 +52,24 @@ docker-build: ## Build Docker image
 docker-run: ## Run Docker container
 	docker run --name chat-bot-llm -p 8001:8001 --add-host=host.docker.internal:host-gateway --env-file .env llm-service
 
+docker-rebuild: ## Rebuild and restart Docker container (removes existing container first)
+	@echo "Stopping and removing existing container (if exists)..."
+	-docker stop chat-bot-llm 2>/dev/null || true
+	-docker rm chat-bot-llm 2>/dev/null || true
+	@echo "Building new Docker image..."
+	docker build -t llm-service .
+	@echo "Starting new container..."
+	docker run --name chat-bot-llm -p 8001:8001 --add-host=host.docker.internal:host-gateway --env-file .env llm-service
+	@echo "Container 'chat-bot-llm' is now running"
+
 all: install lint type-check test ## Install dependencies and run all checks
+
+docker-config-linux: ## Switch to Docker on Linux configuration
+	@echo "Switching to Docker Linux configuration..."
+	@cp .env.docker.linux .env
+	@echo "Configuration updated for Docker on Linux"
+
+docker-config-local: ## Switch to local development configuration
+	@echo "Switching to local development configuration..."
+	@cp .env.local .env
+	@echo "Configuration updated for local development"

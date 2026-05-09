@@ -9,8 +9,9 @@ from app.core.logging import get_logger
 from app.schemas.domain import DomainSchema
 from app.schemas.requests import DecideRequest
 from app.schemas.responses import DecideResponse
+from app.services.decision_engine_client import DecisionEngineClient
 from app.services.domain_service import DomainService
-from app.services.llm_client import OllamaClient
+from app.services.llm.base import BaseLLMClient
 from app.services.prompt_builder import PromptBuilder
 
 logger = get_logger(__name__)
@@ -19,19 +20,39 @@ logger = get_logger(__name__)
 class DecideService:
     def __init__(
         self,
-        llm_client: OllamaClient,
+        llm_client: BaseLLMClient,
         domain_service: DomainService,
         prompt_builder: PromptBuilder,
         max_retries: int,
         retry_delay: float,
+        decision_engine_url: str,
     ):
         self.llm_client = llm_client
         self.domain_service = domain_service
         self.prompt_builder = prompt_builder
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+        self.decision_engine_url = decision_engine_url
+
+    async def _ensure_domain_loaded(self) -> None:
+        """Ensure domain schema is loaded, fetch from decision-engine if not."""
+        if not self.domain_service.is_loaded():
+            logger.info("Domain not loaded, fetching from decision-engine")
+            try:
+                async with DecisionEngineClient(base_url=self.decision_engine_url) as de_client:
+                    schema = await de_client.fetch_config()
+                    self.domain_service.load_schema(
+                        intents=schema.intents,
+                        states=schema.states,
+                        actions=schema.actions,
+                    )
+                    logger.info("Domain schema loaded successfully")
+            except Exception as e:
+                logger.error("Failed to load domain schema", error=str(e))
+                raise
 
     async def decide(self, request: DecideRequest) -> DecideResponse:
+        await self._ensure_domain_loaded()
         domain = self.domain_service.get_schema()
         retry_error: str | None = None
 

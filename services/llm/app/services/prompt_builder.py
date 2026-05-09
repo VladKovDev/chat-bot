@@ -41,13 +41,14 @@ class PromptBuilder:
             raise RuntimeError("Prompts not loaded")
 
         messages_str = self._format_messages(request.messages)
+        summary_line = f"Conversation summary: {request.summary}" if request.summary else ""
 
         prompt = self._decide_prompt.format(
             intents="\n".join(f"  - {intent}" for intent in domain.intents),
             states="\n".join(f"  - {state}" for state in domain.states),
             actions="\n".join(f"  - {action}" for action in domain.actions),
             state=request.state,
-            summary=request.summary,
+            summary=summary_line,
             messages=messages_str,
             example=self._decide_example,
         )

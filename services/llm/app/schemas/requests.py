@@ -9,5 +9,5 @@ class Message(BaseModel):
 
 class DecideRequest(BaseModel):
     state: str
-    summary: str
+    summary: str = ""
     messages: list[Message]

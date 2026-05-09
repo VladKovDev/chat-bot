@@ -76,3 +76,29 @@ def test_build_decide_prompt_with_retry(prompts_dir: Path):
 
     assert "Invalid JSON" in prompt
     assert "Previous attempt failed" in prompt
+
+
+def test_build_decide_prompt_without_summary(prompts_dir: Path):
+    builder = PromptBuilder(prompts_dir)
+
+    domain = DomainSchema(
+        intents=["greeting", "request_operator"],
+        states=["initial"],
+        actions=["transfer_to_operator"],
+    )
+
+    request = DecideRequest(
+        state="initial",
+        summary="",
+        messages=[Message(role="user", text="Привет")],
+    )
+
+    prompt = builder.build_decide_prompt(domain, request)
+
+    assert "greeting" in prompt
+    assert "initial" in prompt
+    assert "transfer_to_operator" in prompt
+    assert "Привет" in prompt
+    # Summary line should be empty (just "Summary:" prefix or nothing)
+    # The template has "Summary: {summary}" so with empty summary it becomes "Summary: "
+    assert "Summary: " in prompt or prompt.count("Summary:") == 0

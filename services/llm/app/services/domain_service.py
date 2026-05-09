@@ -7,11 +7,13 @@ logger = get_logger(__name__)
 
 
 class DomainService:
-    def __init__(self):
+    def __init__(self) -> None:
         self._schema: DomainSchema | None = None
+        self._config_loaded: bool = False
 
     def load_schema(self, intents: list[str], states: list[str], actions: list[str]) -> None:
         self._schema = DomainSchema(intents=intents, states=states, actions=actions)
+        self._config_loaded = True
         logger.info(
             "Domain schema loaded",
             intents_count=len(intents),
@@ -26,3 +28,9 @@ class DomainService:
 
     def is_loaded(self) -> bool:
         return self._schema is not None
+
+    def mark_unloaded(self) -> None:
+        """Mark domain schema as unloaded, triggering reload on next access."""
+        self._config_loaded = False
+        self._schema = None
+        logger.info("Domain schema marked as unloaded")
