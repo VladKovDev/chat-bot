@@ -3,3 +3,11 @@ logger:
   format: json
   output: stdout
   enable_colors: false
+
+llm:
+  base_url: http://llm-service:8001
+  timeout: 30s
+  cb_max_requests: 100
+  cb_interval: 1m
+  cb_max_failures: 5
+  cb_timeout: 30s

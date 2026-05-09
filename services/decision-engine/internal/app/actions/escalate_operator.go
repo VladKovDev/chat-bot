@@ -25,8 +25,8 @@ func NewEscalateOperatorAction(logger logger.Logger) *EscalateOperatorAction {
 // TODO: Create ticket in operator system
 func (a *EscalateOperatorAction) Execute(ctx context.Context, data action.ActionData) error {
 	a.logger.Info("escalating to operator",
-		a.logger.String("chat_id", fmt.Sprint(data.Conversation.ChatID)),
-		a.logger.String("current_state", string(data.Conversation.State)))
+		a.logger.String("chat_id", fmt.Sprint(data.Session.ChatID)),
+		a.logger.String("current_state", string(data.Session.State)))
 
 	// TODO: Create ticket in operator system (CRM, helpdesk, etc.)
 	return nil

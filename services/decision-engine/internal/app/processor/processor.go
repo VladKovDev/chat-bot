@@ -5,20 +5,23 @@ import (
 	"fmt"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 // Processor executes actions by name
 type Processor struct {
-	actions map[string]action.Action
-	logger  logger.Logger
+	actions          map[string]action.Action
+	responseSelector *ResponseSelector
+	logger           logger.Logger
 }
 
 // NewProcessor creates a new action processor
 func NewProcessor(logger logger.Logger) *Processor {
 	return &Processor{
-		actions: make(map[string]action.Action),
-		logger:  logger,
+		actions:          make(map[string]action.Action),
+		responseSelector: NewResponseSelector(logger),
+		logger:           logger,
 	}
 }
 
@@ -56,4 +59,56 @@ func (p *Processor) Execute(ctx context.Context, actionNames []string, data acti
 	}
 
 	return nil
+}
+
+// ExecuteWithResults executes actions and returns their results
+func (p *Processor) ExecuteWithResults(
+	ctx context.Context,
+	actionNames []string,
+	data action.ActionData,
+) map[string]ActionResult {
+	results := make(map[string]ActionResult)
+
+	if len(actionNames) == 0 {
+		return results
+	}
+
+	p.logger.Debug("executing actions with results",
+		p.logger.Int("count", len(actionNames)),
+		p.logger.Any("actions", actionNames))
+
+	for _, name := range actionNames {
+		act, ok := p.actions[name]
+		if !ok {
+			p.logger.Error("action not found", p.logger.String("action", name))
+			results[name] = ActionResult{
+				Success: false,
+				Error:   fmt.Sprintf("action '%s' not registered", name),
+			}
+			continue
+		}
+
+		if err := act.Execute(ctx, data); err != nil {
+			p.logger.Error("action failed",
+				p.logger.String("action", name),
+				p.logger.Err(err))
+			results[name] = ActionResult{
+				Success: false,
+				Error:   err.Error(),
+			}
+		} else {
+			results[name] = ActionResult{Success: true}
+		}
+	}
+
+	return results
+}
+
+// SelectResponse delegates to ResponseSelector
+func (p *Processor) SelectResponse(
+	ctx context.Context,
+	currentState state.State,
+	actionResults map[string]ActionResult,
+) (string, error) {
+	return p.responseSelector.SelectResponse(ctx, currentState, actionResults)
 }
