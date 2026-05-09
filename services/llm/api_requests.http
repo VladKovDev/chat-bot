@@ -1,5 +1,10 @@
 ### LLM Service API Requests
 ### Base URL: http://localhost:8000
+###
+### The service supports two request formats:
+### 1. Wrapped: {"data": {"state": "...", "messages": [...]}}  (HTTP examples)
+### 2. Direct:  {"state": "...", "messages": [...]}           (Go client)
+###
 
 ###############################################################################
 
@@ -14,14 +19,14 @@ GET http://localhost:8080/config_llm
 
 ###############################################################################
 
-### 3. Decide - Simple greeting example
+### 3. Decide - Simple greeting example (wrapped format)
 POST http://localhost:8001/llm/decide
 Content-Type: application/json
 
 {
   "data": {
     "state": "initial",
-    "summary": "User just started the conversation",
+    "summary": "",
     "messages": [
       {"role": "user", "text": "Hello! How are you?"}
     ]
@@ -30,25 +35,23 @@ Content-Type: application/json
 
 ###############################################################################
 
-### 4. Decide - Multi-turn conversation
+### 4. Decide - Multi-turn conversation (direct format - like Go client)
 POST http://localhost:8001/llm/decide
 Content-Type: application/json
 
 {
-  "data": {
-    "state": "initial",
-    "summary": "User wants to check their order status",
-    "messages": [
-      {"role": "user", "text": "Hi, I want to check my order"},
-      {"role": "assistant", "text": "Hello! I'd be happy to help you check your order. Could you please provide your order number?"},
-      {"role": "user", "text": "Sure, it's ORDER-12345"}
-    ]
-  }
+  "state": "initial",
+  "summary": "User wants to check their order status",
+  "messages": [
+    {"role": "user", "text": "Hi, I want to check my order"},
+    {"role": "assistant", "text": "Hello! I'd be happy to help you check your order. Could you please provide your order number?"},
+    {"role": "user", "text": "Sure, it's ORDER-12345"}
+  ]
 }
 
 ###############################################################################
 
-### 5. Decide - Complaint handling
+### 5. Decide - Complaint handling (wrapped format)
 POST http://localhost:8001/llm/decide
 Content-Type: application/json
 
@@ -64,16 +67,194 @@ Content-Type: application/json
 
 ###############################################################################
 
-### 6. Decide - Help request
+### 6. Decide - Help request (direct format - like Go client)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "state": "menu",
+  "summary": "User is confused and asking for help",
+  "messages": [
+    {"role": "user", "text": "I don't understand how to use this system. Can you help me?"}
+  ]
+}
+
+###############################################################################
+
+### 7. Сценарий коворкинга: Начало диалога - выбор категории (БЕЗ SUMMARY)
 POST http://localhost:8001/llm/decide
 Content-Type: application/json
 
 {
   "data": {
-    "state": "menu",
-    "summary": "User is confused and asking for help",
+    "state": "initial",
+    "summary": "",
     "messages": [
-      {"role": "user", "text": "I don't understand how to use this system. Can you help me?"}
+      {"role": "user", "text": "Здравствуйте! Хочу записаться к мастеру на маникюр"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 8. Сценарий коваркинга: Проблема с оплатой (БЕЗ SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "payment_issue",
+    "summary": "",
+    "messages": [
+      {"role": "user", "text": "Деньги списались, но бронь не появилась! Что делать?"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 9. Сценарий коваркинга: Жалоба на мастера (БЕЗ SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "complaint",
+    "summary": "",
+    "messages": [
+      {"role": "user", "text": "Я хочу пожаловаться на мастера. Он опоздал на 20 минут и сделал некачественно!"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 10. Сценарий коваркинга: Проблема с рабочим местом (БЕЗ SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "issue",
+    "summary": "",
+    "messages": [
+      {"role": "user", "text": "На рабочем месте не работает Wi-Fi, розетка сломана"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 11. Сценарий коваркинга: Многораундовый диалог - проблема с записью (С SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "booking_issue",
+    "summary": "Клиент не может найти свою запись на маникюр, пытается найти по номеру телефона",
+    "messages": [
+      {"role": "user", "text": "Добрый день! Я записывалась на прошлой неделе, но не могу найти запись"},
+      {"role": "assistant", "text": "Здравствуйте! Укажите, пожалуйста, номер записи или ваш номер телефона для поиска"},
+      {"role": "user", "text": "Номер записи не помню, мой телефон +79001234567"},
+      {"role": "assistant", "text": "Ищу ваши записи по номеру телефона..."},
+      {"role": "user", "text": "Нашли что-нибудь? Мне очень нужно перенести запись на завтра"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 12. Сценарий коваркинга: Аренда рабочего места - проблема и компенсация (С SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "workspace_issue",
+    "summary": "Клиент арендовал рабочее место на весь день, но кресло сломано и необходимо решение проблемы",
+    "messages": [
+      {"role": "user", "text": "Здравствуйте, у меня проблема с местом №12"},
+      {"role": "assistant", "text": "Добрый день! Расскажите подробнее, что случилось?"},
+      {"role": "user", "text": "Я оплатил полный день, но кресло не регулируется и стул неудобный. Не могу работать"},
+      {"role": "assistant", "text": "Приношу извинения за неудобства! Могу предложить пересадить вас на другое место или оформить возврат средств"},
+      {"role": "user", "text": "Лучше верните деньги, я пойду в другой коворкинг"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 13. Сценарий коваркинга: Комплексный - двойное списание (С SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "payment_investigation",
+    "summary": "Пользователь сообщает о двойном списании средств за бронь рабочего места, требует возврата денег",
+    "messages": [
+      {"role": "user", "text": "Здравствуйте! У вас проблемы с оплатой, деньги списались дважды!"},
+      {"role": "assistant", "text": "Здравствуйте! Это очень неприятная ситуация. Укажите, пожалуйста, номер транзакции или время оплаты"},
+      {"role": "user", "text": "Оплатил около часа назад через СберПей, чек могу скинуть. Списалось 2000 рублей вместо 1000"},
+      {"role": "assistant", "text": "Понял вас. Проверяю историю платежей... Да, вижу двойную операцию. Сейчас оформлю возврат излишне списанных средств"},
+      {"role": "user", "text": "Когда придут деньги обратно?"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 14. Сценарий коваркинга: Мастер - конфликт расписания (С SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "schedule_conflict",
+    "summary": "Мастер сообщает о пересечении записей - два клиента записаны на одно и то же время, необходима эскалация",
+    "messages": [
+      {"role": "user", "text": "Привет! У меня проблема в расписании на завтра"},
+      {"role": "assistant", "text": "Здравствуйте! Что именно случилось с расписанием?"},
+      {"role": "user", "text": "Два клиента записаны на 14:00. Один新 клиентов, другой постоянный. Не могу понять, как так вышло"},
+      {"role": "assistant", "text": "Понял, это серьёзная проблема. Давайте проверим обе записи..."},
+      {"role": "user", "text": "Нужно срочно кого-то перенести, но боюсь потерять клиента"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 15. Сценарий коваркинга: Не работает вход в аккаунт (БЕЗ SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "initial",
+    "summary": "",
+    "messages": [
+      {"role": "user", "text": "Не могу войти в аккаунт! Пароль забыл, код подтверждения не приходит"}
+    ]
+  }
+}
+
+###############################################################################
+
+### 16. Сценарий коваркинга: Создание новой записи - выбор услуг (С SUMMARY)
+POST http://localhost:8001/llm/decide
+Content-Type: application/json
+
+{
+  "data": {
+    "state": "booking_creation",
+    "summary": "Клиент хочет записаться на стрижку, выбирает мастера и удобное время, готов оплатить",
+    "messages": [
+      {"role": "user", "text": "Хочу записаться на стрижку"},
+      {"role": "assistant", "text": "Отлично! У нас есть несколько мастеров. Какого мастера предпочитаете или выбрать любого доступного?"},
+      {"role": "user", "text": "Есть свободные мастера на завтра в первой половине дня?"},
+      {"role": "assistant", "text": "Загружаю расписание на завтра... Да, есть места: 10:00, 11:30 и 12:45"},
+      {"role": "user", "text": "Запишите на 11:30 к любому мастеру"}
     ]
   }
 }

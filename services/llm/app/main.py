@@ -10,6 +10,7 @@ from app.services.decide_service import DecideService
 from app.services.decision_engine_client import DecisionEngineClient
 from app.services.domain_service import DomainService
 from app.services.llm.base import BaseLLMClient
+from app.services.llm.gigachat_client import GigaChatClient
 from app.services.llm.ollama_client import OllamaClient
 from app.services.prompt_builder import PromptBuilder
 
@@ -34,6 +35,16 @@ def _create_llm_client() -> BaseLLMClient:
             host=settings.ollama_host,
             model=settings.ollama_model,
             timeout=settings.llm_timeout,
+        )
+    elif provider == LLMProvider.GIGACHAT:
+        logger.info("Creating GigaChat LLM client", model=settings.gigachat_model)
+        return GigaChatClient(
+            credentials=settings.gigachat_credentials,
+            model=settings.gigachat_model,
+            timeout=settings.llm_timeout,
+            base_url=settings.gigachat_base_url,
+            scope=settings.gigachat_scope,
+            json_mode=settings.gigachat_json_mode,
         )
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")

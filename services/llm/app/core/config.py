@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMProvider(StrEnum):
     """Available LLM providers."""
     OLLAMA = "ollama"
+    GIGACHAT = "gigachat"
 
 
 class Settings(BaseSettings):
@@ -22,6 +23,13 @@ class Settings(BaseSettings):
     # Ollama configuration
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
+
+    # GigaChat configuration
+    gigachat_credentials: str = ""
+    gigachat_model: str = "GigaChat"
+    gigachat_base_url: str | None = None
+    gigachat_scope: str = "GIGACHAT_API_PERS"
+    gigachat_json_mode: bool = False  # Force JSON responses using response_format
 
     # Server configuration
     server_host: str = "0.0.0.0"
