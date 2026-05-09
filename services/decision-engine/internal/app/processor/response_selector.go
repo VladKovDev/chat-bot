@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 
+	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
@@ -26,6 +27,7 @@ func NewResponseSelector(logger logger.Logger) *ResponseSelector {
 }
 
 // SelectResponse determines the response key based on state and action results
+// using a priority-based hierarchy to ensure correct response selection
 func (rs *ResponseSelector) SelectResponse(
 	ctx context.Context,
 	currentState state.State,
@@ -35,202 +37,235 @@ func (rs *ResponseSelector) SelectResponse(
 		rs.logger.String("state", string(currentState)),
 		rs.logger.Int("actions", len(actionResults)))
 
-	// Strategy 1: Check for critical action failures
-	if failedAction := rs.getFailedCriticalAction(actionResults); failedAction != "" {
-		return rs.getErrorResponseKey(failedAction), nil
+	// Priority 1: Check for validation failures
+	if key := rs.checkValidationFailures(actionResults); key != "" {
+		rs.logger.Debug("response selected: validation failure",
+			rs.logger.String("response_key", key))
+		return key, nil
 	}
 
-	// Strategy 2: State-based response selection
-	responseKey := rs.getStateResponseKey(currentState, actionResults)
+	// Priority 2: Check data action results
+	if key := rs.checkDataActionResults(actionResults); key != "" {
+		rs.logger.Debug("response selected: data action result",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
 
-	rs.logger.Info("response selected",
-		rs.logger.String("response_key", responseKey),
-		rs.logger.String("state", string(currentState)))
+	// Priority 3: Check escalation actions
+	if key := rs.checkEscalationActions(currentState, actionResults); key != "" {
+		rs.logger.Debug("response selected: escalation action",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
 
-	return responseKey, nil
+	// Priority 4: Check terminal states
+	if key := rs.checkTerminalStates(currentState, actionResults); key != "" {
+		rs.logger.Debug("response selected: terminal state",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
+
+	// Priority 5: Check category states
+	if key := rs.checkCategoryStates(currentState); key != "" {
+		rs.logger.Debug("response selected: category state",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
+
+	// Priority 6: Check information/contact states
+	if key := rs.checkInformationStates(currentState); key != "" {
+		rs.logger.Debug("response selected: information state",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
+
+	// Priority 7: Check waiting states
+	if key := rs.checkWaitingStates(currentState); key != "" {
+		rs.logger.Debug("response selected: waiting state",
+			rs.logger.String("response_key", key))
+		return key, nil
+	}
+
+	// Priority 8: Final fallback
+	return rs.getFallbackResponse(currentState)
 }
 
-// getFailedCriticalAction checks if any critical action failed
-func (rs *ResponseSelector) getFailedCriticalAction(
+// checkValidationFailures checks if validation actions failed
+// Priority 1: Critical validation failures that should prevent further processing
+func (rs *ResponseSelector) checkValidationFailures(
 	results map[string]ActionResult,
 ) string {
-	criticalActions := map[string]bool{
-		"escalate_operator": true,
-		"create_ticket":     true,
-		"process_payment":   true,
-	}
-
-	for actionName, result := range results {
-		if !result.Success && criticalActions[actionName] {
-			return actionName
+	// Check validate_identifier action
+	if result, ok := results[action.ActionValidateIdentifier]; ok {
+		if !result.Success {
+			return "error_data_missing"
+		}
+		// Check if validation returned valid=false
+		if data, ok := result.Data.(map[string]interface{}); ok {
+			if valid, ok := data["valid"].(bool); ok && !valid {
+				return "error_data_missing"
+			}
 		}
 	}
 	return ""
 }
 
-// getErrorResponseKey returns error response key for failed action
-func (rs *ResponseSelector) getErrorResponseKey(action string) string {
-	errorResponses := map[string]string{
-		"escalate_operator": "operator_escalation_failed",
-		"create_ticket":     "ticket_creation_failed",
-		"process_payment":   "payment_failed",
+// checkDataActionResults checks results from data-finding actions
+// Priority 2: Data search results (found/not_found) should influence response
+func (rs *ResponseSelector) checkDataActionResults(
+	results map[string]ActionResult,
+) string {
+	actionMappings := map[string]map[string]string{
+		action.ActionFindBooking: {
+			"found":     "booking_found",
+			"not_found": "booking_not_found",
+		},
+		action.ActionFindWorkspaceBooking: {
+			"found":     "workspace_booking_found",
+			"not_found": "workspace_booking_not_found",
+		},
+		action.ActionFindPayment: {
+			"found":     "payment_found",
+			"not_found": "payment_not_found",
+		},
+		action.ActionFindUserAccount: {
+			"found":     "account_found",
+			"not_found": "account_not_found",
+		},
 	}
 
-	if key, ok := errorResponses[action]; ok {
-		return key
+	for actionName, statusMapping := range actionMappings {
+		if result, ok := results[actionName]; ok && result.Success {
+			if status := rs.extractStatus(result.Data); status != "" {
+				if responseKey, ok := statusMapping[status]; ok {
+					return responseKey
+				}
+			}
+		}
 	}
-	return "error_occurred"
+	return ""
 }
 
-// getStateResponseKey selects response based on state and action results
-func (rs *ResponseSelector) getStateResponseKey(
+// checkEscalationActions checks escalation-related actions and states
+// Priority 3: Escalation actions should override normal state responses
+func (rs *ResponseSelector) checkEscalationActions(
 	currentState state.State,
-	actionResults map[string]ActionResult,
+	results map[string]ActionResult,
 ) string {
-	// Check find_booking action first
-	if status, ok := rs.getActionResultStatus(actionResults, "find_booking"); ok {
-		switch status {
-		case "found":
-			return "booking_found"
-		case "not_found":
-			return "booking_not_found"
+	// Check if escalate_to_operator was executed
+	if result, ok := results[action.ActionEscalateToOperator]; ok {
+		if result.Success {
+			return "escalation_context_sent"
+		} else {
+			return "error_generic"
 		}
 	}
 
-	// Check find_workspace_booking action
-	if status, ok := rs.getActionResultStatus(actionResults, "find_workspace_booking"); ok {
-		switch status {
-		case "found":
-			return "workspace_booking_found"
-		case "not_found":
-			return "workspace_booking_not_found"
-		}
+	// Check if already in escalated state
+	if currentState == state.StateEscalatedToOperator {
+		return "escalation_to_operator"
 	}
 
-	// Check find_payment action
-	if status, ok := rs.getActionResultStatus(actionResults, "find_payment"); ok {
-		switch status {
-		case "found":
-			return "payment_found"
-		case "not_found":
-			return "payment_not_found"
-		}
-	}
+	return ""
+}
 
-	// Check find_user_account action
-	if status, ok := rs.getActionResultStatus(actionResults, "find_user_account"); ok {
-		switch status {
-		case "found":
-			return "user_account_found"
-		case "not_found":
-			return "user_account_not_found"
-		}
-	}
-
-	// Special state handling
+// checkTerminalStates checks for conversation-ending states
+// Priority 4: Terminal states should override category/information states
+func (rs *ResponseSelector) checkTerminalStates(
+	currentState state.State,
+	results map[string]ActionResult,
+) string {
 	switch currentState {
-	case state.StateEscalatedToOperator:
-		return "escalated_to_operator"
+	case state.StateClosed:
+		return "goodbye"
 
 	case state.StateNew:
-		if _, ok := actionResults["reset_conversation"]; ok {
+		if _, ok := results[action.ActionResetConversation]; ok {
 			return "start"
 		}
 		return "greeting"
-
-	case state.StateClosed:
-		return "conversation_closed"
-
-	// Booking states
-	case "waiting_booking_date":
-		if rs.allActionsSucceeded(actionResults) {
-			return "booking_confirmed"
-		}
-		return "booking_failed"
-
-	// Payment states
-	case "waiting_payment":
-		if result, ok := actionResults["process_payment"]; ok {
-			if result.Success {
-				return "payment_success"
-			}
-			return "payment_failed"
-		}
-		return "payment_pending"
-
-	// Default: use intent-based or generic response
-	default:
-		return rs.getDefaultResponseKey(currentState, actionResults)
 	}
+	return ""
 }
 
-// getDefaultResponseKey returns default response for state
-func (rs *ResponseSelector) getDefaultResponseKey(
+// checkCategoryStates checks if current state is a category state
+// Priority 5: Category states should show category-specific menus
+func (rs *ResponseSelector) checkCategoryStates(
 	currentState state.State,
-	actionResults map[string]ActionResult,
 ) string {
-	// Check if any specific action dictates response
-	for actionName := range actionResults {
-		if responseKey, ok := rs.getActionResponseKey(actionName); ok {
-			return responseKey
-		}
+	categoryMapping := map[state.State]string{
+		state.StateBooking:     "booking_category",
+		state.StateWorkspace:   "workspace_category",
+		state.StatePayment:     "payment_category",
+		state.StateTechIssue:   "tech_issue_category",
+		state.StateAccount:     "account_category",
+		state.StateServices:    "services_category",
+		state.StateComplaint:   "complaint_category",
+		state.StateOther:       "other_category",
 	}
 
-	// Fallback to state-based response
-	stateResponses := map[state.State]string{
-		"waiting_for_category":    "ask_category",
-		"waiting_clarification":   "ask_clarification",
-		"solution_offered":        "solution_explained",
-		"waiting_booking_details": "ask_booking_details",
-	}
-
-	if key, ok := stateResponses[currentState]; ok {
+	if key, ok := categoryMapping[currentState]; ok {
 		return key
 	}
-
-	return "default_response"
+	return ""
 }
 
-// getActionResponseKey returns response key based on executed action
-func (rs *ResponseSelector) getActionResponseKey(action string) (string, bool) {
-	actionResponses := map[string]string{
-		"reset_conversation": "conversation_reset",
-		"escalate_operator":  "escalated_to_operator",
-		"create_ticket":      "ticket_created",
-		"save_category":      "category_saved",
-		"save_context":       "context_saved",
-		"send_confirmation":  "confirmation_sent",
+// checkInformationStates checks for information-providing states
+// Priority 6: Information states show specific information responses
+func (rs *ResponseSelector) checkInformationStates(
+	currentState state.State,
+) string {
+	switch currentState {
+	case state.StateShowContactInfo:
+		return "contact_info"
 	}
-
-	key, ok := actionResponses[action]
-	return key, ok
+	return ""
 }
 
-// getActionResultStatus extracts status from action data
-func (rs *ResponseSelector) getActionResultStatus(
-	actionResults map[string]ActionResult,
-	actionName string,
-) (string, bool) {
-	result, ok := actionResults[actionName]
-	if !ok || !result.Success {
-		return "", false
+// checkWaitingStates checks for waiting/input states
+// Priority 7: Waiting states request input from the user
+func (rs *ResponseSelector) checkWaitingStates(
+	currentState state.State,
+) string {
+	switch currentState {
+	case state.StateWaitingForCategory:
+		return "main_menu"
+	case state.StateWaitingClarification:
+		return "clarify_request"
+	case state.StateWaitingForIdentifier:
+		return "error_data_missing" // Will be context-aware in future
+	}
+	return ""
+}
+
+// getFallbackResponse provides a safe fallback when no other response matches
+// Priority 8: Always returns a valid response key
+func (rs *ResponseSelector) getFallbackResponse(
+	currentState state.State,
+) (string, error) {
+	rs.logger.Warn("using fallback response",
+		rs.logger.String("state", string(currentState)))
+
+	// error_generic always exists in responses.json
+	return "error_generic", nil
+}
+
+// extractStatus extracts the status field from action result data
+func (rs *ResponseSelector) extractStatus(
+	data interface{},
+) string {
+	if data == nil {
+		return ""
 	}
 
-	data, ok := result.Data.(map[string]interface{})
+	dataMap, ok := data.(map[string]interface{})
 	if !ok {
-		return "", false
+		return ""
 	}
 
-	status, ok := data["status"].(string)
-	return status, ok
-}
-
-// allActionsSucceeded checks if all actions completed successfully
-func (rs *ResponseSelector) allActionsSucceeded(results map[string]ActionResult) bool {
-	for _, result := range results {
-		if !result.Success {
-			return false
-		}
+	if status, ok := dataMap["status"].(string); ok {
+		return status
 	}
-	return true
+
+	return ""
 }

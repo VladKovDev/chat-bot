@@ -1,0 +1,166 @@
+### Decision Engine API Tests
+
+### Health Check
+GET http://localhost:8080/health
+
+###
+
+### Get LLM Config
+GET http://localhost:8080/config_llm
+
+###
+
+### Test 1: Greeting
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Привет",
+  "chat_id": 12345
+}
+
+###
+
+### Test 2: Request operator
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Хочу поговорить с оператором",
+  "chat_id": 12345
+}
+
+###
+
+### Test 3: Reset conversation
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Начнем заново",
+  "chat_id": 12345
+}
+
+###
+
+### Test 4: Technical issue
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "У меня проблема с оплатой",
+  "chat_id": 12346
+}
+
+###
+
+### Test 5: Category selection
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Техническая поддержка",
+  "chat_id": 12346
+}
+
+###
+
+### Test 6: Goodbye
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Спасибо, все понятно",
+  "chat_id": 12345
+}
+
+###
+
+### Test 7: Not resolved
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Это не помогло",
+  "chat_id": 12346
+}
+
+###
+
+### Test 8: New conversation (no previous messages)
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Здравствуйте! Мне нужна помощь с бронированием",
+  "chat_id": 78901
+}
+
+###
+
+### Test 9: Payment issue
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Деньги списались, но услуга не активирована",
+  "chat_id": 78902
+}
+
+###
+
+### Test 10: Escalation from existing conversation
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Переключите меня на человека",
+  "chat_id": 12345
+}
+
+###
+
+### Test 11: Empty message (edge case)
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "",
+  "chat_id": 99999
+}
+
+###
+
+### Test 12: Long conversation history test
+# First message
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Привет",
+  "chat_id": 55555
+}
+
+###
+
+# Follow-up message (same chat_id to build history)
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "У меня вопрос по услугам",
+  "chat_id": 55555
+}
+
+###
+
+# Continue conversation
+POST http://localhost:8080/decide
+Content-Type: application/json
+
+{
+  "text": "Какие услуги вы предоставляете?",
+  "chat_id": 55555
+}
+
+###

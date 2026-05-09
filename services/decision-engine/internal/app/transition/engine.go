@@ -4,21 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/VladKovDev/chat-bot/internal/domain/conversation"
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 // Engine executes state transitions based on events
 type Engine struct {
-	transitions  map[conversation.State]map[conversation.Event]*TransitionConfig
-	globalEvents map[conversation.Event]*GlobalEventConfig
+	transitions  map[state.State]map[session.Event]*TransitionConfig
+	globalEvents map[session.Event]*GlobalEventConfig
 	logger       logger.Logger
 }
 
 // NewEngine creates a new transition engine
 func NewEngine(
-	transitions map[conversation.State]map[conversation.Event]*TransitionConfig,
-	globalEvents map[conversation.Event]*GlobalEventConfig,
+	transitions map[state.State]map[session.Event]*TransitionConfig,
+	globalEvents map[session.Event]*GlobalEventConfig,
 	logger logger.Logger,
 ) *Engine {
 	return &Engine{
@@ -30,7 +31,7 @@ func NewEngine(
 
 // Execute executes a transition from the current state with the given event
 // Returns TransitionResult with the next state and actions to execute
-func (e *Engine) Execute(ctx context.Context, current conversation.State, event conversation.Event) (*TransitionResult, error) {
+func (e *Engine) Execute(ctx context.Context, current state.State, event session.Event) (*TransitionResult, error) {
 	e.logger.Debug("executing transition",
 		e.logger.String("from", string(current)),
 		e.logger.String("event", string(event)))
