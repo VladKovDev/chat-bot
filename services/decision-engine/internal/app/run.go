@@ -7,11 +7,11 @@ import (
 	"time"
 
 	appactions "github.com/VladKovDev/chat-bot/internal/app/actions"
+	appdecision "github.com/VladKovDev/chat-bot/internal/app/decision"
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	appprocessor "github.com/VladKovDev/chat-bot/internal/app/processor"
 	appworker "github.com/VladKovDev/chat-bot/internal/app/worker"
 	"github.com/VladKovDev/chat-bot/internal/config"
-	llmCfg "github.com/VladKovDev/chat-bot/internal/config/llm"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	transportCfg "github.com/VladKovDev/chat-bot/internal/config/transport"
@@ -19,7 +19,6 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/user"
-	"github.com/VladKovDev/chat-bot/internal/infrastructure/llm"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/internal/transport/http"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -29,10 +28,9 @@ type App struct {
 	LoggerConfig   *logger.Config
 	PostgresConfig *postgres.Config
 
-	Logger    logger.Logger
-	DB        *postgres.Pool
-	LLMClient *llm.Client
-	HTTP      *http.Server
+	Logger logger.Logger
+	DB     *postgres.Pool
+	HTTP   *http.Server
 
 	ConversationRepo session.Repository
 	MessageRepo      message.Repository
@@ -46,7 +44,6 @@ func NewApp(
 	postgresConfig *postgres.Config,
 	logger logger.Logger,
 	db *postgres.Pool,
-	llmClient *llm.Client,
 	httpServer *http.Server,
 	worker *appworker.MessageWorker,
 	sessionRepo session.Repository,
@@ -60,7 +57,6 @@ func NewApp(
 		PostgresConfig:   postgresConfig,
 		Logger:           logger,
 		DB:               db,
-		LLMClient:        llmClient,
 		HTTP:             httpServer,
 		Worker:           worker,
 		ConversationRepo: sessionRepo,
@@ -88,11 +84,6 @@ func Run(ctx context.Context) error {
 	postgresConfig, err := postgresCfg.LoadConfig(viper)
 	if err != nil {
 		return fmt.Errorf("failed to load database config: %w", err)
-	}
-
-	llmConfig, err := llmCfg.LoadConfig(viper)
-	if err != nil {
-		return fmt.Errorf("failed to load llm config: %w", err)
 	}
 
 	httpConfig, err := transportCfg.LoadConfig(viper)
@@ -124,9 +115,6 @@ func Run(ctx context.Context) error {
 	// Initialize session service
 	sessionService := session.NewService(sessionRepo)
 
-	// Initialize LLM client
-	llmClient := llm.NewClient(llmConfig, logger)
-
 	// Initialize presenter
 	presenter, err := apppresenter.NewPresenter(configPath)
 	if err != nil {
@@ -142,6 +130,10 @@ func Run(ctx context.Context) error {
 	}
 	if err := presenterValidator.ValidateCatalog(intentCatalog); err != nil {
 		return fmt.Errorf("failed to validate intent catalog: %w", err)
+	}
+	decisionService, err := appdecision.NewService(intentCatalog, nil, logger)
+	if err != nil {
+		return fmt.Errorf("failed to initialize decision service: %w", err)
 	}
 
 	// Initialize processor
@@ -165,14 +157,14 @@ func Run(ctx context.Context) error {
 	processor.Register("validate_identifier", validateIdentifier)
 
 	// Initialize message worker
-	msgWorker := appworker.NewMessageWorker(sessionService, processor, presenter, messageRepo, llmClient, logger)
+	msgWorker := appworker.NewMessageWorker(sessionService, decisionService, processor, presenter, messageRepo, logger)
 
 	// Initialize HTTP transport
 	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig)
 	httpServer := http.NewServer(httpConfig, logger, router)
 
 	// Initialize application
-	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, llmClient, httpServer, msgWorker, sessionRepo, messageRepo, userRepo, actionLogRepo)
+	app := NewApp(&loggerConfig, &postgresConfig, logger, pool, httpServer, msgWorker, sessionRepo, messageRepo, userRepo, actionLogRepo)
 
 	// Start HTTP server (goroutine is managed internally)
 	if err := app.HTTP.Run(ctx); err != nil {
