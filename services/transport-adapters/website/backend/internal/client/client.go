@@ -13,6 +13,8 @@ import (
 	"github.com/VladKovDev/web-adapter/pkg/logger"
 )
 
+const WebsiteChannel = "website"
+
 // Client represents a decision engine HTTP client
 type Client struct {
 	baseURL    string
@@ -31,38 +33,68 @@ func NewClient(cfg config.DecisionEngine, log logger.Logger) *Client {
 	}
 }
 
-// SendMessage sends a message to decision engine and returns response
-func (c *Client) SendMessage(ctx context.Context, text string, chatID int64) (dto.DecisionEngineResponse, error) {
-	req := dto.DecisionEngineRequest{
-		Text:   text,
-		ChatID: chatID,
+func (c *Client) StartSession(ctx context.Context, clientID string) (dto.SessionResponse, error) {
+	req := dto.SessionRequest{
+		Channel:  WebsiteChannel,
+		ClientID: clientID,
 	}
 
+	var respBody dto.SessionResponse
+	if err := c.postJSON(ctx, "/sessions", req, &respBody); err != nil {
+		return dto.SessionResponse{
+				Success: false,
+				Error:   "Failed to start session",
+			},
+			err
+	}
+
+	return respBody, nil
+}
+
+// SendMessage sends a message to decision engine and returns response
+func (c *Client) SendMessage(ctx context.Context, text string, sessionID string, clientID string) (dto.DecisionEngineResponse, error) {
+	req := dto.DecisionEngineRequest{
+		Text:      text,
+		SessionID: sessionID,
+		Channel:   WebsiteChannel,
+		ClientID:  clientID,
+	}
+
+	var respBody dto.DecisionEngineResponse
+	if err := c.postJSON(ctx, "/decide", req, &respBody); err != nil {
+		return dto.DecisionEngineResponse{
+				Success: false,
+				Error:   "Failed to send message",
+			},
+			err
+	}
+
+	return respBody, nil
+}
+
+func (c *Client) postJSON(ctx context.Context, path string, req interface{}, respBody interface{}) error {
 	reqBody, err := json.Marshal(req)
 	if err != nil {
 		c.logger.Error("failed to marshal request",
 			logger.Err(err),
-			logger.String("text", text),
-			logger.Int64("chat_id", chatID),
 		)
-		return dto.DecisionEngineResponse{}, fmt.Errorf("failed to marshal request: %w", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/decide", c.baseURL)
+	url := fmt.Sprintf("%s%s", c.baseURL, path)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(reqBody))
 	if err != nil {
 		c.logger.Error("failed to create request",
 			logger.Err(err),
 			logger.String("url", url),
 		)
-		return dto.DecisionEngineResponse{}, fmt.Errorf("failed to create request: %w", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	c.logger.Info("sending request to decision engine",
 		logger.String("url", url),
-		logger.Int64("chat_id", chatID),
 	)
 
 	start := time.Now()
@@ -73,11 +105,7 @@ func (c *Client) SendMessage(ctx context.Context, text string, chatID int64) (dt
 			logger.String("url", url),
 			logger.String("duration", time.Since(start).String()),
 		)
-		return dto.DecisionEngineResponse{
-				Success: false,
-				Error:   "Failed to connect to decision engine",
-			},
-			fmt.Errorf("failed to send request: %w", err)
+		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -87,18 +115,17 @@ func (c *Client) SendMessage(ctx context.Context, text string, chatID int64) (dt
 		logger.String("duration", duration.String()),
 	)
 
-	var respBody dto.DecisionEngineResponse
-	if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(respBody); err != nil {
 		c.logger.Error("failed to decode response",
 			logger.Err(err),
 			logger.Int("status", resp.StatusCode),
 		)
-		return dto.DecisionEngineResponse{
-				Success: false,
-				Error:   "Failed to decode response",
-			},
-			fmt.Errorf("failed to decode response: %w", err)
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return respBody, nil
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("decision engine returned status %d", resp.StatusCode)
+	}
+
+	return nil
 }

@@ -65,6 +65,9 @@ function handleWebSocketMessage(data) {
     hideTypingIndicator();
 
     switch (data.type) {
+        case 'session':
+            window.currentSessionId = data.session_id;
+            break;
         case 'response':
             displayBotMessage(data.text, data.options);
             break;

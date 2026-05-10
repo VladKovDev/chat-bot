@@ -10,11 +10,13 @@ class WebSocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 2000; // 2 seconds
+        this.clientId = getOrCreateClientId();
     }
 
     connect() {
         try {
-            this.ws = new WebSocket(this.url);
+            const separator = this.url.includes('?') ? '&' : '?';
+            this.ws = new WebSocket(`${this.url}${separator}client_id=${encodeURIComponent(this.clientId)}`);
 
             this.ws.onopen = () => {
                 console.log('WebSocket connected');
@@ -91,6 +93,20 @@ class WebSocketClient {
     isConnected() {
         return this.ws && this.ws.readyState === WebSocket.OPEN;
     }
+}
+
+function getOrCreateClientId() {
+    const storageKey = 'chat_bot_client_id';
+    const existing = window.localStorage.getItem(storageKey);
+    if (existing) {
+        return existing;
+    }
+
+    const generated = window.crypto && window.crypto.randomUUID
+        ? window.crypto.randomUUID()
+        : `browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    window.localStorage.setItem(storageKey, generated);
+    return generated;
 }
 
 // Create WebSocket client instance

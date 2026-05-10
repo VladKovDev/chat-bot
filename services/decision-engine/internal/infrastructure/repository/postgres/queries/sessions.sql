@@ -1,6 +1,26 @@
 -- name: CreateSession :one
-INSERT INTO "sessions" ("chat_id", "user_id", "state", "version", "status")
-VALUES ($1::BIGINT, $2::UUID, $3::VARCHAR(50), 1, 'active')
+INSERT INTO "sessions" (
+    "chat_id",
+    "user_id",
+    "channel",
+    "external_user_id",
+    "client_id",
+    "state",
+    "active_topic",
+    "version",
+    "status"
+)
+VALUES (
+    sqlc.arg(chat_id)::BIGINT,
+    sqlc.arg(user_id)::UUID,
+    sqlc.arg(channel)::TEXT,
+    sqlc.arg(external_user_id)::TEXT,
+    sqlc.arg(client_id)::TEXT,
+    sqlc.arg(state)::VARCHAR(50),
+    sqlc.arg(active_topic)::VARCHAR(50),
+    1,
+    'active'
+)
 RETURNING *;
 
 -- name: GetSessionByChatID :one
@@ -9,9 +29,28 @@ WHERE "chat_id" = $1::BIGINT
 ORDER BY "created_at" DESC
 LIMIT 1;
 
+-- name: GetActiveSessionByIdentity :one
+SELECT * FROM "sessions"
+WHERE "channel" = sqlc.arg(channel)::TEXT
+  AND "status" = 'active'
+  AND (
+      (sqlc.arg(external_user_id)::TEXT <> '' AND "external_user_id" = sqlc.arg(external_user_id)::TEXT)
+      OR (sqlc.arg(external_user_id)::TEXT = '' AND "client_id" = sqlc.arg(client_id)::TEXT)
+  )
+ORDER BY "created_at" DESC
+LIMIT 1;
+
 -- name: GetSessionByID :one
 SELECT * FROM "sessions"
 WHERE "id" = $1::UUID;
+
+-- name: UpdateSession :one
+UPDATE "sessions"
+SET "state" = sqlc.arg(state)::VARCHAR(50),
+    "active_topic" = sqlc.arg(active_topic)::VARCHAR(50),
+    "updated_at" = now()
+WHERE "id" = sqlc.arg(id)::UUID
+RETURNING *;
 
 -- name: UpdateSessionState :one
 UPDATE "sessions"

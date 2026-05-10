@@ -16,14 +16,18 @@ import (
 // domainSessionFromDB converts sqlc.Session to domain.Session
 func domainSessionFromDB(dbSession sqlc.Session) session.Session {
 	return session.Session{
-		ID:       pgUUIDToUUID(dbSession.ID),
-		ChatID:   dbSession.ChatID,
-		UserID:   pgUUIDToUUID(dbSession.UserID),
-		State:    state.State(dbSession.State),
-		Summary:  dbSession.Summary,
-		Version:  int(dbSession.Version),
-		Status:   session.Status(dbSession.Status),
-		Metadata: make(map[string]interface{}),
+		ID:             pgUUIDToUUID(dbSession.ID),
+		ChatID:         dbSession.ChatID,
+		UserID:         pgUUIDToUUID(dbSession.UserID),
+		Channel:        dbSession.Channel,
+		ExternalUserID: dbSession.ExternalUserID,
+		ClientID:       dbSession.ClientID,
+		State:          state.State(dbSession.State),
+		ActiveTopic:    dbSession.ActiveTopic,
+		Summary:        dbSession.Summary,
+		Version:        int(dbSession.Version),
+		Status:         session.Status(dbSession.Status),
+		Metadata:       make(map[string]interface{}),
 	}
 }
 

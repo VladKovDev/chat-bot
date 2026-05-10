@@ -51,6 +51,7 @@ Type 'chat <id>' to change chat ID
 ```json
 {
   "text": "message text",
+  "channel": "dev-cli",
   "chat_id": 1
 }
 ```

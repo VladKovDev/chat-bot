@@ -28,15 +28,19 @@ type Message struct {
 }
 
 type Session struct {
-	ID        pgtype.UUID      `json:"id"`
-	ChatID    int64            `json:"chat_id"`
-	UserID    pgtype.UUID      `json:"user_id"`
-	State     string           `json:"state"`
-	Summary   *string          `json:"summary"`
-	Version   int32            `json:"version"`
-	Status    string           `json:"status"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	ID             pgtype.UUID      `json:"id"`
+	ChatID         int64            `json:"chat_id"`
+	UserID         pgtype.UUID      `json:"user_id"`
+	Channel        string           `json:"channel"`
+	ExternalUserID string           `json:"external_user_id"`
+	ClientID       string           `json:"client_id"`
+	State          string           `json:"state"`
+	ActiveTopic    string           `json:"active_topic"`
+	Summary        *string          `json:"summary"`
+	Version        int32            `json:"version"`
+	Status         string           `json:"status"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 }
 
 type TransitionsLog struct {

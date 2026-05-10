@@ -10,10 +10,11 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/llm"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
+	"github.com/google/uuid"
 )
 
 type MessageWorker struct {
@@ -45,7 +46,7 @@ func NewMessageWorker(
 
 func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.IncomingMessage) (response.Response, error) {
 	// 1. Load session first
-	sess, err := w.sessionService.LoadSession(ctx, msg.ChatID)
+	sess, err := w.loadSession(ctx, msg)
 	if err != nil {
 		return response.Response{}, fmt.Errorf("failed to load session: %w", err)
 	}
@@ -118,7 +119,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	// 7. Execute actions and collect results
 	actionData := action.ActionData{
 		Session:  sess,
-		UserText:  msg.Text,
+		UserText: msg.Text,
 		Context:  make(map[string]interface{}),
 	}
 
@@ -135,6 +136,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 
 	// 9. Update session state
 	sess.State = state.State(decideResp.State)
+	sess.ActiveTopic = activeTopicForState(sess.State, sess.ActiveTopic)
 	if _, err := w.sessionService.UpdateSessionState(ctx, sess); err != nil {
 		w.logger.Error("failed to update session state",
 			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
@@ -157,7 +159,43 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		w.logger.String("state", string(resp.State)),
 		w.logger.String("text", resp.Text))
 
+	resp.SessionID = sess.ID
+	resp.Channel = sess.Channel
+	resp.ExternalUserID = sess.ExternalUserID
+	resp.ClientID = sess.ClientID
+	resp.ActiveTopic = sess.ActiveTopic
+
 	return resp, nil
+}
+
+func (w *MessageWorker) StartSession(ctx context.Context, identity session.Identity) (session.StartResult, error) {
+	return w.sessionService.StartSession(ctx, identity)
+}
+
+func (w *MessageWorker) loadSession(ctx context.Context, msg contracts.IncomingMessage) (*session.Session, error) {
+	identity := session.Identity{
+		Channel:        msg.Channel,
+		ExternalUserID: msg.ExternalUserID,
+		ClientID:       msg.ClientID,
+	}
+
+	if msg.SessionID != uuid.Nil {
+		return w.sessionService.LoadSessionByID(ctx, msg.SessionID, identity)
+	}
+
+	if err := session.ValidateIdentity(identity); err == nil {
+		result, err := w.sessionService.StartSession(ctx, identity)
+		if err != nil {
+			return nil, err
+		}
+		return &result.Session, nil
+	}
+
+	if msg.Channel == session.ChannelDevCLI && msg.ChatID != 0 {
+		return w.sessionService.LoadSession(ctx, msg.ChatID)
+	}
+
+	return nil, session.ErrInvalidIdentity
 }
 
 func (w *MessageWorker) convertToLLMMessages(messages []message.Message) []contracts.LLMMessage {
@@ -192,4 +230,20 @@ func (w *MessageWorker) parseDecideResponse(raw interface{}) (*contracts.DecideL
 		State:   st,
 		Actions: actions,
 	}, nil
+}
+
+func activeTopicForState(st state.State, current string) string {
+	switch st {
+	case state.StateBooking,
+		state.StateWorkspace,
+		state.StatePayment,
+		state.StateTechIssue,
+		state.StateAccount,
+		state.StateServices,
+		state.StateComplaint,
+		state.StateOther:
+		return string(st)
+	default:
+		return current
+	}
 }

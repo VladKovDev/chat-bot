@@ -23,6 +23,7 @@ type Querier interface {
 	DeleteSession(ctx context.Context, dollar_1 pgtype.UUID) error
 	GetActionsBySessionID(ctx context.Context, arg GetActionsBySessionIDParams) ([]ActionsLog, error)
 	GetActionsByType(ctx context.Context, arg GetActionsByTypeParams) ([]ActionsLog, error)
+	GetActiveSessionByIdentity(ctx context.Context, arg GetActiveSessionByIdentityParams) (Session, error)
 	GetLastMessagesBySessionID(ctx context.Context, arg GetLastMessagesBySessionIDParams) ([]Message, error)
 	GetMessagesBySessionID(ctx context.Context, arg GetMessagesBySessionIDParams) ([]Message, error)
 	GetSessionByChatID(ctx context.Context, dollar_1 int64) (Session, error)
@@ -37,6 +38,7 @@ type Querier interface {
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	LogAction(ctx context.Context, arg LogActionParams) (ActionsLog, error)
 	LogTransition(ctx context.Context, arg LogTransitionParams) (TransitionsLog, error)
+	UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error)
 	UpdateSessionState(ctx context.Context, arg UpdateSessionStateParams) (Session, error)
 	UpdateSessionStatus(ctx context.Context, arg UpdateSessionStatusParams) (Session, error)
 	UpdateSessionSummary(ctx context.Context, arg UpdateSessionSummaryParams) (Session, error)

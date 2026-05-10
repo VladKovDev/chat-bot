@@ -5,7 +5,11 @@ CREATE TABLE IF NOT EXISTS "sessions" (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_id BIGINT NOT NULL,
     user_id UUID NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'legacy',
+    external_user_id TEXT NOT NULL DEFAULT '',
+    client_id TEXT NOT NULL DEFAULT '',
     "state" VARCHAR(50) NOT NULL,
+    active_topic VARCHAR(50) NOT NULL DEFAULT '',
     summary varchar(255) DEFAULT NULL,
     "version" INT NOT NULL DEFAULT 1,
     "status" VARCHAR(20) NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'closed')),
@@ -14,6 +18,14 @@ CREATE TABLE IF NOT EXISTS "sessions" (
 );
 
 CREATE INDEX idx_session_chat_id ON "sessions"(chat_id);
+
+CREATE UNIQUE INDEX idx_session_active_external_user ON "sessions"(channel, external_user_id)
+WHERE "status" = 'active' AND external_user_id <> '';
+
+CREATE UNIQUE INDEX idx_session_active_client ON "sessions"(channel, client_id)
+WHERE "status" = 'active' AND client_id <> '';
+
+CREATE INDEX idx_session_identity ON "sessions"(channel, external_user_id, client_id, "status");
 
 CREATE INDEX idx_session_user_id ON "sessions"(user_id);
 

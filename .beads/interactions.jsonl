@@ -1,0 +1,1 @@
+{"id":"int-8ed2e85a","kind":"field_change","created_at":"2026-05-10T11:35:00.171959Z","actor":"DanilaBesk","issue_id":"chat-bot-523.6","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Implemented session identity and multi-user isolation"}}

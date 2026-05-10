@@ -3,29 +3,55 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/google/uuid"
 )
 
 type DecideRequest struct {
-	Text   string `json:"text"`
-	ChatID int64  `json:"chat_id,omitempty"`
+	Text           string `json:"text"`
+	SessionID      string `json:"session_id,omitempty"`
+	Channel        string `json:"channel,omitempty"`
+	ExternalUserID string `json:"external_user_id,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+	ChatID         int64  `json:"chat_id,omitempty"`
 }
 
 type DecideResponse struct {
-	Text    string   `json:"text"`
-	Options []string `json:"options,omitempty"`
-	State   string   `json:"state"`
-	ChatID  int64    `json:"chat_id"`
-	Success bool     `json:"success"`
-	Error   string   `json:"error,omitempty"`
+	Text           string   `json:"text"`
+	Options        []string `json:"options,omitempty"`
+	State          string   `json:"state"`
+	ActiveTopic    string   `json:"active_topic"`
+	SessionID      string   `json:"session_id,omitempty"`
+	Channel        string   `json:"channel,omitempty"`
+	ExternalUserID string   `json:"external_user_id,omitempty"`
+	ClientID       string   `json:"client_id,omitempty"`
+	ChatID         int64    `json:"chat_id,omitempty"`
+	Success        bool     `json:"success"`
+	Error          string   `json:"error,omitempty"`
+}
+
+type StartSessionRequest struct {
+	Channel        string `json:"channel"`
+	ExternalUserID string `json:"external_user_id,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+}
+
+type StartSessionResponse struct {
+	SessionID      string `json:"session_id,omitempty"`
+	Channel        string `json:"channel,omitempty"`
+	ExternalUserID string `json:"external_user_id,omitempty"`
+	ClientID       string `json:"client_id,omitempty"`
+	State          string `json:"state,omitempty"`
+	ActiveTopic    string `json:"active_topic"`
+	Resumed        bool   `json:"resumed"`
+	Success        bool   `json:"success"`
+	Error          string `json:"error,omitempty"`
 }
 
 type Handler struct {
@@ -35,6 +61,7 @@ type Handler struct {
 
 type MessageHandler interface {
 	HandleMessage(ctx context.Context, msg contracts.IncomingMessage) (response.Response, error)
+	StartSession(ctx context.Context, identity session.Identity) (session.StartResult, error)
 }
 
 func NewHandler(worker MessageHandler, logger logger.Logger) *Handler {
@@ -61,29 +88,91 @@ func (h *Handler) Decide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set default ChatID if not provided
-	if req.ChatID == 0 {
-		req.ChatID = 1 // Default chat ID for web requests
+	identity := session.Identity{
+		Channel:        req.Channel,
+		ExternalUserID: req.ExternalUserID,
+		ClientID:       req.ClientID,
+	}
+	identity = session.NormalizeIdentity(identity)
+
+	var sessionID uuid.UUID
+	if req.SessionID != "" {
+		parsedSessionID, err := uuid.Parse(req.SessionID)
+		if err != nil {
+			h.respondWithError(w, http.StatusBadRequest, "session_id must be a valid UUID")
+			return
+		}
+		sessionID = parsedSessionID
+	}
+
+	if err := validateDecideIdentity(identity, sessionID, req.ChatID); err != nil {
+		h.respondWithError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 
 	// Create incoming message
 	incomingMsg := contracts.IncomingMessage{
-		EventID:   uuid.New(),
-		ChatID:    req.ChatID,
-		Text:      req.Text,
-		Timestamp: time.Now(),
+		EventID:        uuid.New(),
+		SessionID:      sessionID,
+		ChatID:         req.ChatID,
+		Channel:        identity.Channel,
+		ExternalUserID: identity.ExternalUserID,
+		ClientID:       identity.ClientID,
+		Text:           req.Text,
+		Timestamp:      time.Now(),
 	}
 
 	// Process message
 	resp, err := h.worker.HandleMessage(ctx, incomingMsg)
 	if err != nil {
 		h.logger.Error("failed to handle message", h.logger.Err(err))
-		h.respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("failed to process message: %v", err))
+		h.respondWithError(w, http.StatusInternalServerError, "failed to process message")
 		return
 	}
 
 	// Respond with success
-	h.respondWithSuccess(w, resp.Text, resp.Options, resp.State, req.ChatID)
+	h.respondWithSuccess(w, resp)
+}
+
+func (h *Handler) StartSession(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var req StartSessionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.logger.Error("failed to decode session request", h.logger.Err(err))
+		h.respondWithSessionError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	identity := session.NormalizeIdentity(session.Identity{
+		Channel:        req.Channel,
+		ExternalUserID: req.ExternalUserID,
+		ClientID:       req.ClientID,
+	})
+	if err := session.ValidateIdentity(identity); err != nil {
+		h.respondWithSessionError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	result, err := h.worker.StartSession(ctx, identity)
+	if err != nil {
+		h.logger.Error("failed to start session", h.logger.Err(err))
+		h.respondWithSessionError(w, http.StatusInternalServerError, "failed to start session")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(StartSessionResponse{
+		SessionID:      result.Session.ID.String(),
+		Channel:        result.Session.Channel,
+		ExternalUserID: result.Session.ExternalUserID,
+		ClientID:       result.Session.ClientID,
+		State:          string(result.Session.State),
+		ActiveTopic:    result.Session.ActiveTopic,
+		Resumed:        result.Resumed,
+		Success:        true,
+	})
 }
 
 func (h *Handler) respondWithError(w http.ResponseWriter, status int, message string) {
@@ -95,14 +184,53 @@ func (h *Handler) respondWithError(w http.ResponseWriter, status int, message st
 	})
 }
 
-func (h *Handler) respondWithSuccess(w http.ResponseWriter, text string, options []string, st state.State, chatID int64) {
+func (h *Handler) respondWithSessionError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(StartSessionResponse{
+		Success: false,
+		Error:   message,
+	})
+}
+
+func (h *Handler) respondWithSuccess(w http.ResponseWriter, resp response.Response) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(DecideResponse{
-		Text:    text,
-		Options: options,
-		State:   string(st),
-		ChatID:  chatID,
-		Success: true,
+		Text:           resp.Text,
+		Options:        resp.Options,
+		State:          string(resp.State),
+		ActiveTopic:    resp.ActiveTopic,
+		SessionID:      resp.SessionID.String(),
+		Channel:        resp.Channel,
+		ExternalUserID: resp.ExternalUserID,
+		ClientID:       resp.ClientID,
+		Success:        true,
 	})
+}
+
+func validateDecideIdentity(identity session.Identity, sessionID uuid.UUID, chatID int64) error {
+	if identity.Channel == session.ChannelDevCLI && chatID != 0 && identity.ExternalUserID == "" && identity.ClientID == "" {
+		return nil
+	}
+
+	if sessionID != uuid.Nil || identity.Channel != "" || identity.ExternalUserID != "" || identity.ClientID != "" {
+		return session.ValidateIdentity(identity)
+	}
+
+	if chatID != 0 {
+		return errDevCLIChannelRequired()
+	}
+
+	return session.ErrInvalidIdentity
+}
+
+func errDevCLIChannelRequired() error {
+	return identityError("chat_id is only accepted with channel dev-cli")
+}
+
+type identityError string
+
+func (e identityError) Error() string {
+	return string(e)
 }

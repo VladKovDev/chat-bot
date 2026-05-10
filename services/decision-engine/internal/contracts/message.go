@@ -7,8 +7,12 @@ import (
 )
 
 type IncomingMessage struct {
-	EventID   uuid.UUID
-	ChatID    int64
-	Text      string
-	Timestamp time.Time
+	EventID        uuid.UUID
+	SessionID      uuid.UUID
+	ChatID         int64
+	Channel        string
+	ExternalUserID string
+	ClientID       string
+	Text           string
+	Timestamp      time.Time
 }

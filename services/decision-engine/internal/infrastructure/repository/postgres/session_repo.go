@@ -25,9 +25,13 @@ func NewSessionRepo(pool *Pool) session.Repository {
 
 func (r *sessionRepo) Create(ctx context.Context, s session.Session) (session.Session, error) {
 	dbSession, err := r.querier.CreateSession(ctx, sqlc.CreateSessionParams{
-		Column1: s.ChatID,
-		Column2: uuidToPgUUID(s.UserID),
-		Column3: string(s.State),
+		ChatID:         s.ChatID,
+		UserID:         uuidToPgUUID(s.UserID),
+		Channel:        s.Channel,
+		ExternalUserID: s.ExternalUserID,
+		ClientID:       s.ClientID,
+		State:          string(s.State),
+		ActiveTopic:    s.ActiveTopic,
 	})
 	if err != nil {
 		return session.Session{}, fmt.Errorf("failed to create session: %w", err)
@@ -63,6 +67,25 @@ func (r *sessionRepo) GetByChatID(
 	return domainSessionFromDB(dbSession), nil
 }
 
+func (r *sessionRepo) GetActiveByIdentity(
+	ctx context.Context,
+	identity session.Identity,
+) (session.Session, error) {
+	dbSession, err := r.querier.GetActiveSessionByIdentity(ctx, sqlc.GetActiveSessionByIdentityParams{
+		Channel:        identity.Channel,
+		ExternalUserID: identity.ExternalUserID,
+		ClientID:       identity.ClientID,
+	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return session.Session{}, err
+		}
+		return session.Session{}, session.ErrNotFound
+	}
+
+	return domainSessionFromDB(dbSession), nil
+}
+
 func (r *sessionRepo) GetByUserID(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -85,8 +108,19 @@ func (r *sessionRepo) Update(
 	ctx context.Context,
 	s session.Session,
 ) (session.Session, error) {
-	// For now, just update state
-	return r.UpdateState(ctx, s.ID, s.State)
+	dbSession, err := r.querier.UpdateSession(ctx, sqlc.UpdateSessionParams{
+		ID:          uuidToPgUUID(s.ID),
+		State:       string(s.State),
+		ActiveTopic: s.ActiveTopic,
+	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return session.Session{}, err
+		}
+		return session.Session{}, session.ErrNotFound
+	}
+
+	return domainSessionFromDB(dbSession), nil
 }
 
 func (r *sessionRepo) UpdateState(

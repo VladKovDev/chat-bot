@@ -42,6 +42,7 @@ func NewRouter(
 
 	// Decision engine endpoints
 	h := handler.NewHandler(messageHandler, logger)
+	r.Post("/sessions", h.StartSession)
 	r.Post("/decide", h.Decide)
 
 	// LLM configuration endpoint

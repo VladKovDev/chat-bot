@@ -16,6 +16,7 @@ Content-Type: application/json
 
 {
   "text": "Привет",
+  "channel": "dev-cli",
   "chat_id": 12345
 }
 
@@ -27,6 +28,7 @@ Content-Type: application/json
 
 {
   "text": "Хочу поговорить с оператором",
+  "channel": "dev-cli",
   "chat_id": 12345
 }
 
@@ -38,6 +40,7 @@ Content-Type: application/json
 
 {
   "text": "Начнем заново",
+  "channel": "dev-cli",
   "chat_id": 12345
 }
 
@@ -49,6 +52,7 @@ Content-Type: application/json
 
 {
   "text": "У меня проблема с оплатой",
+  "channel": "dev-cli",
   "chat_id": 12346
 }
 
@@ -60,6 +64,7 @@ Content-Type: application/json
 
 {
   "text": "Техническая поддержка",
+  "channel": "dev-cli",
   "chat_id": 12346
 }
 
@@ -71,6 +76,7 @@ Content-Type: application/json
 
 {
   "text": "Спасибо, все понятно",
+  "channel": "dev-cli",
   "chat_id": 12345
 }
 
@@ -82,6 +88,7 @@ Content-Type: application/json
 
 {
   "text": "Это не помогло",
+  "channel": "dev-cli",
   "chat_id": 12346
 }
 
@@ -93,6 +100,7 @@ Content-Type: application/json
 
 {
   "text": "Здравствуйте! Мне нужна помощь с бронированием",
+  "channel": "dev-cli",
   "chat_id": 78901
 }
 
@@ -104,6 +112,7 @@ Content-Type: application/json
 
 {
   "text": "Деньги списались, но услуга не активирована",
+  "channel": "dev-cli",
   "chat_id": 78902
 }
 
@@ -115,6 +124,7 @@ Content-Type: application/json
 
 {
   "text": "Переключите меня на человека",
+  "channel": "dev-cli",
   "chat_id": 12345
 }
 
@@ -126,6 +136,7 @@ Content-Type: application/json
 
 {
   "text": "",
+  "channel": "dev-cli",
   "chat_id": 99999
 }
 
@@ -138,6 +149,7 @@ Content-Type: application/json
 
 {
   "text": "Привет",
+  "channel": "dev-cli",
   "chat_id": 55555
 }
 
@@ -149,6 +161,7 @@ Content-Type: application/json
 
 {
   "text": "У меня вопрос по услугам",
+  "channel": "dev-cli",
   "chat_id": 55555
 }
 
@@ -160,6 +173,7 @@ Content-Type: application/json
 
 {
   "text": "Какие услуги вы предоставляете?",
+  "channel": "dev-cli",
   "chat_id": 55555
 }
 

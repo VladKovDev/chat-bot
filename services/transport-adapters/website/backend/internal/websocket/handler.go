@@ -53,8 +53,33 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		logger.String("remote_addr", r.RemoteAddr),
 	)
 
-	// Set initial chat ID (can be enhanced to get from session)
-	chatID := int64(1)
+	clientID := r.URL.Query().Get("client_id")
+	if clientID == "" {
+		h.sendError(conn, "Client identity is required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	sessionResp, err := h.client.StartSession(ctx, clientID)
+	cancel()
+	if err != nil || !sessionResp.Success || sessionResp.SessionID == "" {
+		h.logger.Error("failed to start browser session",
+			logger.Err(err),
+			logger.String("client_id", clientID),
+		)
+		h.sendError(conn, "Failed to start session")
+		return
+	}
+
+	if err := h.sendSession(conn, sessionResp); err != nil {
+		h.logger.Error("failed to send session handshake",
+			logger.Err(err),
+			logger.String("remote_addr", r.RemoteAddr),
+		)
+		return
+	}
+
+	sessionID := sessionResp.SessionID
 
 	// Message loop
 	for {
@@ -113,12 +138,13 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 		h.logger.Info("processing message",
 			logger.String("text", wsMsg.Text),
-			logger.Int64("chat_id", chatID),
+			logger.String("session_id", sessionID),
+			logger.String("client_id", clientID),
 		)
 
 		// Send to decision engine
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		resp, err := h.client.SendMessage(ctx, wsMsg.Text, chatID)
+		resp, err := h.client.SendMessage(ctx, wsMsg.Text, sessionID, clientID)
 		cancel()
 
 		if err != nil {
@@ -144,10 +170,12 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 // sendResponse sends a bot response to the client
 func (h *Handler) sendResponse(conn *websocket.Conn, resp dto.DecisionEngineResponse) error {
 	wsResp := dto.WSResponse{
-		Type:    dto.MessageTypeBot,
-		Text:    resp.Text,
-		Options: resp.Options,
-		State:   resp.State,
+		Type:        dto.MessageTypeBot,
+		Text:        resp.Text,
+		Options:     resp.Options,
+		State:       resp.State,
+		ActiveTopic: resp.ActiveTopic,
+		SessionID:   resp.SessionID,
 	}
 
 	message, err := json.Marshal(wsResp)
@@ -157,6 +185,28 @@ func (h *Handler) sendResponse(conn *websocket.Conn, resp dto.DecisionEngineResp
 
 	if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
 		return fmt.Errorf("failed to write message: %w", err)
+	}
+
+	return nil
+}
+
+func (h *Handler) sendSession(conn *websocket.Conn, resp dto.SessionResponse) error {
+	wsResp := dto.WSResponse{
+		Type:        dto.MessageTypeSession,
+		Text:        "",
+		State:       resp.State,
+		ActiveTopic: resp.ActiveTopic,
+		SessionID:   resp.SessionID,
+		Resumed:     resp.Resumed,
+	}
+
+	message, err := json.Marshal(wsResp)
+	if err != nil {
+		return fmt.Errorf("failed to marshal session response: %w", err)
+	}
+
+	if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+		return fmt.Errorf("failed to write session response: %w", err)
 	}
 
 	return nil

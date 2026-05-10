@@ -19,6 +19,7 @@ class ConsoleChat:
         """Send message to decision-engine and return response."""
         payload = {
             "text": text,
+            "channel": "dev-cli",
             "chat_id": self.chat_id
         }
 

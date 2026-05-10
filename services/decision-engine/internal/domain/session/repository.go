@@ -18,6 +18,9 @@ type Repository interface {
 	// GetByChatID retrieves a session by chat ID
 	GetByChatID(ctx context.Context, chatID int64) (Session, error)
 
+	// GetActiveByIdentity retrieves an active session by channel and external user/client identity.
+	GetActiveByIdentity(ctx context.Context, identity Identity) (Session, error)
+
 	// GetByUserID retrieves sessions by user ID
 	GetByUserID(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]Session, error)
 
