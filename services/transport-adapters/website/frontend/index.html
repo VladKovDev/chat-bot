@@ -7,7 +7,13 @@
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
-    <div class="container">
+    <div class="app-shell">
+        <nav class="surface-switch" aria-label="Application view">
+            <button type="button" class="surface-tab active" data-view="chat">Chat</button>
+            <button type="button" class="surface-tab" data-view="operator">Operator</button>
+        </nav>
+
+    <div class="container chat-surface" id="chatSurface">
         <div class="header">
             <h1>Technical Support Chat</h1>
             <div class="connection-status" id="connectionStatus">
@@ -45,7 +51,81 @@
         </div>
     </div>
 
+    <section class="operator-surface hidden" id="operatorSurface" aria-label="Operator console">
+        <header class="operator-header">
+            <div>
+                <h1>Operator Console</h1>
+                <p id="operatorStatusText">Select a demo operator</p>
+            </div>
+            <label class="operator-login">
+                <span>Operator</span>
+                <select id="operatorSelect">
+                    <option value="">Choose operator</option>
+                    <option value="OP-001">OP-001 - Марина Смирнова</option>
+                    <option value="OP-002">OP-002 - Алексей Котов</option>
+                    <option value="OP-003">OP-003 - Ирина Волкова</option>
+                </select>
+            </label>
+        </header>
+
+        <div class="operator-layout">
+            <aside class="queue-panel" aria-label="Handoff queue">
+                <div class="queue-filters" id="queueFilters">
+                    <button type="button" class="filter-button active" data-status="waiting">Waiting</button>
+                    <button type="button" class="filter-button" data-status="accepted">Accepted</button>
+                    <button type="button" class="filter-button" data-status="closed">Closed</button>
+                </div>
+                <div class="queue-list" id="operatorQueue"></div>
+            </aside>
+
+            <main class="session-panel">
+                <div class="session-toolbar">
+                    <div>
+                        <h2 id="operatorSessionTitle">No session selected</h2>
+                        <p id="operatorSessionMeta">Queue item details will appear here</p>
+                    </div>
+                    <div class="session-actions">
+                        <button type="button" id="acceptHandoffButton" disabled>Accept</button>
+                        <button type="button" id="closeHandoffButton" disabled>Close</button>
+                    </div>
+                </div>
+
+                <div class="operator-content">
+                    <section class="operator-history" id="operatorHistory" aria-label="Session history"></section>
+                    <aside class="context-panel" aria-label="Session context">
+                        <dl>
+                            <div>
+                                <dt>Topic</dt>
+                                <dd id="contextTopic">-</dd>
+                            </div>
+                            <div>
+                                <dt>Intent</dt>
+                                <dd id="contextIntent">-</dd>
+                            </div>
+                            <div>
+                                <dt>Confidence</dt>
+                                <dd id="contextConfidence">-</dd>
+                            </div>
+                            <div>
+                                <dt>Fallbacks</dt>
+                                <dd id="contextFallbacks">0</dd>
+                            </div>
+                        </dl>
+                        <div class="action-summary-list" id="actionSummaries"></div>
+                    </aside>
+                </div>
+
+                <form id="operatorReplyForm" class="operator-reply">
+                    <input type="text" id="operatorReplyInput" placeholder="Reply as operator" autocomplete="off" disabled>
+                    <button type="submit" id="operatorReplyButton" disabled>Send</button>
+                </form>
+            </main>
+        </div>
+    </section>
+    </div>
+
     <script src="assets/js/websocket.js"></script>
     <script src="assets/js/chat.js"></script>
+    <script src="assets/js/operator.js"></script>
 </body>
 </html>

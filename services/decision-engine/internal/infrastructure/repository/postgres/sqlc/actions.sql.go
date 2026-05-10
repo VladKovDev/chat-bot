@@ -24,7 +24,7 @@ func (q *Queries) CountActions(ctx context.Context, dollar_1 pgtype.UUID) (int64
 }
 
 const getActionsBySessionID = `-- name: GetActionsBySessionID :many
-SELECT id, session_id, action_type, request_payload, response_payload, error, created_at FROM actions_log
+SELECT id, session_id, action_type, request_payload, response_payload, error, created_at, message_id, status, duration_ms, provider, redacted_payload FROM actions_log
 WHERE "session_id" = $1::UUID
 ORDER BY "created_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -53,6 +53,11 @@ func (q *Queries) GetActionsBySessionID(ctx context.Context, arg GetActionsBySes
 			&i.ResponsePayload,
 			&i.Error,
 			&i.CreatedAt,
+			&i.MessageID,
+			&i.Status,
+			&i.DurationMs,
+			&i.Provider,
+			&i.RedactedPayload,
 		); err != nil {
 			return nil, err
 		}
@@ -65,7 +70,7 @@ func (q *Queries) GetActionsBySessionID(ctx context.Context, arg GetActionsBySes
 }
 
 const getActionsByType = `-- name: GetActionsByType :many
-SELECT id, session_id, action_type, request_payload, response_payload, error, created_at FROM actions_log
+SELECT id, session_id, action_type, request_payload, response_payload, error, created_at, message_id, status, duration_ms, provider, redacted_payload FROM actions_log
 WHERE "action_type" = $1::VARCHAR(50)
 ORDER BY "created_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -94,6 +99,11 @@ func (q *Queries) GetActionsByType(ctx context.Context, arg GetActionsByTypePara
 			&i.ResponsePayload,
 			&i.Error,
 			&i.CreatedAt,
+			&i.MessageID,
+			&i.Status,
+			&i.DurationMs,
+			&i.Provider,
+			&i.RedactedPayload,
 		); err != nil {
 			return nil, err
 		}
@@ -108,7 +118,7 @@ func (q *Queries) GetActionsByType(ctx context.Context, arg GetActionsByTypePara
 const logAction = `-- name: LogAction :one
 INSERT INTO actions_log ("session_id", "action_type", "request_payload", "response_payload", "error")
 VALUES ($1::UUID, $2::VARCHAR(50), $3::JSONB, $4::JSONB, $5::TEXT)
-RETURNING id, session_id, action_type, request_payload, response_payload, error, created_at
+RETURNING id, session_id, action_type, request_payload, response_payload, error, created_at, message_id, status, duration_ms, provider, redacted_payload
 `
 
 type LogActionParams struct {
@@ -136,6 +146,11 @@ func (q *Queries) LogAction(ctx context.Context, arg LogActionParams) (ActionsLo
 		&i.ResponsePayload,
 		&i.Error,
 		&i.CreatedAt,
+		&i.MessageID,
+		&i.Status,
+		&i.DurationMs,
+		&i.Provider,
+		&i.RedactedPayload,
 	)
 	return i, err
 }

@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-isatty v0.0.20
+	github.com/pgvector/pgvector-go v0.2.3
 	github.com/sony/gobreaker v1.0.0
 	github.com/spf13/viper v1.21.0
 	go.uber.org/zap v1.27.1

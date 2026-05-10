@@ -261,21 +261,6 @@ func TestStartSessionRejectsMissingIdentity(t *testing.T) {
 	}
 }
 
-func TestDevCLIIdentityUsesStableExternalUserID(t *testing.T) {
-	t.Parallel()
-
-	identity := DevCLIIdentity(42)
-	if identity.Channel != ChannelDevCLI {
-		t.Fatalf("channel = %q, want %q", identity.Channel, ChannelDevCLI)
-	}
-	if identity.ExternalUserID != "chat:42" {
-		t.Fatalf("external_user_id = %q, want chat:42", identity.ExternalUserID)
-	}
-	if err := ValidateIdentity(identity); err != nil {
-		t.Fatalf("dev cli identity should validate: %v", err)
-	}
-}
-
 type memoryRepo struct {
 	byID        map[uuid.UUID]Session
 	transitions map[uuid.UUID][]ModeTransition

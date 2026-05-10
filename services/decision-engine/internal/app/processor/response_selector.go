@@ -12,6 +12,7 @@ import (
 type ActionResult struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data,omitempty"`
+	Audit   interface{} `json:"audit,omitempty"`
 	Error   string      `json:"error,omitempty"`
 }
 
@@ -117,20 +118,28 @@ func (rs *ResponseSelector) checkDataActionResults(
 ) string {
 	actionMappings := map[string]map[string]string{
 		action.ActionFindBooking: {
-			"found":     "booking_found",
-			"not_found": "booking_not_found",
+			"found":       "booking_found",
+			"not_found":   "booking_not_found",
+			"invalid":     "error_data_missing",
+			"unavailable": "provider_lookup_unavailable",
 		},
 		action.ActionFindWorkspaceBooking: {
-			"found":     "workspace_booking_found",
-			"not_found": "workspace_booking_not_found",
+			"found":       "workspace_booking_found",
+			"not_found":   "workspace_booking_not_found",
+			"invalid":     "error_data_missing",
+			"unavailable": "provider_lookup_unavailable",
 		},
 		action.ActionFindPayment: {
-			"found":     "payment_found",
-			"not_found": "payment_not_found",
+			"found":       "payment_found",
+			"not_found":   "payment_not_found",
+			"invalid":     "error_data_missing",
+			"unavailable": "provider_lookup_unavailable",
 		},
 		action.ActionFindUserAccount: {
-			"found":     "account_found",
-			"not_found": "account_not_found",
+			"found":       "account_found",
+			"not_found":   "account_not_found",
+			"invalid":     "error_data_missing",
+			"unavailable": "provider_lookup_unavailable",
 		},
 	}
 
@@ -194,14 +203,14 @@ func (rs *ResponseSelector) checkCategoryStates(
 	currentState state.State,
 ) string {
 	categoryMapping := map[state.State]string{
-		state.StateBooking:     "booking_category",
-		state.StateWorkspace:   "workspace_category",
-		state.StatePayment:     "payment_category",
-		state.StateTechIssue:   "tech_issue_category",
-		state.StateAccount:     "account_category",
-		state.StateServices:    "services_category",
-		state.StateComplaint:   "complaint_category",
-		state.StateOther:       "other_category",
+		state.StateBooking:   "booking_category",
+		state.StateWorkspace: "workspace_category",
+		state.StatePayment:   "payment_category",
+		state.StateTechIssue: "tech_issue_category",
+		state.StateAccount:   "account_category",
+		state.StateServices:  "services_category",
+		state.StateComplaint: "complaint_category",
+		state.StateOther:     "other_category",
 	}
 
 	if key, ok := categoryMapping[currentState]; ok {

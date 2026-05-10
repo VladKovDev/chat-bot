@@ -15,19 +15,35 @@ import (
 )
 
 const (
-	lowConfidenceThreshold = 0.55
-	ambiguityDelta         = 0.08
+	DefaultMatchThreshold   = 0.78
+	DefaultAmbiguityDelta   = 0.08
+	defaultLowConfidence    = "low_confidence"
+	defaultAmbiguousMatch   = "ambiguous_match"
+	defaultNoSemanticIntent = "no_semantic_intent"
 )
 
 type Candidate struct {
-	IntentKey  string
-	Confidence float64
+	IntentID   string         `json:"intent_id,omitempty"`
+	IntentKey  string         `json:"intent_key"`
+	Confidence float64        `json:"confidence"`
+	Source     string         `json:"source,omitempty"`
+	Text       string         `json:"text,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
 }
 
 type MatchResult struct {
-	IntentKey  string
-	Confidence float64
-	Candidates []Candidate
+	IntentKey      string
+	Confidence     float64
+	AmbiguityDelta float64
+	LowConfidence  bool
+	FallbackReason string
+	Candidates     []Candidate
+}
+
+type QuickReplySelection struct {
+	ID      string
+	Action  string
+	Payload map[string]any
 }
 
 type Matcher interface {
@@ -42,6 +58,7 @@ type Result struct {
 	Actions                 []string
 	ActionContext           map[string]any
 	Confidence              *float64
+	Candidates              []Candidate
 	LowConfidence           bool
 	Event                   session.Event
 	UseActionResponseSelect bool
@@ -94,20 +111,76 @@ func (s *Service) Decide(
 
 	confidence := match.Confidence
 	if match.IntentKey == "" || s.isLowConfidence(match) {
-		return s.lowConfidenceResult(sess, confidence), nil
+		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
 	}
 
 	intentDefinition, ok := s.intentsByKey[match.IntentKey]
 	if !ok {
-		return s.lowConfidenceResult(sess, confidence), nil
+		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
 	}
 
+	return resultForIntent(sess, intentDefinition, text, confidencePtr(confidence), match.Candidates), nil
+}
+
+func (s *Service) DecideQuickReply(
+	ctx context.Context,
+	sess session.Session,
+	history []message.Message,
+	selection QuickReplySelection,
+	text string,
+) (Result, error) {
+	switch strings.TrimSpace(selection.Action) {
+	case "select_intent":
+		intentKey := quickReplyPayloadString(selection.Payload, "intent")
+		if intentKey == "" {
+			return Result{}, fmt.Errorf("quick reply %q select_intent payload.intent is required", selection.ID)
+		}
+		intentDefinition, ok := s.intentsByKey[intentKey]
+		if !ok {
+			return s.lowConfidenceResult(sess, 0, nil), nil
+		}
+		return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), nil
+	case "request_operator":
+		intentDefinition, ok := s.intentsByKey["request_operator"]
+		if !ok {
+			return Result{
+				Intent:      "request_operator",
+				State:       state.StateEscalatedToOperator,
+				Topic:       sess.ActiveTopic,
+				ResponseKey: "operator_handoff_requested",
+				Confidence:  confidencePtr(1),
+				Event:       session.EventRequestOperator,
+				Actions:     []string{action.ActionEscalateToOperator},
+				ActionContext: map[string]any{
+					"handoff_reason": "manual_request",
+				},
+			}, nil
+		}
+		return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), nil
+	case "send_text":
+		if strings.TrimSpace(text) == "" {
+			return Result{}, fmt.Errorf("quick reply %q send_text payload.text is required", selection.ID)
+		}
+		return s.Decide(ctx, sess, history, text)
+	default:
+		return Result{}, fmt.Errorf("quick reply %q action %q is unsupported", selection.ID, selection.Action)
+	}
+}
+
+func resultForIntent(
+	sess session.Session,
+	intentDefinition apppresenter.IntentDefinition,
+	text string,
+	confidence *float64,
+	candidates []Candidate,
+) Result {
 	result := Result{
 		Intent:      intentDefinition.Key,
 		State:       baseStateForIntent(intentDefinition),
 		Topic:       topicForCategory(intentDefinition.Category),
 		ResponseKey: intentDefinition.ResponseKey,
-		Confidence:  confidencePtr(confidence),
+		Confidence:  confidence,
+		Candidates:  append([]Candidate(nil), candidates...),
 		Event:       session.EventMessageReceived,
 	}
 
@@ -130,13 +203,17 @@ func (s *Service) Decide(
 		result.Event = session.EventRequestOperator
 		result.ResponseKey = firstNonEmpty(intentDefinition.ResponseKey, "operator_handoff_requested")
 		result.Topic = topicForCategory(intentDefinition.Category)
-		return result, nil
+		result.Actions = []string{action.ActionEscalateToOperator}
+		result.ActionContext = map[string]any{
+			"handoff_reason": handoffReasonForIntent(intentDefinition.Key),
+		}
+		return result
 	case "business_lookup":
 		identifier, identifierType := extractIdentifier(text, intentDefinition.Action)
 		if identifier == "" {
 			result.State = state.StateWaitingForIdentifier
 			result.ResponseKey = firstNonEmpty(intentDefinition.FallbackResponseKey, intentDefinition.ResponseKey)
-			return result, nil
+			return result
 		}
 
 		result.Actions = []string{intentDefinition.Action}
@@ -145,35 +222,51 @@ func (s *Service) Decide(
 			"identifier_type":     identifierType,
 		}
 		result.UseActionResponseSelect = true
-		return result, nil
+		return result
 	default:
 		result.ResponseKey = firstNonEmpty(intentDefinition.ResponseKey, "clarify_request")
 		if intentDefinition.Key == "unknown" {
 			result.LowConfidence = true
 		}
-		return result, nil
+		return result
 	}
+}
+
+func quickReplyPayloadString(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	value, ok := payload[key]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return strings.TrimSpace(text)
 }
 
 func (s *Service) isLowConfidence(match MatchResult) bool {
 	if match.IntentKey == "" {
 		return true
 	}
-	if match.Confidence < lowConfidenceThreshold {
+	if match.LowConfidence {
+		return true
+	}
+	if match.Confidence < DefaultMatchThreshold {
 		return true
 	}
 	if len(match.Candidates) < 2 {
 		return false
 	}
-	return match.Candidates[0].Confidence-match.Candidates[1].Confidence < ambiguityDelta
+	return match.Candidates[0].Confidence-match.Candidates[1].Confidence < DefaultAmbiguityDelta
 }
 
-func (s *Service) lowConfidenceResult(sess session.Session, confidence float64) Result {
+func (s *Service) lowConfidenceResult(sess session.Session, confidence float64, candidates []Candidate) Result {
 	result := Result{
 		Intent:        "unknown",
 		State:         state.StateWaitingClarification,
 		ResponseKey:   "clarify_request",
 		Confidence:    confidencePtr(confidence),
+		Candidates:    append([]Candidate(nil), candidates...),
 		LowConfidence: true,
 		Event:         session.EventMessageReceived,
 	}
@@ -182,9 +275,20 @@ func (s *Service) lowConfidenceResult(sess session.Session, confidence float64) 
 		result.State = state.StateEscalatedToOperator
 		result.ResponseKey = "operator_handoff_requested"
 		result.Event = session.EventRequestOperator
+		result.Actions = []string{action.ActionEscalateToOperator}
+		result.ActionContext = map[string]any{
+			"handoff_reason": "low_confidence_repeated",
+		}
 	}
 
 	return result
+}
+
+func handoffReasonForIntent(intentKey string) string {
+	if intentKey == "report_complaint" || strings.HasPrefix(intentKey, "complaint_") {
+		return "complaint"
+	}
+	return "manual_request"
 }
 
 func baseStateForIntent(intentDefinition apppresenter.IntentDefinition) state.State {
@@ -237,8 +341,8 @@ func firstNonEmpty(values ...string) string {
 }
 
 var (
-	bookingIdentifierPattern   = regexp.MustCompile(`БРГ-\d{6}`)
-	workspaceIdentifierPattern = regexp.MustCompile(`WRK-(HOT|FIX|OFC1|OFC4)-\d{3}`)
+	bookingIdentifierPattern   = regexp.MustCompile(`(БРГ|BRG)-\d{6}`)
+	workspaceIdentifierPattern = regexp.MustCompile(`WS-\d{4}|WRK-(HOT|FIX|OFC1|OFC4)-\d{3}`)
 	paymentIdentifierPattern   = regexp.MustCompile(`PAY-[A-Z0-9-]{3,}`)
 	userIdentifierPattern      = regexp.MustCompile(`usr-\d{6}`)
 	phoneIdentifierPattern     = regexp.MustCompile(`\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}|\b\d{10}\b`)

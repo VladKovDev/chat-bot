@@ -35,6 +35,12 @@
           "identifier": "WS-ERROR-503",
           "code": "provider_unavailable",
           "message": "workspace provider unavailable"
+        },
+        {
+          "id": "workspace-availability-provider-unavailable",
+          "identifier": "availability:2026-05-20:office_4_8",
+          "code": "provider_unavailable",
+          "message": "workspace availability provider unavailable"
         }
       ]
     },
@@ -81,7 +87,8 @@
       "provider": "pricing",
       "success_fixture_ids": [
         "kb-workspace-prices",
-        "kb-services-prices"
+        "kb-services-prices",
+        "kb-workspace-rules"
       ],
       "not_found_identifiers": [
         "pricing-missing"

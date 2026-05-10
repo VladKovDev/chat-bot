@@ -636,6 +636,10 @@ func (d *Dataset) providerErrorCase(providerName, identifier string) (ProviderEr
 	return errCase, ok
 }
 
+func (d *Dataset) ProviderErrorCase(providerName, identifier string) (ProviderErrorCase, bool) {
+	return d.providerErrorCase(providerName, identifier)
+}
+
 func resolveSeedsDir(configPath string) (string, error) {
 	dir := filepath.Clean(configPath)
 	if absDir, err := filepath.Abs(dir); err == nil {
@@ -675,7 +679,9 @@ func loadJSON(path string, dest any) error {
 }
 
 func normalizeIdentifier(value string) string {
-	return strings.ToUpper(strings.TrimSpace(value))
+	normalized := strings.ToUpper(strings.TrimSpace(value))
+	normalized = strings.ReplaceAll(normalized, "БРГ-", "BRG-")
+	return normalized
 }
 
 func normalizeUserIdentifier(value string) string {

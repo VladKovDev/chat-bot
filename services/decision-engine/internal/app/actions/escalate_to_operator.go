@@ -2,7 +2,7 @@ package actions
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 )
@@ -12,22 +12,23 @@ type EscalateToOperator struct{}
 
 // Execute escalates to operator with context
 func (a *EscalateToOperator) Execute(ctx context.Context, data action.ActionData) error {
-	// TODO: Implement escalation logic
-	// This should:
-	// 1. Collect conversation context (history, intent, user data)
-	// 2. Format context for operator (summary, key information)
-	// 3. Send escalation request to operator system
-	// 4. Update session state to escalated_to_operator
-	// 5. Store escalation metadata (timestamp, reason)
+	if data.Context == nil {
+		data.Context = map[string]interface{}{}
+	}
 
-	fmt.Println("EscalateToOperator: Escalating conversation to human operator")
-
-	// Example implementation:
-	// - Compile conversation summary
-	// - Include user identifier, current intent, context data
-	// - Send to operator queue/notification system
-	// - Log escalation for analytics
-	// - Update session state
+	reason := handoffReason(data)
+	data.Context["handoff_reason"] = reason
+	data.Context["action_result"] = map[string]any{
+		"status": "queued_requested",
+		"reason": reason,
+		"source": "operator_queue",
+	}
+	data.Context["action_audit"] = map[string]any{
+		"provider": "operator_queue",
+		"source":   "internal",
+		"status":   "queued_requested",
+		"reason":   reason,
+	}
 
 	return nil
 }
@@ -35,4 +36,24 @@ func (a *EscalateToOperator) Execute(ctx context.Context, data action.ActionData
 // NewEscalateToOperator creates a new EscalateToOperator action
 func NewEscalateToOperator() *EscalateToOperator {
 	return &EscalateToOperator{}
+}
+
+func handoffReason(data action.ActionData) string {
+	if value, ok := data.Context["handoff_reason"].(string); ok && strings.TrimSpace(value) != "" {
+		return strings.TrimSpace(value)
+	}
+
+	intentValue, _ := data.Context["intent"].(string)
+	intentValue = strings.TrimSpace(intentValue)
+	if intentValue == "unknown" {
+		return "low_confidence_repeated"
+	}
+	if intentValue == "report_complaint" || strings.HasPrefix(intentValue, "complaint_") {
+		return "complaint"
+	}
+	if unavailable, _ := data.Context["provider_unavailable"].(bool); unavailable {
+		return "business_error"
+	}
+
+	return "manual_request"
 }

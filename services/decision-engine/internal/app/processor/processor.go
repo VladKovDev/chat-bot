@@ -99,14 +99,19 @@ func (p *Processor) ExecuteWithResults(
 		} else {
 			// Extract action result from context
 			actionResult, hasResult := data.Context["action_result"]
+			actionAudit, hasAudit := data.Context["action_audit"]
 
 			result := ActionResult{
 				Success: true,
 				Data:    actionResult,
+				Audit:   actionAudit,
 			}
 
 			if !hasResult {
 				result = ActionResult{Success: true}
+				if hasAudit {
+					result.Audit = actionAudit
+				}
 			}
 
 			results[name] = result
@@ -118,6 +123,7 @@ func (p *Processor) ExecuteWithResults(
 
 			// Clean up action_result from context after extraction
 			delete(data.Context, "action_result")
+			delete(data.Context, "action_audit")
 		}
 	}
 

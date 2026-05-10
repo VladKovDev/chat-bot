@@ -2,7 +2,6 @@ package session
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
@@ -108,8 +107,21 @@ func (s *Service) UpdateSessionState(ctx context.Context, session *Session) (Ses
 }
 
 func (s *Service) ApplyContextDecision(ctx context.Context, sess *Session, decision ContextDecision) (Session, error) {
+	next, transition, err := PrepareContextUpdate(sess, decision)
+	if err != nil {
+		return Session{}, err
+	}
+	updated, err := s.repo.UpdateContext(ctx, next, transition)
+	if err != nil {
+		return Session{}, err
+	}
+	*sess = updated
+	return updated, nil
+}
+
+func PrepareContextUpdate(sess *Session, decision ContextDecision) (Session, *ModeTransition, error) {
 	if sess == nil {
-		return Session{}, ErrNotFound
+		return Session{}, nil, ErrNotFound
 	}
 
 	next := *sess
@@ -119,7 +131,7 @@ func (s *Service) ApplyContextDecision(ctx context.Context, sess *Session, decis
 	if decision.Event != "" && decision.Event != EventUnknown && decision.Event != EventMessageReceived {
 		mode, err := nextModeForEvent(next.Mode, decision.Event)
 		if err != nil {
-			return Session{}, err
+			return Session{}, nil, err
 		}
 		next.Mode = mode
 	}
@@ -168,24 +180,12 @@ func (s *Service) ApplyContextDecision(ctx context.Context, sess *Session, decis
 		}
 	}
 
-	updated, err := s.repo.UpdateContext(ctx, next, transition)
-	if err != nil {
-		return Session{}, err
-	}
-	*sess = updated
-	return updated, nil
+	return next, transition, nil
 }
 
 func (s *Service) CloseSession(ctx context.Context, sessionID uuid.UUID) error {
 	_, err := s.repo.UpdateStatus(ctx, sessionID, StatusClosed)
 	return err
-}
-
-func DevCLIIdentity(chatID int64) Identity {
-	return Identity{
-		Channel:        ChannelDevCLI,
-		ExternalUserID: fmt.Sprintf("chat:%d", chatID),
-	}
 }
 
 func normalizeContext(sess *Session) {

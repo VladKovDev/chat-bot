@@ -23,6 +23,9 @@ func NewServer(cfg config.Server, handler *Handler, log logger.Logger) *Server {
 
 	// WebSocket endpoint
 	mux.HandleFunc("/ws", handler.HandleConnection)
+	mux.HandleFunc("/api/operator/queue", handler.HandleOperatorQueue)
+	mux.HandleFunc("/api/operator/queue/", handler.HandleOperatorQueueAction)
+	mux.HandleFunc("/api/operator/sessions/", handler.HandleOperatorSession)
 
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

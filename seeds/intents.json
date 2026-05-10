@@ -78,7 +78,7 @@
       "fallback_response_key": "booking_request_identifier",
       "action": "find_booking",
       "result_response_keys": ["booking_found", "booking_not_found"],
-      "examples": ["проверь запись", "статус записи", "найди мою запись", "проверьте запись БРГ-482910", "какая запись у меня", "посмотрите запись по номеру", "хочу узнать статус записи", "есть ли моя запись"],
+      "examples": ["проверь запись", "статус записи", "найди мою запись", "проверьте запись БРГ-482910", "проверьте запись BRG-404000", "проверьте запись BRG-ERROR-503", "какая запись у меня", "посмотрите запись по номеру", "хочу узнать статус записи", "есть ли моя запись"],
       "quick_replies": [
         { "id": "booking-id", "label": "Ввести номер записи", "action": "send_text", "payload": { "text": "Проверить статус записи" } },
         { "id": "booking-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
@@ -198,7 +198,7 @@
       "fallback_response_key": "payment_request_id",
       "action": "find_payment",
       "result_response_keys": ["payment_found", "payment_not_found"],
-      "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа"],
+      "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "статус платежа PAY-404000", "найди платеж PAY-ERROR-503", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа"],
       "quick_replies": [
         { "id": "payment-id", "label": "Ввести ID платежа", "action": "send_text", "payload": { "text": "Статус платежа" } },
         { "id": "payment-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
@@ -304,7 +304,7 @@
       "fallback_response_key": "account_category",
       "action": "find_user_account",
       "result_response_keys": ["account_found", "account_not_found"],
-      "examples": ["проверь аккаунт", "аккаунт по телефону", "найди мой аккаунт", "посмотрите аккаунт", "какой статус аккаунта", "есть ли мой профиль", "проверьте профиль по почте", "что с моим аккаунтом"],
+      "examples": ["проверь аккаунт", "проверь аккаунт user1@example.com", "проверь аккаунт missing@example.com", "аккаунт по телефону", "найди мой аккаунт", "посмотрите аккаунт", "какой статус аккаунта", "есть ли мой профиль", "проверьте профиль по почте", "что с моим аккаунтом"],
       "quick_replies": [
         { "id": "account-status", "label": "Проверить аккаунт", "action": "send_text", "payload": { "text": "Проверить аккаунт" } },
         { "id": "account-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }

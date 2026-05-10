@@ -37,6 +37,36 @@ var expectedPlaceholdersByResponse = map[string][]string{
 	"escalation_context_sent": {"question"},
 }
 
+var renderablePlaceholderKeys = []string{
+	"account_id",
+	"account_status",
+	"active_topic",
+	"amount",
+	"booking_number",
+	"booking_status",
+	"channel",
+	"client_id",
+	"date",
+	"duration",
+	"email",
+	"external_user_id",
+	"fallback_count",
+	"last_intent",
+	"master",
+	"mode",
+	"operator_status",
+	"payment_id",
+	"payment_status",
+	"phone",
+	"purpose",
+	"question",
+	"service",
+	"status",
+	"time",
+	"user_id",
+	"workspace_type",
+}
+
 var requiredIntentKeys = []string{
 	"greeting",
 	"goodbye",
@@ -110,6 +140,13 @@ func (v *Validator) Validate() error {
 	}
 
 	errors := make([]string, 0)
+	if fallback, ok := v.responses[safeRenderFallbackKey]; !ok {
+		errors = append(errors, fmt.Sprintf("missing safe render fallback response_key: %s", safeRenderFallbackKey))
+	} else if placeholders, err := extractPlaceholders(fallback.Message); err != nil {
+		errors = append(errors, fmt.Sprintf("invalid placeholders for safe render fallback response_key: %s: %v", safeRenderFallbackKey, err))
+	} else if len(placeholders) > 0 {
+		errors = append(errors, fmt.Sprintf("safe render fallback response_key %s must not contain placeholders: %s", safeRenderFallbackKey, strings.Join(placeholders, ", ")))
+	}
 
 	// Check: All responses have valid structure
 	for key, resp := range v.responses {
@@ -149,6 +186,11 @@ func (v *Validator) Validate() error {
 				strings.Join(placeholders, ", "),
 				strings.Join(expectedPlaceholders, ", "),
 			))
+		}
+		for _, placeholder := range placeholders {
+			if !slices.Contains(renderablePlaceholderKeys, placeholder) {
+				errors = append(errors, fmt.Sprintf("response_key: %s uses unsupported render placeholder: %s", key, placeholder))
+			}
 		}
 	}
 

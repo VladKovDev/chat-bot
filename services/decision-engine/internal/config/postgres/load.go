@@ -13,6 +13,30 @@ func LoadConfig(v *viper.Viper) (postgres.Config, error) {
 	if err := v.UnmarshalKey("database", &cfg); err != nil {
 		return postgres.Config{}, err
 	}
+	if v.IsSet("database.host") {
+		cfg.Host = v.GetString("database.host")
+	}
+	if v.IsSet("database.port") {
+		cfg.Port = v.GetInt("database.port")
+	}
+	if v.IsSet("database.user") {
+		cfg.User = v.GetString("database.user")
+	}
+	if v.IsSet("database.password") {
+		cfg.Password = v.GetString("database.password")
+	}
+	if v.IsSet("database.name") {
+		cfg.Name = v.GetString("database.name")
+	}
+	if v.IsSet("database.sslmode") {
+		cfg.SSLMode = v.GetString("database.sslmode")
+	}
+	if v.IsSet("database.max_open_conns") {
+		cfg.MaxOpenConns = v.GetInt("database.max_open_conns")
+	}
+	if v.IsSet("database.max_idle_conns") {
+		cfg.MaxIdleConns = v.GetInt("database.max_idle_conns")
+	}
 
 	if err := Validate(cfg); err != nil {
 		return postgres.Config{}, err
@@ -22,12 +46,12 @@ func LoadConfig(v *viper.Viper) (postgres.Config, error) {
 }
 
 func bindEnv(v *viper.Viper) {
-	_ = v.BindEnv("database.host")
-	_ = v.BindEnv("database.port")
-	_ = v.BindEnv("database.user")
-	_ = v.BindEnv("database.password")
-	_ = v.BindEnv("database.name")
-	_ = v.BindEnv("database.sslmode")
-	_ = v.BindEnv("database.max_open_conns")
-	_ = v.BindEnv("database.max_idle_conns")
+	_ = v.BindEnv("database.host", "DATABASE_HOST")
+	_ = v.BindEnv("database.port", "DATABASE_PORT")
+	_ = v.BindEnv("database.user", "DATABASE_USER")
+	_ = v.BindEnv("database.password", "DATABASE_PASSWORD")
+	_ = v.BindEnv("database.name", "DATABASE_NAME")
+	_ = v.BindEnv("database.sslmode", "DATABASE_SSLMODE")
+	_ = v.BindEnv("database.max_open_conns", "DATABASE_MAX_OPEN_CONNS")
+	_ = v.BindEnv("database.max_idle_conns", "DATABASE_MAX_IDLE_CONNS")
 }

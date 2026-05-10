@@ -9,11 +9,18 @@ import (
 type IncomingMessage struct {
 	EventID        uuid.UUID
 	SessionID      uuid.UUID
-	ChatID         int64
 	Channel        string
 	ExternalUserID string
 	ClientID       string
 	Text           string
+	QuickReply     *QuickReplySelection
 	RequestID      string
 	Timestamp      time.Time
+}
+
+type QuickReplySelection struct {
+	ID      string
+	Label   string
+	Action  string
+	Payload map[string]any
 }

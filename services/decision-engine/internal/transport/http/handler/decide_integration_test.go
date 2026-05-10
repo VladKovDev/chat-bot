@@ -12,6 +12,7 @@ import (
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	appprocessor "github.com/VladKovDev/chat-bot/internal/app/processor"
 	appworker "github.com/VladKovDev/chat-bot/internal/app/worker"
+	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
@@ -72,7 +73,7 @@ func TestMessageUsesDeterministicDecisionServiceWithoutLLM(t *testing.T) {
 		decisionService,
 		processor,
 		presenter,
-		messageStore,
+		newIntegrationMessagePersistence(messageStore, sessionStore),
 		logger.Noop(),
 	)
 	handler := NewHandler(worker, sessionService, sessionStore, messageStore, logger.Noop())
@@ -244,3 +245,68 @@ func (f *fakeSessionStore) Count(_ context.Context) (int64, error) {
 func (f *fakeMessageStore) CountBySessionID(_ context.Context, sessionID uuid.UUID) (int64, error) {
 	return int64(len(f.items[sessionID])), nil
 }
+
+type integrationMessagePersistence struct {
+	messages *fakeMessageStore
+	sessions *fakeSessionStore
+}
+
+func newIntegrationMessagePersistence(
+	messages *fakeMessageStore,
+	sessions *fakeSessionStore,
+) *integrationMessagePersistence {
+	return &integrationMessagePersistence{
+		messages: messages,
+		sessions: sessions,
+	}
+}
+
+func (p *integrationMessagePersistence) WithinMessageTransaction(
+	ctx context.Context,
+	fn func(context.Context, appworker.MessageTransaction) error,
+) error {
+	return fn(ctx, &integrationMessageTx{messages: p.messages, sessions: p.sessions})
+}
+
+type integrationMessageTx struct {
+	messages *fakeMessageStore
+	sessions *fakeSessionStore
+}
+
+func (tx *integrationMessageTx) CreateMessage(ctx context.Context, msg message.Message) (message.Message, error) {
+	return tx.messages.Create(ctx, msg)
+}
+
+func (tx *integrationMessageTx) GetLastMessagesBySessionID(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	limit int32,
+) ([]message.Message, error) {
+	return tx.messages.GetLastMessagesBySessionID(ctx, sessionID, limit)
+}
+
+func (tx *integrationMessageTx) LogDecision(_ context.Context, _ appworker.DecisionLog) error {
+	return nil
+}
+
+func (tx *integrationMessageTx) LogAction(_ context.Context, _ action.Log) error {
+	return nil
+}
+
+func (tx *integrationMessageTx) ApplyContextDecision(
+	_ context.Context,
+	sess *session.Session,
+	decision session.ContextDecision,
+) (session.Session, error) {
+	next, _, err := session.PrepareContextUpdate(sess, decision)
+	if err != nil {
+		return session.Session{}, err
+	}
+	tx.sessions.mustSetSession(next)
+	*sess = next
+	return next, nil
+}
+
+var _ appworker.MessagePersistence = (*integrationMessagePersistence)(nil)
+
+var _ appworker.MessageTransaction = (*integrationMessageTx)(nil)

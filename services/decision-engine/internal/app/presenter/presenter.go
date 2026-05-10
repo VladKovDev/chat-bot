@@ -7,6 +7,7 @@ import (
 
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
+	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 const quickReplyActionSend = "send_text"
@@ -16,6 +17,7 @@ type QuickReplyConfig struct {
 	Label   string         `json:"label"`
 	Action  string         `json:"action"`
 	Payload map[string]any `json:"payload,omitempty"`
+	Order   int            `json:"order,omitempty"`
 }
 
 // ResponseConfig represents a response template from JSON
@@ -29,13 +31,20 @@ type ResponseConfig struct {
 type Presenter struct {
 	configPath string
 	responses  map[string]*ResponseConfig
+	logger     logger.Logger
 }
 
 // NewPresenter creates a new presenter
-func NewPresenter(configPath string) (*Presenter, error) {
+func NewPresenter(configPath string, logs ...logger.Logger) (*Presenter, error) {
+	log := logger.Noop()
+	if len(logs) > 0 && logs[0] != nil {
+		log = logs[0]
+	}
+
 	p := &Presenter{
 		configPath: configPath,
 		responses:  make(map[string]*ResponseConfig),
+		logger:     log,
 	}
 
 	if err := p.load(); err != nil {
@@ -48,17 +57,10 @@ func NewPresenter(configPath string) (*Presenter, error) {
 
 // Present creates a response from a template key and state
 func (p *Presenter) Present(responseKey string, st state.State) (response.Response, error) {
-	cfg, err := p.GetResponse(responseKey)
-	if err != nil {
-		return response.Response{}, fmt.Errorf("failed to load response config: %w", err)
-	}
-
-	return response.Response{
-		Text:         cfg.Message,
-		Options:      cfg.legacyOptions(),
-		QuickReplies: cfg.quickReplies(),
-		State:        st,
-	}, nil
+	return p.Render(RenderInput{
+		ResponseKey: responseKey,
+		State:       st,
+	})
 }
 
 // load loads all response templates from JSON file
@@ -131,6 +133,7 @@ func (c *ResponseConfig) quickReplies() []response.QuickReply {
 				Label:   quickReply.Label,
 				Action:  quickReply.Action,
 				Payload: clonePayload(quickReply.Payload),
+				Order:   quickReply.Order,
 			})
 		}
 		return replies
@@ -141,7 +144,7 @@ func (c *ResponseConfig) quickReplies() []response.QuickReply {
 	}
 
 	replies := make([]response.QuickReply, 0, len(c.Options))
-	for _, option := range c.Options {
+	for index, option := range c.Options {
 		replies = append(replies, response.QuickReply{
 			ID:     slugifyQuickReplyID(option),
 			Label:  option,
@@ -149,6 +152,7 @@ func (c *ResponseConfig) quickReplies() []response.QuickReply {
 			Payload: map[string]any{
 				"text": option,
 			},
+			Order: index,
 		})
 	}
 

@@ -6,27 +6,68 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #eef2f6;
     height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #17202a;
+}
+
+.app-shell {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+}
+
+.surface-switch {
+    width: min(100%, 72rem);
+    display: flex;
+    gap: 0.5rem;
+}
+
+.surface-tab,
+.filter-button,
+.session-actions button,
+.operator-reply button {
+    min-height: 2.75rem;
+    border: 1px solid #c9d3df;
+    background: #ffffff;
+    color: #1f2d3d;
+    border-radius: 0.5rem;
+    padding: 0 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.surface-tab.active,
+.filter-button.active {
+    background: #17324d;
+    border-color: #17324d;
+    color: #ffffff;
+}
+
+.hidden {
+    display: none !important;
 }
 
 .container {
-    width: 90%;
-    max-width: 800px;
-    height: 90vh;
+    width: min(100%, 50rem);
+    height: calc(100vh - 5.25rem);
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border-radius: 0.5rem;
+    box-shadow: 0 0.75rem 2rem rgba(15, 23, 42, 0.12);
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #17324d;
     color: white;
     padding: 20px;
     display: flex;
@@ -126,13 +167,13 @@ body {
 
 .message-text {
     padding: 12px 16px;
-    border-radius: 12px;
+    border-radius: 8px;
     word-wrap: break-word;
     line-height: 1.4;
 }
 
 .user-message .message-text {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #1f6f8b;
     color: white;
     border-bottom-right-radius: 4px;
 }
@@ -166,16 +207,17 @@ body {
 .option-button {
     padding: 8px 16px;
     background: white;
-    border: 1px solid #667eea;
-    border-radius: 20px;
-    color: #667eea;
+    border: 1px solid #1f6f8b;
+    border-radius: 8px;
+    color: #1f6f8b;
     cursor: pointer;
     font-size: 14px;
     transition: all 0.2s;
+    min-height: 44px;
 }
 
 .option-button:hover:not(:disabled) {
-    background: #667eea;
+    background: #1f6f8b;
     color: white;
 }
 
@@ -238,7 +280,7 @@ body {
 }
 
 .message-input:focus {
-    border-color: #667eea;
+    border-color: #1f6f8b;
 }
 
 .message-input:disabled {
@@ -248,10 +290,10 @@ body {
 
 .send-button {
     padding: 12px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: #17324d;
     color: white;
     border: none;
-    border-radius: 24px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
@@ -269,6 +311,235 @@ body {
 .send-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.operator-surface {
+    width: min(100%, 72rem);
+    height: calc(100vh - 5.25rem);
+    background: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.75rem 2rem rgba(15, 23, 42, 0.12);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.operator-header,
+.session-toolbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #d8e0ea;
+}
+
+.operator-header h1,
+.session-toolbar h2 {
+    font-size: 1.125rem;
+    line-height: 1.25;
+}
+
+.operator-header p,
+.session-toolbar p {
+    margin-top: 0.25rem;
+    color: #667085;
+    font-size: 0.875rem;
+}
+
+.operator-login {
+    display: grid;
+    gap: 0.25rem;
+    color: #4b5563;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.operator-login select,
+.operator-reply input {
+    min-height: 2.75rem;
+    border: 1px solid #c9d3df;
+    border-radius: 0.5rem;
+    padding: 0 0.75rem;
+    background: #ffffff;
+    color: #17202a;
+}
+
+.operator-layout {
+    min-height: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.queue-panel {
+    border-bottom: 1px solid #d8e0ea;
+    min-height: 12rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.queue-filters {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-bottom: 1px solid #edf1f5;
+    overflow-x: auto;
+}
+
+.queue-list,
+.operator-history {
+    overflow-y: auto;
+}
+
+.queue-list {
+    padding: 0.75rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.queue-item {
+    text-align: left;
+    border: 1px solid #d8e0ea;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.75rem;
+    cursor: pointer;
+}
+
+.queue-item.active {
+    border-color: #1f6f8b;
+    box-shadow: 0 0 0 2px rgba(31, 111, 139, 0.12);
+}
+
+.queue-item strong,
+.queue-item span {
+    display: block;
+}
+
+.queue-item strong {
+    color: #17202a;
+    font-size: 0.9375rem;
+}
+
+.queue-item span {
+    color: #667085;
+    font-size: 0.8125rem;
+    margin-top: 0.25rem;
+}
+
+.session-panel {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.session-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.session-actions button:disabled,
+.operator-reply button:disabled,
+.operator-reply input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.operator-content {
+    min-height: 0;
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+}
+
+.operator-history {
+    min-height: 14rem;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: #f8fafc;
+}
+
+.history-message {
+    width: min(100%, 38rem);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    background: #ffffff;
+    border: 1px solid #d8e0ea;
+}
+
+.history-message.user {
+    align-self: flex-end;
+    border-color: #b6d6e2;
+}
+
+.history-message.operator {
+    border-color: #b7dfc8;
+}
+
+.history-message.bot {
+    border-color: #d8e0ea;
+}
+
+.history-message .meta {
+    color: #667085;
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.context-panel {
+    border-top: 1px solid #d8e0ea;
+    padding: 1rem;
+    background: #ffffff;
+}
+
+.context-panel dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.context-panel dt {
+    color: #667085;
+    font-size: 0.75rem;
+}
+
+.context-panel dd {
+    margin-top: 0.25rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.action-summary-list {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.action-summary {
+    border: 1px solid #d8e0ea;
+    border-radius: 0.5rem;
+    padding: 0.625rem;
+    font-size: 0.8125rem;
+}
+
+.operator-reply {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-top: 1px solid #d8e0ea;
+}
+
+.operator-reply input {
+    flex: 1;
+}
+
+.operator-reply button {
+    background: #17324d;
+    color: #ffffff;
+    border-color: #17324d;
 }
 
 /* Scrollbar styling */
@@ -290,11 +561,55 @@ body {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
+@media (min-width: 768px) {
+    .operator-layout {
+        grid-template-columns: 20rem 1fr;
+    }
+
+    .queue-panel {
+        border-right: 1px solid #d8e0ea;
+        border-bottom: 0;
+        min-height: 0;
+    }
+
+    .operator-content {
+        grid-template-columns: minmax(0, 1fr) 18rem;
+    }
+
+    .context-panel {
+        border-top: 0;
+        border-left: 1px solid #d8e0ea;
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 767px) {
+    .app-shell {
+        padding: 0;
+        gap: 0;
+    }
+
+    .surface-switch {
+        padding: 0.5rem;
+        background: #ffffff;
+        border-bottom: 1px solid #d8e0ea;
+    }
+
     .container {
         width: 100%;
-        height: 100vh;
+        height: calc(100vh - 3.75rem);
         border-radius: 0;
+    }
+
+    .operator-surface {
+        height: calc(100vh - 3.75rem);
+        border-radius: 0;
+    }
+
+    .operator-header,
+    .session-toolbar {
+        align-items: stretch;
+        flex-direction: column;
     }
 
     .message-content {

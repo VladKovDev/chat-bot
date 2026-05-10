@@ -2,19 +2,18 @@ package actions
 
 import (
 	"context"
-	"fmt"
-	"hash/fnv"
 
+	appprovider "github.com/VladKovDev/chat-bot/internal/app/provider"
 	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
-// FindPayment MOCK finds payment record in main service DB
+// FindPayment finds payment records through the configured payment provider.
 type FindPayment struct {
-	logger  logger.Logger
-	dataset *appseed.Dataset
+	logger   logger.Logger
+	provider appprovider.PaymentProvider
 }
 
 // NewFindPayment creates a new FindPayment action
@@ -25,134 +24,63 @@ func NewFindPayment(logger logger.Logger, datasets ...*appseed.Dataset) *FindPay
 	}
 
 	return &FindPayment{
-		logger:  logger,
-		dataset: dataset,
+		logger:   logger,
+		provider: appprovider.NewMockPaymentService(dataset),
 	}
 }
 
-// Execute MOCK generates and returns payment data
 func (a *FindPayment) Execute(ctx context.Context, data action.ActionData) error {
-	// Extract identifier from context
-	identifier, _ := data.Context["provided_identifier"].(string)
-	if identifier == "" {
-		// Try user text
-		identifier = data.UserText
+	identifier, identifierType := providerIdentifier(data)
+	response, audit, err := a.provider.LookupPayment(ctx, appprovider.PaymentLookupRequest{
+		Identifier:     identifier,
+		IdentifierType: identifierType,
+	})
+	result := paymentActionResult(response, audit)
+	if err != nil {
+		result = safeProviderErrorResult(audit, err)
 	}
 
-	var (
-		mockData map[string]interface{}
-		err      error
-	)
-	if a.dataset != nil {
-		mockData, err = a.dataset.LookupPayment(identifier)
-		if err != nil {
-			return err
-		}
-	} else {
-		mockData = a.generateMockPayment(identifier, mockIdentitySeed(data.Session))
-	}
+	storeProviderOutcome(data, "payment_info", result, audit)
 
-	// Store result in context for processor
-	data.Context["action_result"] = mockData
-
-	// Store in session metadata for later use
-	if data.Session.Metadata == nil {
-		data.Session.Metadata = map[string]any{}
-	}
-	data.Session.Metadata["payment_info"] = mockData
-
-	status, _ := mockData["status"].(string)
 	a.logger.Info("MOCK: find_payment executed",
 		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
 		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
-		a.logger.String("status", status))
+		a.logger.String("provider", audit.Provider),
+		a.logger.String("source", audit.Source),
+		a.logger.String("status", audit.Status),
+		a.logger.Int64("duration_ms", audit.DurationMS),
+		a.logger.String("error_code", audit.ErrorCode))
 
 	return nil
 }
 
-// generateMockPayment MOCK generates varied payment records
-func (a *FindPayment) generateMockPayment(input string, identitySeed string) map[string]interface{} {
-	// Special patterns for testing
-	if input == "PAY-NOTFOUND" || input == "INVALID" || input == "NOTFOUND" {
-		return map[string]interface{}{
-			"status": "not_found",
-			"error":  "payment not found",
-		}
+func paymentActionResult(response appprovider.PaymentLookupResponse, audit appprovider.ActionAudit) map[string]any {
+	result := map[string]any{
+		"status": audit.Status,
+		"found":  response.Found,
+		"source": response.Source,
 	}
-
-	if input == "PAY-FAILED" {
-		return map[string]interface{}{
-			"status":         "found",
-			"payment_id":     "PAY-999999",
-			"amount":         1500,
-			"currency":       "RUB",
-			"payment_status": "failed",
-			"purpose":        "Офис 1-3 чел (1 час)",
-			"created_at":     "13.05.2026 10:30",
-			"error_reason":   "insufficient_funds",
-		}
+	addProviderErrorCode(result, audit)
+	if response.PaymentID != "" {
+		result["payment_id"] = response.PaymentID
 	}
-
-	// Deterministic hash-based selection (5 variants)
-	hash := fnv.New32a()
-	hash.Write([]byte(fmt.Sprintf("%s:%s", identitySeed, input)))
-	variant := int(hash.Sum32()) % 5
-
-	payments := []map[string]interface{}{
-		{
-			"status":         "found",
-			"payment_id":     "PAY-000001",
-			"amount":         0,
-			"currency":       "RUB",
-			"payment_status": "pending",
-			"purpose":        "Бронирование рабочего места",
-			"created_at":     "15.05.2026 09:00",
-		},
-		{
-			"status":         "found",
-			"payment_id":     "PAY-123456",
-			"amount":         200,
-			"currency":       "RUB",
-			"payment_status": "completed",
-			"purpose":        "Горячее место (1 час)",
-			"created_at":     "14.05.2026 10:15",
-			"completed_at":   "14.05.2026 10:16",
-			"payment_method": "card",
-		},
-		{
-			"status":         "found",
-			"payment_id":     "PAY-789012",
-			"amount":         1500,
-			"currency":       "RUB",
-			"payment_status": "failed",
-			"purpose":        "Офис 1-3 чел (1 час)",
-			"created_at":     "13.05.2026 14:30",
-			"error_reason":   "transaction_declined",
-		},
-		{
-			"status":         "found",
-			"payment_id":     "PAY-456789",
-			"amount":         5000,
-			"currency":       "RUB",
-			"payment_status": "refunded",
-			"purpose":        "Офис 4-8 чел (2 часа)",
-			"created_at":     "12.05.2026 11:00",
-			"completed_at":   "12.05.2026 11:02",
-			"refunded_at":    "13.05.2026 09:30",
-			"refund_reason":  "client_request",
-			"payment_method": "card",
-		},
-		{
-			"status":         "found",
-			"payment_id":     "PAY-345678",
-			"amount":         1000,
-			"currency":       "RUB",
-			"payment_status": "pending",
-			"purpose":        "Стрижка мужская",
-			"created_at":     "15.05.2026 08:00",
-			"payment_method": "cash",
-		},
+	if response.Amount != 0 {
+		result["amount"] = response.Amount
 	}
-
-	return payments[variant]
+	if response.Currency != "" {
+		result["currency"] = response.Currency
+	}
+	if response.Date != "" {
+		result["date"] = response.Date
+	}
+	if response.Status != "" {
+		result["payment_status"] = response.Status
+	}
+	if response.Purpose != "" {
+		result["purpose"] = response.Purpose
+	}
+	if response.CreatedAt != "" {
+		result["created_at"] = response.CreatedAt
+	}
+	return result
 }

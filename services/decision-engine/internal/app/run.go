@@ -8,18 +8,22 @@ import (
 
 	appactions "github.com/VladKovDev/chat-bot/internal/app/actions"
 	appdecision "github.com/VladKovDev/chat-bot/internal/app/decision"
+	appoperator "github.com/VladKovDev/chat-bot/internal/app/operator"
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	appprocessor "github.com/VladKovDev/chat-bot/internal/app/processor"
 	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	appworker "github.com/VladKovDev/chat-bot/internal/app/worker"
 	"github.com/VladKovDev/chat-bot/internal/config"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
+	nlpCfg "github.com/VladKovDev/chat-bot/internal/config/nlp"
 	postgresCfg "github.com/VladKovDev/chat-bot/internal/config/postgres"
 	transportCfg "github.com/VladKovDev/chat-bot/internal/config/transport"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
+	operatorDomain "github.com/VladKovDev/chat-bot/internal/domain/operator"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/user"
+	infranlp "github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/repository/postgres"
 	"github.com/VladKovDev/chat-bot/internal/transport/http"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -91,6 +95,10 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to load http config: %w", err)
 	}
+	nlpConfig, err := nlpCfg.LoadConfig(viper)
+	if err != nil {
+		return fmt.Errorf("failed to load nlp config: %w", err)
+	}
 
 	// Initialize logger
 	logger, err := logger.New(loggerConfig)
@@ -112,6 +120,9 @@ func Run(ctx context.Context) error {
 	messageRepo := postgres.NewMessageRepo(pool)
 	userRepo := postgres.NewUserRepo(pool)
 	actionLogRepo := postgres.NewActionLogRepo(pool)
+	operatorRepo := postgres.NewOperatorRepo(pool)
+	messagePersistence := postgres.NewMessagePersistence(pool)
+	semanticCatalogRepo := postgres.NewSemanticCatalogRepository(pool.Pool)
 
 	// Initialize session service
 	sessionService := session.NewService(sessionRepo)
@@ -139,10 +150,41 @@ func Run(ctx context.Context) error {
 	if err := dataset.ValidateCatalog(intentCatalog); err != nil {
 		return fmt.Errorf("failed to validate seed dataset: %w", err)
 	}
-	decisionService, err := appdecision.NewService(intentCatalog, nil, logger)
+	for _, fixture := range dataset.Operators.Items {
+		if _, err := operatorRepo.UpsertOperator(ctx, operatorDomain.Account{
+			OperatorID:  fixture.OperatorID,
+			FixtureID:   fixture.ID,
+			DisplayName: fixture.Name,
+			Status:      fixture.Status,
+		}); err != nil {
+			return fmt.Errorf("failed to persist demo operator %s: %w", fixture.OperatorID, err)
+		}
+	}
+	if err := semanticCatalogRepo.SeedDemoData(ctx, dataset); err != nil {
+		return fmt.Errorf("failed to persist demo seed data: %w", err)
+	}
+	embedder, err := infranlp.NewEmbedderClient(nlpConfig)
+	if err != nil {
+		return fmt.Errorf("failed to initialize nlp embedder: %w", err)
+	}
+	semanticMatcher, err := appdecision.NewSemanticIntentMatcher(
+		embedder,
+		semanticCatalogRepo,
+		appdecision.SemanticMatcherConfig{TopK: 3, Locale: "ru"},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize semantic matcher: %w", err)
+	}
+	if err := appseed.SeedSemanticCatalog(ctx, intentCatalog, dataset, semanticCatalogRepo, embedder); err != nil {
+		logger.Error("semantic catalog seed failed; continuing with exact-command and low-confidence fallback",
+			logger.Err(err))
+	}
+	decisionService, err := appdecision.NewService(intentCatalog, semanticMatcher, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize decision service: %w", err)
 	}
+
+	operatorService := appoperator.NewService(operatorRepo, sessionRepo)
 
 	// Initialize processor
 	processor := appprocessor.NewProcessor(logger)
@@ -163,12 +205,14 @@ func Run(ctx context.Context) error {
 	// Register utility actions
 	validateIdentifier := appactions.NewValidateIdentifier(logger)
 	processor.Register("validate_identifier", validateIdentifier)
+	processor.Register(action.ActionEscalateToOperator, appactions.NewEscalateToOperator())
 
 	// Initialize message worker
-	msgWorker := appworker.NewMessageWorker(sessionService, decisionService, processor, presenter, messageRepo, logger)
+	msgWorker := appworker.NewMessageWorker(sessionService, decisionService, processor, presenter, messagePersistence, logger, operatorService)
 
 	// Initialize HTTP transport
-	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig)
+	readiness := NewReadinessProvider(pool, nlpConfig)
+	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig, readiness, operatorService)
 	httpServer := http.NewServer(httpConfig, logger, router)
 
 	// Initialize application

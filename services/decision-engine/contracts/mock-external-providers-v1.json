@@ -1,0 +1,165 @@
+{
+  "version": "mock-external-providers-v1",
+  "providers": {
+    "booking": {
+      "endpoints": [
+        {
+          "name": "get_booking_by_number",
+          "method": "GET",
+          "path": "/api/v1/bookings/{booking_number}",
+          "request_fields": ["booking_number"],
+          "response_fields": ["found", "booking_number", "service", "master", "date", "time", "status", "price", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_bookings_by_phone",
+          "method": "GET",
+          "path": "/api/v1/bookings?phone={phone}",
+          "request_fields": ["phone"],
+          "response_fields": ["found", "booking_number", "service", "master", "date", "time", "status", "price", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        }
+      ],
+      "errors": {
+        "not_found": {"code": "booking_not_found", "message": "booking was not found for the supplied identifier"},
+        "invalid": {"code": "invalid_identifier", "message": "booking identifier has an unsupported format"},
+        "unavailable": {"code": "provider_unavailable", "message": "booking provider is temporarily unavailable"}
+      }
+    },
+    "workspace_booking": {
+      "endpoints": [
+        {
+          "name": "get_workspace_prices",
+          "method": "GET",
+          "path": "/api/v1/workspaces/prices",
+          "request_fields": [],
+          "response_fields": ["found", "knowledge_key", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_workspace_booking_by_number",
+          "method": "GET",
+          "path": "/api/v1/workspace-bookings/{booking_number}",
+          "request_fields": ["booking_number"],
+          "response_fields": ["found", "booking_number", "workspace_type", "date", "start_time", "duration_hours", "status", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_workspace_availability",
+          "method": "GET",
+          "path": "/api/v1/workspaces/availability?date={date}&type={workspace_type}",
+          "request_fields": ["date", "workspace_type"],
+          "response_fields": ["found", "workspace_type", "date", "available", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        }
+      ],
+      "errors": {
+        "not_found": {"code": "workspace_booking_not_found", "message": "workspace booking was not found for the supplied identifier"},
+        "invalid": {"code": "invalid_identifier", "message": "workspace identifier has an unsupported format"},
+        "unavailable": {"code": "provider_unavailable", "message": "workspace provider is temporarily unavailable"}
+      }
+    },
+    "payment": {
+      "endpoints": [
+        {
+          "name": "get_payment_by_id",
+          "method": "GET",
+          "path": "/api/v1/payments/{payment_id}",
+          "request_fields": ["payment_id"],
+          "response_fields": ["found", "payment_id", "amount", "currency", "status", "purpose", "created_at", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_payments_by_order_id",
+          "method": "GET",
+          "path": "/api/v1/payments?order_id={order_id}",
+          "request_fields": ["order_id"],
+          "response_fields": ["found", "payment_id", "amount", "currency", "status", "purpose", "created_at", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        }
+      ],
+      "errors": {
+        "not_found": {"code": "payment_not_found", "message": "payment was not found for the supplied identifier"},
+        "invalid": {"code": "invalid_identifier", "message": "payment identifier has an unsupported format"},
+        "unavailable": {"code": "provider_unavailable", "message": "payment provider is temporarily unavailable"}
+      }
+    },
+    "user_account": {
+      "endpoints": [
+        {
+          "name": "get_account_by_phone",
+          "method": "GET",
+          "path": "/api/v1/accounts/by-phone/{phone}",
+          "request_fields": ["phone"],
+          "response_fields": ["found", "account_id", "email", "phone", "status", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_account_by_email",
+          "method": "GET",
+          "path": "/api/v1/accounts/by-email/{email}",
+          "request_fields": ["email"],
+          "response_fields": ["found", "account_id", "email", "phone", "status", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_account_by_id",
+          "method": "GET",
+          "path": "/api/v1/accounts/{account_id}",
+          "request_fields": ["account_id"],
+          "response_fields": ["found", "account_id", "email", "phone", "status", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        }
+      ],
+      "errors": {
+        "not_found": {"code": "account_not_found", "message": "account was not found for the supplied identifier"},
+        "invalid": {"code": "invalid_identifier", "message": "account identifier has an unsupported format"},
+        "unavailable": {"code": "provider_unavailable", "message": "account provider is temporarily unavailable"}
+      }
+    },
+    "pricing": {
+      "endpoints": [
+        {
+          "name": "get_service_prices",
+          "method": "GET",
+          "path": "/api/v1/prices/services",
+          "request_fields": ["catalog"],
+          "response_fields": ["found", "knowledge_key", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_workspace_prices",
+          "method": "GET",
+          "path": "/api/v1/prices/workspaces",
+          "request_fields": ["catalog"],
+          "response_fields": ["found", "knowledge_key", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        },
+        {
+          "name": "get_workspace_rules",
+          "method": "GET",
+          "path": "/api/v1/rules/workspaces",
+          "request_fields": ["catalog"],
+          "response_fields": ["found", "knowledge_key", "source"],
+          "timeout_behavior": "return provider_unavailable with status=unavailable before the global 3s decision budget"
+        }
+      ],
+      "errors": {
+        "not_found": {"code": "pricing_not_found", "message": "pricing catalog was not found"},
+        "invalid": {"code": "invalid_identifier", "message": "pricing catalog identifier has an unsupported format"},
+        "unavailable": {"code": "provider_unavailable", "message": "pricing provider is temporarily unavailable"}
+      }
+    }
+  },
+  "action_log": {
+    "required": {
+      "provider": "stable provider key such as booking, workspace_booking, payment, user_account or pricing",
+      "source": "mock_external",
+      "status": "found, not_found, invalid or unavailable",
+      "duration_ms": "provider call duration in milliseconds"
+    },
+    "optional": {
+      "error_code": "stable safe code for invalid or unavailable provider outcomes; raw upstream messages are not exposed"
+    }
+  }
+}

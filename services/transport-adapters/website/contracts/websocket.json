@@ -44,7 +44,8 @@
         "id": { "type": "string" },
         "label": { "type": "string" },
         "action": { "type": "string" },
-        "payload": { "type": "object" }
+        "payload": { "type": "object" },
+        "order": { "type": "integer" }
       },
       "additionalProperties": false
     },

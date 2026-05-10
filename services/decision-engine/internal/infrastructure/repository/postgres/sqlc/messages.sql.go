@@ -26,7 +26,7 @@ func (q *Queries) CountMessages(ctx context.Context, dollar_1 pgtype.UUID) (int6
 const createMessage = `-- name: CreateMessage :one
 INSERT INTO messages ("session_id", "sender_type", "text", "intent")
 VALUES ($1::UUID, $2::VARCHAR(16), $3::TEXT, $4::VARCHAR(50))
-RETURNING id, session_id, sender_type, text, intent, created_at
+RETURNING id, session_id, sender_type, text, intent, created_at, idempotency_key, detected_intent, confidence, metadata, created_by
 `
 
 type CreateMessageParams struct {
@@ -51,12 +51,17 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.Text,
 		&i.Intent,
 		&i.CreatedAt,
+		&i.IdempotencyKey,
+		&i.DetectedIntent,
+		&i.Confidence,
+		&i.Metadata,
+		&i.CreatedBy,
 	)
 	return i, err
 }
 
 const getLastMessagesBySessionID = `-- name: GetLastMessagesBySessionID :many
-SELECT id, session_id, sender_type, text, intent, created_at FROM messages
+SELECT id, session_id, sender_type, text, intent, created_at, idempotency_key, detected_intent, confidence, metadata, created_by FROM messages
 WHERE "session_id" = $1::UUID
 ORDER BY "created_at" DESC
 LIMIT $2::INT
@@ -83,6 +88,11 @@ func (q *Queries) GetLastMessagesBySessionID(ctx context.Context, arg GetLastMes
 			&i.Text,
 			&i.Intent,
 			&i.CreatedAt,
+			&i.IdempotencyKey,
+			&i.DetectedIntent,
+			&i.Confidence,
+			&i.Metadata,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -95,7 +105,7 @@ func (q *Queries) GetLastMessagesBySessionID(ctx context.Context, arg GetLastMes
 }
 
 const getMessagesBySessionID = `-- name: GetMessagesBySessionID :many
-SELECT id, session_id, sender_type, text, intent, created_at FROM messages
+SELECT id, session_id, sender_type, text, intent, created_at, idempotency_key, detected_intent, confidence, metadata, created_by FROM messages
 WHERE "session_id" = $1::UUID
 ORDER BY "created_at" ASC
 LIMIT $2::INT OFFSET $3::INT
@@ -123,6 +133,11 @@ func (q *Queries) GetMessagesBySessionID(ctx context.Context, arg GetMessagesByS
 			&i.Text,
 			&i.Intent,
 			&i.CreatedAt,
+			&i.IdempotencyKey,
+			&i.DetectedIntent,
+			&i.Confidence,
+			&i.Metadata,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}

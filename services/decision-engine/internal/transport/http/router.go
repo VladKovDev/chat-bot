@@ -16,6 +16,8 @@ func NewRouter(
 	messageRepo handler.MessageRepository,
 	logger logger.Logger,
 	cfg Config,
+	readiness handler.ReadinessProvider,
+	operatorQueue ...handler.OperatorQueueService,
 ) http.Handler {
 	r := chi.NewRouter()
 
@@ -37,7 +39,8 @@ func NewRouter(
 		r.Use(middleware.TimeoutMiddleware(cfg.Timeout))
 	}
 
-	h := handler.NewHandler(messageHandler, sessionService, sessionRepo, messageRepo, logger)
+	h := handler.NewHandler(messageHandler, sessionService, sessionRepo, messageRepo, logger, operatorQueue...)
+	h.SetReadiness(readiness)
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/health", h.Health)

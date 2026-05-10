@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
+	operatorDomain "github.com/VladKovDev/chat-bot/internal/domain/operator"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/domain/transitionlog"
@@ -165,4 +166,60 @@ func domainActionLogsFromDB(dbLogs []sqlc.ActionsLog) []action.Log {
 		logs[i] = domainActionLogFromDB(dbLog)
 	}
 	return logs
+}
+
+func domainOperatorAccountFromDB(dbOperator sqlc.Operator) operatorDomain.Account {
+	account := operatorDomain.Account{
+		OperatorID:  dbOperator.OperatorID,
+		DisplayName: dbOperator.DisplayName,
+		Status:      dbOperator.Status,
+		CreatedAt:   dbOperator.CreatedAt.Time,
+		UpdatedAt:   dbOperator.UpdatedAt.Time,
+	}
+	if dbOperator.FixtureID != nil {
+		account.FixtureID = *dbOperator.FixtureID
+	}
+	return account
+}
+
+func domainOperatorQueueFromDB(dbQueue sqlc.OperatorQueue) operatorDomain.QueueItem {
+	snapshot := operatorDomain.ContextSnapshot{
+		LastMessages:    []operatorDomain.MessageSnapshot{},
+		ActionSummaries: []operatorDomain.ActionSummary{},
+	}
+	if len(dbQueue.ContextSnapshot) > 0 {
+		_ = json.Unmarshal(dbQueue.ContextSnapshot, &snapshot)
+	}
+
+	item := operatorDomain.QueueItem{
+		ID:              pgUUIDToUUID(dbQueue.ID),
+		SessionID:       pgUUIDToUUID(dbQueue.SessionID),
+		UserID:          pgUUIDToUUID(dbQueue.UserID),
+		Status:          operatorDomain.QueueStatus(dbQueue.Status),
+		Reason:          operatorDomain.Reason(dbQueue.Reason),
+		Priority:        int(dbQueue.Priority),
+		ContextSnapshot: snapshot,
+		CreatedAt:       dbQueue.CreatedAt.Time,
+		UpdatedAt:       dbQueue.UpdatedAt.Time,
+	}
+	if dbQueue.AssignedOperatorID != nil {
+		item.AssignedOperatorID = *dbQueue.AssignedOperatorID
+	}
+	if dbQueue.AcceptedAt.Valid {
+		acceptedAt := dbQueue.AcceptedAt.Time
+		item.AcceptedAt = &acceptedAt
+	}
+	if dbQueue.ClosedAt.Valid {
+		closedAt := dbQueue.ClosedAt.Time
+		item.ClosedAt = &closedAt
+	}
+	return item
+}
+
+func domainOperatorQueuesFromDB(dbQueues []sqlc.OperatorQueue) []operatorDomain.QueueItem {
+	items := make([]operatorDomain.QueueItem, len(dbQueues))
+	for i, dbQueue := range dbQueues {
+		items[i] = domainOperatorQueueFromDB(dbQueue)
+	}
+	return items
 }

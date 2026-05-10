@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chat_bot}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5442}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  decision-migrate:
+    build:
+      context: ./services/decision-engine
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-chat_bot}?sslmode=disable
+    command: ["sh", "-c", "goose -dir /app/migrations postgres \"$${DATABASE_URL}\" up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  nlp-service:
+    build:
+      context: ./services/nlp-service
+    ports:
+      - "${NLP_PORT:-8082}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/ready')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  decision-engine:
+    build:
+      context: ./services/decision-engine
+    environment:
+      APP_ENV: prod
+      CONFIG_PATH: /app/configs
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DATABASE_NAME: ${POSTGRES_DB:-chat_bot}
+      DATABASE_SSLMODE: disable
+      HTTP_ADDRESS: ":8080"
+      NLP_BASE_URL: http://nlp-service:8080
+      NLP_TIMEOUT: 5s
+      NLP_EXPECTED_DIMENSION: 384
+      NO_PROXY: localhost,127.0.0.1,postgres,nlp-service,decision-engine,website,mock-external-services
+      no_proxy: localhost,127.0.0.1,postgres,nlp-service,decision-engine,website,mock-external-services
+    ports:
+      - "${DECISION_ENGINE_PORT:-8080}:8080"
+    volumes:
+      - ./seeds:/app/seeds:ro
+    depends_on:
+      decision-migrate:
+        condition: service_completed_successfully
+      nlp-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= wget -qO- http://127.0.0.1:8080/api/v1/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  website:
+    build:
+      context: ./services/transport-adapters/website
+    environment:
+      APP_ENV: local
+      CONFIG_PATH: /app/configs
+      DECISION_ENGINE_URL: http://decision-engine:8080
+      SERVER_ADDRESS: ":8081"
+      WS_ALLOWED_ORIGINS: http://localhost:${WEBSITE_PORT:-8081}
+      NO_PROXY: localhost,127.0.0.1,postgres,nlp-service,decision-engine,website,mock-external-services
+      no_proxy: localhost,127.0.0.1,postgres,nlp-service,decision-engine,website,mock-external-services
+    ports:
+      - "${WEBSITE_PORT:-8081}:8081"
+    depends_on:
+      decision-engine:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= wget -qO- http://127.0.0.1:8081/health >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mock-external-services:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["python", "/app/scripts/mock-external-services.py"]
+    environment:
+      MOCK_EXTERNAL_HOST: 0.0.0.0
+      MOCK_EXTERNAL_PORT: 8090
+      MOCK_EXTERNAL_SEEDS_DIR: /app/seeds
+    ports:
+      - "${MOCK_EXTERNAL_PORT:-8090}:8090"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./seeds:/app/seeds:ro
+      - ./services/decision-engine/contracts:/app/contracts:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8090/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:

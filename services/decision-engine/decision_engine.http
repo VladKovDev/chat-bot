@@ -1,180 +1,192 @@
 ### Decision Engine API Tests
 
 ### Health Check
-GET http://localhost:8080/health
+GET http://localhost:8080/api/v1/health
 
 ###
 
-### Get LLM Config
-GET http://localhost:8080/config_llm
+### Domain Schema
+GET http://localhost:8080/api/v1/domain/schema
+
+###
+
+### Start Session
+POST http://localhost:8080/api/v1/sessions
+Content-Type: application/json
+
+{
+  "channel": "dev-cli",
+  "external_user_id": "demo-user-1"
+}
 
 ###
 
 ### Test 1: Greeting
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Привет",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12345
+  "external_message_id": "dev-cli-001",
+  "text": "Привет"
 }
 
 ###
 
 ### Test 2: Request operator
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Хочу поговорить с оператором",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12345
+  "external_message_id": "dev-cli-002",
+  "text": "Хочу поговорить с оператором"
 }
 
 ###
 
 ### Test 3: Reset conversation
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Начнем заново",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12345
+  "external_message_id": "dev-cli-003",
+  "text": "Начнем заново"
 }
 
 ###
 
 ### Test 4: Technical issue
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "У меня проблема с оплатой",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12346
+  "external_message_id": "dev-cli-004",
+  "text": "У меня проблема с оплатой"
 }
 
 ###
 
 ### Test 5: Category selection
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Техническая поддержка",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12346
-}
-
-###
-
-### Test 6: Goodbye
-POST http://localhost:8080/decide
-Content-Type: application/json
-
-{
-  "text": "Спасибо, все понятно",
-  "channel": "dev-cli",
-  "chat_id": 12345
+  "external_message_id": "dev-cli-005",
+  "text": "Техническая поддержка"
 }
 
 ###
 
 ### Test 7: Not resolved
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Это не помогло",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12346
+  "external_message_id": "dev-cli-006",
+  "text": "Это не помогло"
 }
 
 ###
 
 ### Test 8: New conversation (no previous messages)
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Здравствуйте! Мне нужна помощь с бронированием",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 78901
+  "external_message_id": "dev-cli-007",
+  "text": "Здравствуйте! Мне нужна помощь с бронированием"
 }
 
 ###
 
 ### Test 9: Payment issue
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Деньги списались, но услуга не активирована",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 78902
+  "external_message_id": "dev-cli-008",
+  "text": "Деньги списались, но услуга не активирована"
 }
 
 ###
 
 ### Test 10: Escalation from existing conversation
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Переключите меня на человека",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 12345
+  "external_message_id": "dev-cli-009",
+  "text": "Переключите меня на человека"
 }
 
 ###
 
 ### Test 11: Empty message (edge case)
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 99999
+  "external_message_id": "dev-cli-010",
+  "text": ""
 }
 
 ###
 
 ### Test 12: Long conversation history test
 # First message
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Привет",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 55555
+  "external_message_id": "dev-cli-011",
+  "text": "Привет"
 }
 
 ###
 
-# Follow-up message (same chat_id to build history)
-POST http://localhost:8080/decide
+# Follow-up message in the same session
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "У меня вопрос по услугам",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 55555
+  "external_message_id": "dev-cli-012",
+  "text": "У меня вопрос по услугам"
 }
 
 ###
 
 # Continue conversation
-POST http://localhost:8080/decide
+POST http://localhost:8080/api/v1/messages
 Content-Type: application/json
 
 {
-  "text": "Какие услуги вы предоставляете?",
+  "session_id": "replace-with-session-id",
   "channel": "dev-cli",
-  "chat_id": 55555
+  "external_message_id": "dev-cli-013",
+  "text": "Какие услуги вы предоставляете?"
 }
 
 ###

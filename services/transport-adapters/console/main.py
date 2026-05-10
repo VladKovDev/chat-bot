@@ -4,7 +4,7 @@ Simple console chat adapter for testing the decision-engine service.
 """
 
 import requests
-import json
+from uuid import uuid4
 
 
 class ConsoleChat:
@@ -12,21 +12,46 @@ class ConsoleChat:
 
     def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url
-        self.endpoint = f"{base_url}/api/v1/messages"
-        self.chat_id = 1
+        self.sessions_endpoint = f"{base_url}/api/v1/sessions"
+        self.messages_endpoint = f"{base_url}/api/v1/messages"
+        self.channel = "dev-cli"
+        self.client_id = f"console-{uuid4()}"
+        self.session_id: str | None = None
+        self.message_number = 0
+
+    def ensure_session(self) -> str:
+        """Start or resume a decision-engine session for this console client."""
+        if self.session_id:
+            return self.session_id
+
+        payload = {
+            "channel": self.channel,
+            "client_id": self.client_id,
+        }
+        response = requests.post(
+            self.sessions_endpoint,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        body = response.json()
+        self.session_id = body["session_id"]
+        return self.session_id
 
     def send_message(self, text: str) -> dict:
         """Send message to decision-engine and return response."""
-        payload = {
-            "text": text,
-            "type": "user_message",
-            "channel": "dev-cli",
-            "chat_id": self.chat_id
-        }
-
         try:
+            session_id = self.ensure_session()
+            self.message_number += 1
+            payload = {
+                "session_id": session_id,
+                "channel": self.channel,
+                "external_message_id": f"{self.client_id}-{self.message_number}",
+                "text": text,
+            }
             response = requests.post(
-                self.endpoint,
+                self.messages_endpoint,
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=10
@@ -60,14 +85,15 @@ class ConsoleChat:
     def run(self):
         """Run the console chat loop."""
         print("=== Console Chat Adapter ===")
-        print(f"Connected to: {self.endpoint}")
+        print(f"Connected to: {self.messages_endpoint}")
         print("Type 'quit' or 'exit' to stop the chat")
-        print("Type 'chat <id>' to change chat ID")
+        print("Type 'session' to start a new console session")
         print("-" * 40)
 
         while True:
             try:
-                user_input = input(f"[Chat #{self.chat_id}] You: ").strip()
+                label = self.session_id[:8] if self.session_id else "new"
+                user_input = input(f"[Session {label}] You: ").strip()
 
                 if not user_input:
                     continue
@@ -77,15 +103,12 @@ class ConsoleChat:
                     print("Goodbye!")
                     break
 
-                if user_input.lower().startswith("chat "):
-                    try:
-                        new_id = int(user_input.split()[1])
-                        self.chat_id = new_id
-                        print(f"✓ Chat ID changed to {new_id}\n")
-                        continue
-                    except (ValueError, IndexError):
-                        print("❌ Invalid chat ID. Usage: chat <number>\n")
-                        continue
+                if user_input.lower() == "session":
+                    self.client_id = f"console-{uuid4()}"
+                    self.session_id = None
+                    self.message_number = 0
+                    print("✓ New console session will be created on next message\n")
+                    continue
 
                 # Send message and display response
                 response = self.send_message(user_input)

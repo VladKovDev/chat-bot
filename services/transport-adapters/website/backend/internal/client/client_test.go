@@ -34,6 +34,7 @@ func TestClientUsesVersionedDecisionEngineEndpoints(t *testing.T) {
 				Resumed:   true,
 			})
 		case "/api/v1/messages":
+			messageRequest = dto.DecisionEngineRequest{}
 			if err := json.NewDecoder(r.Body).Decode(&messageRequest); err != nil {
 				t.Fatalf("decode message request: %v", err)
 			}
@@ -75,6 +76,24 @@ func TestClientUsesVersionedDecisionEngineEndpoints(t *testing.T) {
 	if messageRequest.Type != "user_message" || messageRequest.EventID != "event-1" {
 		t.Fatalf("message request = %+v", messageRequest)
 	}
+
+	_, err = c.SendQuickReply(context.Background(), dto.QuickReply{
+		ID:     "renamed-menu",
+		Label:  "Changed label",
+		Action: "select_intent",
+		Payload: map[string]any{
+			"intent": "return_to_menu",
+		},
+	}, sessionResp.SessionID, "browser-a", "event-quick-reply")
+	if err != nil {
+		t.Fatalf("send quick reply: %v", err)
+	}
+	if messageRequest.Type != "quick_reply.selected" || messageRequest.QuickReply == nil {
+		t.Fatalf("quick reply request = %+v", messageRequest)
+	}
+	if messageRequest.QuickReply.ID != "renamed-menu" || messageRequest.Text != "" {
+		t.Fatalf("quick reply request = %+v", messageRequest)
+	}
 }
 
 func TestClientPreservesStablePublicErrorShape(t *testing.T) {
@@ -107,6 +126,79 @@ func TestClientPreservesStablePublicErrorShape(t *testing.T) {
 		if !strings.Contains(err.Error(), required) {
 			t.Fatalf("client error missing %q: %v", required, err)
 		}
+	}
+}
+
+func TestClientUsesOperatorEndpoints(t *testing.T) {
+	t.Parallel()
+
+	var accepted dto.OperatorQueueActionRequest
+	var operatorMessage dto.OperatorMessageRequest
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/operator/queue":
+			if r.URL.Query().Get("status") != "waiting" {
+				t.Fatalf("queue status query = %q, want waiting", r.URL.RawQuery)
+			}
+			json.NewEncoder(w).Encode(dto.OperatorQueueResponse{
+				Items: []dto.OperatorQueueItem{{
+					HandoffID:     "handoff-a",
+					SessionID:     "session-a",
+					Status:        "waiting",
+					Reason:        "manual_request",
+					FallbackCount: 2,
+					CreatedAt:     "2026-05-10T12:00:00Z",
+					Preview:       "Нужен оператор",
+				}},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/queue/handoff-a/accept":
+			if err := json.NewDecoder(r.Body).Decode(&accepted); err != nil {
+				t.Fatalf("decode accept request: %v", err)
+			}
+			json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
+				Handoff: dto.Handoff{HandoffID: "handoff-a", SessionID: "session-a", Status: "accepted"},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/sessions/session-a/messages":
+			if err := json.NewDecoder(r.Body).Decode(&operatorMessage); err != nil {
+				t.Fatalf("decode operator message request: %v", err)
+			}
+			json.NewEncoder(w).Encode(dto.OperatorMessageResponse{
+				SessionID:  "session-a",
+				MessageID:  "message-operator-a",
+				OperatorID: operatorMessage.OperatorID,
+				Text:       operatorMessage.Text,
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	c := NewClient(config.DecisionEngine{URL: server.URL}, testLogger{})
+	queue, err := c.GetOperatorQueue(context.Background(), "waiting")
+	if err != nil {
+		t.Fatalf("get operator queue: %v", err)
+	}
+	if len(queue.Items) != 1 || queue.Items[0].FallbackCount != 2 {
+		t.Fatalf("operator queue = %+v", queue)
+	}
+
+	if _, err := c.AcceptHandoff(context.Background(), "handoff-a", "operator-1"); err != nil {
+		t.Fatalf("accept handoff: %v", err)
+	}
+	if accepted.OperatorID != "operator-1" {
+		t.Fatalf("accept operator_id = %q", accepted.OperatorID)
+	}
+
+	resp, err := c.SendOperatorMessage(context.Background(), "session-a", "operator-1", "Здравствуйте")
+	if err != nil {
+		t.Fatalf("send operator message: %v", err)
+	}
+	if resp.MessageID != "message-operator-a" || operatorMessage.Text != "Здравствуйте" {
+		t.Fatalf("operator message resp=%+v request=%+v", resp, operatorMessage)
 	}
 }
 

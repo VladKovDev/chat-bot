@@ -63,6 +63,7 @@ function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'session.started':
             window.currentSessionId = data.session_id;
+            window.operatorConnected = data.mode === 'operator_connected';
             break;
         case 'message.bot':
             displayBotMessage(data.text, data.quick_replies || []);
@@ -74,9 +75,11 @@ function handleWebSocketMessage(data) {
             displaySystemMessage('Оператор подключается. Оставайтесь в этом чате.');
             break;
         case 'handoff.accepted':
+            window.operatorConnected = true;
             displaySystemMessage('Оператор подключился к диалогу.');
             break;
         case 'handoff.closed':
+            window.operatorConnected = false;
             displaySystemMessage('Диалог с оператором завершен.');
             break;
         case 'error':
@@ -106,7 +109,9 @@ function sendMessage() {
         return;
     }
 
-    showTypingIndicator();
+    if (!window.operatorConnected) {
+        showTypingIndicator();
+    }
 }
 
 function displayUserMessage(text) {
@@ -117,14 +122,12 @@ function displayBotMessage(text, quickReplies = []) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message bot-message';
 
+    const content = createMessageContent(text);
     const buttons = renderQuickReplies(quickReplies);
-    messageDiv.innerHTML = `
-        <div class="message-content">
-            <div class="message-text">${escapeHtml(text)}</div>
-            ${buttons}
-            <div class="message-time">${getCurrentTime()}</div>
-        </div>
-    `;
+    if (buttons) {
+        content.insertBefore(buttons, content.querySelector('.message-time'));
+    }
+    messageDiv.appendChild(content);
 
     messagesContainer.appendChild(messageDiv);
     scrollToBottom();
@@ -145,27 +148,49 @@ function displayErrorMessage(text) {
 function appendMessage(className, text) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${className}`;
-    messageDiv.innerHTML = `
-        <div class="message-content">
-            <div class="message-text">${escapeHtml(text)}</div>
-            <div class="message-time">${getCurrentTime()}</div>
-        </div>
-    `;
+    messageDiv.appendChild(createMessageContent(text));
     messagesContainer.appendChild(messageDiv);
     scrollToBottom();
 }
 
+function createMessageContent(text) {
+    const content = document.createElement('div');
+    content.className = 'message-content';
+
+    const messageText = document.createElement('div');
+    messageText.className = 'message-text';
+    messageText.textContent = text;
+    content.appendChild(messageText);
+
+    const messageTime = document.createElement('div');
+    messageTime.className = 'message-time';
+    messageTime.textContent = getCurrentTime();
+    content.appendChild(messageTime);
+
+    return content;
+}
+
 function renderQuickReplies(quickReplies) {
     if (!Array.isArray(quickReplies) || quickReplies.length === 0) {
-        return '';
+        return null;
     }
 
-    const buttons = quickReplies.map((quickReply) => {
-        const encoded = encodeURIComponent(JSON.stringify(quickReply));
-        return `<button class="option-button" data-quick-reply="${encoded}">${escapeHtml(quickReply.label)}</button>`;
-    }).join('');
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'message-buttons';
 
-    return `<div class="message-buttons">${buttons}</div>`;
+    quickReplies.forEach((quickReply) => {
+        if (!isTypedQuickReply(quickReply)) {
+            return;
+        }
+        const button = document.createElement('button');
+        button.className = 'option-button';
+        button.type = 'button';
+        button.textContent = quickReply.label;
+        button.quickReply = cloneQuickReply(quickReply);
+        buttonContainer.appendChild(button);
+    });
+
+    return buttonContainer.childElementCount > 0 ? buttonContainer : null;
 }
 
 messagesContainer.addEventListener('click', (event) => {
@@ -174,16 +199,13 @@ messagesContainer.addEventListener('click', (event) => {
         return;
     }
 
-    const rawQuickReply = button.getAttribute('data-quick-reply');
-    if (!rawQuickReply || !window.currentSessionId) {
+    const quickReply = button.quickReply;
+    if (!quickReply || !window.currentSessionId) {
         return;
     }
 
-    let quickReply;
-    try {
-        quickReply = JSON.parse(decodeURIComponent(rawQuickReply));
-    } catch (_error) {
-        displayErrorMessage('Не удалось обработать быстрый ответ.');
+    if (!isTypedQuickReply(quickReply)) {
+        displayErrorMessage('Некорректный быстрый ответ.');
         return;
     }
 
@@ -200,7 +222,9 @@ messagesContainer.addEventListener('click', (event) => {
         return;
     }
 
-    showTypingIndicator();
+    if (!window.operatorConnected) {
+        showTypingIndicator();
+    }
 });
 
 function showTypingIndicator() {
@@ -223,10 +247,34 @@ function getCurrentTime() {
     return `${hours}:${minutes}`;
 }
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+function isTypedQuickReply(quickReply) {
+    return Boolean(
+        quickReply &&
+        typeof quickReply.id === 'string' &&
+        quickReply.id.trim() &&
+        typeof quickReply.label === 'string' &&
+        quickReply.label.trim() &&
+        typeof quickReply.action === 'string' &&
+        quickReply.action.trim() &&
+        (quickReply.payload === undefined || quickReply.payload === null || typeof quickReply.payload === 'object')
+    );
+}
+
+function cloneQuickReply(quickReply) {
+    return {
+        id: quickReply.id,
+        label: quickReply.label,
+        action: quickReply.action,
+        payload: clonePayload(quickReply.payload),
+        order: quickReply.order,
+    };
+}
+
+function clonePayload(payload) {
+    if (!payload || typeof payload !== 'object') {
+        return {};
+    }
+    return JSON.parse(JSON.stringify(payload));
 }
 
 if (document.readyState === 'loading') {

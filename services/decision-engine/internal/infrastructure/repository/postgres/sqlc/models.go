@@ -6,6 +6,7 @@ package sqlc
 
 import (
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/pgvector/pgvector-go"
 )
 
 type ActionsLog struct {
@@ -16,15 +17,227 @@ type ActionsLog struct {
 	ResponsePayload []byte           `json:"response_payload"`
 	Error           *string          `json:"error"`
 	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	MessageID       pgtype.UUID      `json:"message_id"`
+	Status          string           `json:"status"`
+	DurationMs      *int32           `json:"duration_ms"`
+	Provider        string           `json:"provider"`
+	RedactedPayload []byte           `json:"redacted_payload"`
+}
+
+type DecisionCandidate struct {
+	ID            pgtype.UUID      `json:"id"`
+	DecisionLogID pgtype.UUID      `json:"decision_log_id"`
+	IntentID      pgtype.UUID      `json:"intent_id"`
+	IntentKey     string           `json:"intent_key"`
+	Confidence    float64          `json:"confidence"`
+	Rank          int32            `json:"rank"`
+	Source        string           `json:"source"`
+	Metadata      []byte           `json:"metadata"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+}
+
+type DecisionLog struct {
+	ID             pgtype.UUID      `json:"id"`
+	SessionID      pgtype.UUID      `json:"session_id"`
+	MessageID      pgtype.UUID      `json:"message_id"`
+	Intent         string           `json:"intent"`
+	State          string           `json:"state"`
+	ResponseKey    string           `json:"response_key"`
+	Confidence     *float64         `json:"confidence"`
+	LowConfidence  bool             `json:"low_confidence"`
+	Candidates     []byte           `json:"candidates"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	FallbackReason *string          `json:"fallback_reason"`
+	Threshold      *float64         `json:"threshold"`
+}
+
+type DemoAccount struct {
+	ID          string           `json:"id"`
+	UserID      string           `json:"user_id"`
+	Identifiers []string         `json:"identifiers"`
+	Email       string           `json:"email"`
+	Phone       string           `json:"phone"`
+	Status      string           `json:"status"`
+	Payload     []byte           `json:"payload"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type DemoBooking struct {
+	ID            string           `json:"id"`
+	BookingNumber string           `json:"booking_number"`
+	Identifiers   []string         `json:"identifiers"`
+	Service       string           `json:"service"`
+	Master        string           `json:"master"`
+	BookingDate   pgtype.Date      `json:"booking_date"`
+	BookingTime   pgtype.Time      `json:"booking_time"`
+	Status        string           `json:"status"`
+	Payload       []byte           `json:"payload"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
+}
+
+type DemoPayment struct {
+	ID          string             `json:"id"`
+	PaymentID   string             `json:"payment_id"`
+	Identifiers []string           `json:"identifiers"`
+	AmountCents int32              `json:"amount_cents"`
+	PaidAt      pgtype.Timestamptz `json:"paid_at"`
+	Status      string             `json:"status"`
+	Purpose     string             `json:"purpose"`
+	Payload     []byte             `json:"payload"`
+	CreatedAt   pgtype.Timestamp   `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp   `json:"updated_at"`
+}
+
+type DemoWorkspaceBooking struct {
+	ID            string           `json:"id"`
+	BookingNumber string           `json:"booking_number"`
+	Identifiers   []string         `json:"identifiers"`
+	WorkspaceType string           `json:"workspace_type"`
+	BookingDate   pgtype.Date      `json:"booking_date"`
+	BookingTime   pgtype.Time      `json:"booking_time"`
+	DurationHours *int32           `json:"duration_hours"`
+	Status        string           `json:"status"`
+	Payload       []byte           `json:"payload"`
+	CreatedAt     pgtype.Timestamp `json:"created_at"`
+	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
+}
+
+type Intent struct {
+	ID                pgtype.UUID      `json:"id"`
+	Key               string           `json:"key"`
+	Category          string           `json:"category"`
+	ResponseKey       string           `json:"response_key"`
+	RequiresAction    bool             `json:"requires_action"`
+	EscalateOnFailure bool             `json:"escalate_on_failure"`
+	FallbackPolicy    string           `json:"fallback_policy"`
+	Active            bool             `json:"active"`
+	Metadata          []byte           `json:"metadata"`
+	CreatedAt         pgtype.Timestamp `json:"created_at"`
+	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
+}
+
+type IntentExample struct {
+	ID             pgtype.UUID      `json:"id"`
+	IntentID       pgtype.UUID      `json:"intent_id"`
+	Text           string           `json:"text"`
+	NormalizedText string           `json:"normalized_text"`
+	Embedding      *pgvector.Vector `json:"embedding"`
+	Locale         string           `json:"locale"`
+	Weight         float64          `json:"weight"`
+	Active         bool             `json:"active"`
+	Metadata       []byte           `json:"metadata"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+}
+
+type KnowledgeArticle struct {
+	ID        pgtype.UUID      `json:"id"`
+	Key       string           `json:"key"`
+	Category  string           `json:"category"`
+	Title     string           `json:"title"`
+	Body      string           `json:"body"`
+	Source    string           `json:"source"`
+	Active    bool             `json:"active"`
+	Metadata  []byte           `json:"metadata"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+}
+
+type KnowledgeChunk struct {
+	ID         pgtype.UUID      `json:"id"`
+	ArticleID  pgtype.UUID      `json:"article_id"`
+	ChunkIndex int32            `json:"chunk_index"`
+	Body       string           `json:"body"`
+	Embedding  *pgvector.Vector `json:"embedding"`
+	Active     bool             `json:"active"`
+	Metadata   []byte           `json:"metadata"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
 }
 
 type Message struct {
+	ID             pgtype.UUID      `json:"id"`
+	SessionID      pgtype.UUID      `json:"session_id"`
+	SenderType     string           `json:"sender_type"`
+	Text           string           `json:"text"`
+	Intent         *string          `json:"intent"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	IdempotencyKey *string          `json:"idempotency_key"`
+	DetectedIntent *string          `json:"detected_intent"`
+	Confidence     *float64         `json:"confidence"`
+	Metadata       []byte           `json:"metadata"`
+	CreatedBy      string           `json:"created_by"`
+}
+
+type MessageEvent struct {
+	ID              pgtype.UUID      `json:"id"`
+	SessionID       pgtype.UUID      `json:"session_id"`
+	MessageID       pgtype.UUID      `json:"message_id"`
+	Channel         string           `json:"channel"`
+	ExternalEventID string           `json:"external_event_id"`
+	EventType       string           `json:"event_type"`
+	Payload         []byte           `json:"payload"`
+	ReceivedAt      pgtype.Timestamp `json:"received_at"`
+	ProcessedAt     pgtype.Timestamp `json:"processed_at"`
+}
+
+type Operator struct {
+	OperatorID  string           `json:"operator_id"`
+	FixtureID   *string          `json:"fixture_id"`
+	DisplayName string           `json:"display_name"`
+	Status      string           `json:"status"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
+}
+
+type OperatorAssignment struct {
 	ID         pgtype.UUID      `json:"id"`
-	SessionID  pgtype.UUID      `json:"session_id"`
-	SenderType string           `json:"sender_type"`
-	Text       string           `json:"text"`
-	Intent     *string          `json:"intent"`
-	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	QueueID    pgtype.UUID      `json:"queue_id"`
+	OperatorID string           `json:"operator_id"`
+	Status     string           `json:"status"`
+	AssignedAt pgtype.Timestamp `json:"assigned_at"`
+	ReleasedAt pgtype.Timestamp `json:"released_at"`
+}
+
+type OperatorEvent struct {
+	ID        pgtype.UUID      `json:"id"`
+	QueueID   pgtype.UUID      `json:"queue_id"`
+	SessionID pgtype.UUID      `json:"session_id"`
+	EventType string           `json:"event_type"`
+	ActorType string           `json:"actor_type"`
+	ActorID   *string          `json:"actor_id"`
+	Payload   []byte           `json:"payload"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+}
+
+type OperatorQueue struct {
+	ID                 pgtype.UUID      `json:"id"`
+	SessionID          pgtype.UUID      `json:"session_id"`
+	UserID             pgtype.UUID      `json:"user_id"`
+	Status             string           `json:"status"`
+	Reason             string           `json:"reason"`
+	Priority           int32            `json:"priority"`
+	AssignedOperatorID *string          `json:"assigned_operator_id"`
+	ContextSnapshot    []byte           `json:"context_snapshot"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+	AcceptedAt         pgtype.Timestamp `json:"accepted_at"`
+	ClosedAt           pgtype.Timestamp `json:"closed_at"`
+}
+
+type QuickReply struct {
+	ID          pgtype.UUID      `json:"id"`
+	IntentID    pgtype.UUID      `json:"intent_id"`
+	ResponseKey string           `json:"response_key"`
+	Label       string           `json:"label"`
+	Action      string           `json:"action"`
+	Payload     []byte           `json:"payload"`
+	SortOrder   int32            `json:"sort_order"`
+	Active      bool             `json:"active"`
+	CreatedAt   pgtype.Timestamp `json:"created_at"`
+	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
 }
 
 type Session struct {
@@ -46,6 +259,19 @@ type Session struct {
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 }
 
+type SessionContext struct {
+	SessionID      pgtype.UUID      `json:"session_id"`
+	ActiveTopic    string           `json:"active_topic"`
+	Mode           string           `json:"mode"`
+	LastIntent     string           `json:"last_intent"`
+	FallbackCount  int32            `json:"fallback_count"`
+	OperatorStatus string           `json:"operator_status"`
+	Metadata       []byte           `json:"metadata"`
+	Version        int32            `json:"version"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+}
+
 type TransitionsLog struct {
 	ID        pgtype.UUID      `json:"id"`
 	SessionID pgtype.UUID      `json:"session_id"`
@@ -54,6 +280,8 @@ type TransitionsLog struct {
 	Event     string           `json:"event"`
 	Reason    string           `json:"reason"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
+	MessageID pgtype.UUID      `json:"message_id"`
+	ActorType string           `json:"actor_type"`
 }
 
 type User struct {

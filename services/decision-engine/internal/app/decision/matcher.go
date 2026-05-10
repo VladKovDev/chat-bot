@@ -88,6 +88,10 @@ func normalizeText(text string) string {
 	return strings.TrimSpace(builder.String())
 }
 
+func NormalizeForSeed(text string) string {
+	return normalizeText(text)
+}
+
 func tokenSet(text string) map[string]struct{} {
 	if text == "" {
 		return nil

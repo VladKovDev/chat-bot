@@ -213,6 +213,117 @@ func (h *Handler) checkOrigin(r *http.Request) bool {
 	return ok
 }
 
+func (h *Handler) HandleOperatorQueue(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeMethodNotAllowed(w)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	resp, err := h.client.GetOperatorQueue(ctx, strings.TrimSpace(r.URL.Query().Get("status")))
+	if err != nil {
+		h.writeOperatorProxyError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) HandleOperatorQueueAction(w http.ResponseWriter, r *http.Request) {
+	handoffID, actionName, ok := parseOperatorQueueAction(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodPost {
+		writeMethodNotAllowed(w)
+		return
+	}
+
+	var req dto.OperatorQueueActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || strings.TrimSpace(req.OperatorID) == "" {
+		writePublicError(w, http.StatusBadRequest, dto.PublicError{
+			Code:      "invalid_request",
+			Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+			RequestID: newCorrelationID(),
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	var (
+		resp dto.OperatorQueueActionResponse
+		err  error
+	)
+	switch actionName {
+	case "accept":
+		resp, err = h.client.AcceptHandoff(ctx, handoffID, strings.TrimSpace(req.OperatorID))
+	case "close":
+		resp, err = h.client.CloseOperatorHandoff(ctx, handoffID, strings.TrimSpace(req.OperatorID))
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		h.writeOperatorProxyError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *Handler) HandleOperatorSession(w http.ResponseWriter, r *http.Request) {
+	sessionID, resource, ok := parseOperatorSessionResource(r.URL.Path)
+	if !ok || resource != "messages" {
+		http.NotFound(w, r)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	switch r.Method {
+	case http.MethodGet:
+		resp, err := h.client.GetSessionMessages(ctx, sessionID)
+		if err != nil {
+			h.writeOperatorProxyError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req dto.OperatorMessageRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+			strings.TrimSpace(req.OperatorID) == "" ||
+			strings.TrimSpace(req.Text) == "" {
+			writePublicError(w, http.StatusBadRequest, dto.PublicError{
+				Code:      "invalid_request",
+				Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+				RequestID: newCorrelationID(),
+			})
+			return
+		}
+		resp, err := h.client.SendOperatorMessage(ctx, sessionID, strings.TrimSpace(req.OperatorID), strings.TrimSpace(req.Text))
+		if err != nil {
+			h.writeOperatorProxyError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	default:
+		writeMethodNotAllowed(w)
+	}
+}
+
+func (h *Handler) writeOperatorProxyError(w http.ResponseWriter, err error) {
+	h.logger.Warn("operator proxy request failed", logger.Err(err))
+	writePublicError(w, http.StatusBadGateway, dto.PublicError{
+		Code:      "decision_engine_unavailable",
+		Message:   "Не удалось получить данные оператора. Попробуйте позже.",
+		RequestID: newCorrelationID(),
+	})
+}
+
 func allowedOriginsSet(origins []string) map[string]struct{} {
 	allowed := make(map[string]struct{}, len(origins))
 	for _, origin := range origins {
@@ -226,6 +337,48 @@ func allowedOriginsSet(origins []string) map[string]struct{} {
 
 func isOriginRejected(r *http.Request, err error) bool {
 	return strings.TrimSpace(r.Header.Get("Origin")) != "" && strings.Contains(err.Error(), "request origin not allowed")
+}
+
+func parseOperatorQueueAction(path string) (string, string, bool) {
+	const prefix = "/api/operator/queue/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, prefix), "/"), "/")
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func parseOperatorSessionResource(path string) (string, string, bool) {
+	const prefix = "/api/operator/sessions/"
+	if !strings.HasPrefix(path, prefix) {
+		return "", "", false
+	}
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, prefix), "/"), "/")
+	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}
+
+func writePublicError(w http.ResponseWriter, status int, publicError dto.PublicError) {
+	writeJSON(w, status, dto.ErrorEnvelope{Error: publicError})
+}
+
+func writeMethodNotAllowed(w http.ResponseWriter) {
+	writePublicError(w, http.StatusMethodNotAllowed, dto.PublicError{
+		Code:      "method_not_allowed",
+		Message:   "Метод не поддерживается.",
+		RequestID: newCorrelationID(),
+	})
 }
 
 func (h *Handler) handleSessionStart(conn *socketConn, clientID string, event dto.ClientEvent) (string, error) {
@@ -266,8 +419,10 @@ func (h *Handler) handleUserMessage(conn *socketConn, state *sessionRuntimeState
 		return err
 	}
 
-	if err := h.sendBotMessage(conn, resp); err != nil {
-		return err
+	if strings.TrimSpace(resp.Text) != "" && resp.BotMessageID != "" && resp.BotMessageID != "00000000-0000-0000-0000-000000000000" {
+		if err := h.sendBotMessage(conn, resp); err != nil {
+			return err
+		}
 	}
 	return h.sendHandoffEvent(conn, state, resp)
 }
@@ -308,21 +463,34 @@ func (h *Handler) handleQuickReply(conn *socketConn, state *sessionRuntimeState,
 		return nil
 	}
 
-	text := quickReply.Label
-	if payloadText := quickReplyPayloadText(quickReply.Payload); payloadText != "" {
-		text = payloadText
-	}
-	if strings.TrimSpace(text) == "" {
-		return fmt.Errorf("quick reply text is empty")
+	if err := validateQuickReplySelection(quickReply); err != nil {
+		h.sendError(conn, sessionID, dto.PublicError{
+			Code:      "invalid_request",
+			Message:   "Некорректный быстрый ответ. Попробуйте выбрать другой вариант.",
+			RequestID: event.CorrelationID,
+		})
+		return err
 	}
 
-	return h.handleUserMessage(conn, state, clientID, sessionID, dto.ClientEvent{
-		Type:          dto.EventMessageUser,
-		SessionID:     sessionID,
-		EventID:       event.EventID,
-		CorrelationID: event.CorrelationID,
-		Text:          text,
-	})
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	resp, err := h.client.SendQuickReply(ctx, *quickReply, sessionID, clientID, event.EventID)
+	if err != nil {
+		h.sendError(conn, sessionID, dto.PublicError{
+			Code:      "processing_failed",
+			Message:   "Не удалось обработать сообщение. Попробуйте позже.",
+			RequestID: event.CorrelationID,
+		})
+		return err
+	}
+
+	if strings.TrimSpace(resp.Text) != "" && resp.BotMessageID != "" && resp.BotMessageID != "00000000-0000-0000-0000-000000000000" {
+		if err := h.sendBotMessage(conn, resp); err != nil {
+			return err
+		}
+	}
+	return h.sendHandoffEvent(conn, state, resp)
 }
 
 func (h *Handler) handleOperatorClose(conn *socketConn, state *sessionRuntimeState, sessionID string, event dto.ClientEvent) error {
@@ -375,6 +543,9 @@ func (h *Handler) sendBotMessage(conn *socketConn, resp dto.DecisionEngineRespon
 
 func (h *Handler) sendHandoffEvent(conn *socketConn, state *sessionRuntimeState, resp dto.DecisionEngineResponse) error {
 	if resp.Handoff == nil {
+		return nil
+	}
+	if !state.promoteHandoffStatus(resp.Handoff.Status) {
 		return nil
 	}
 
@@ -625,6 +796,40 @@ func quickReplyPayloadText(payload map[string]any) string {
 		return ""
 	}
 	value, ok := payload["text"]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return strings.TrimSpace(text)
+}
+
+func validateQuickReplySelection(quickReply *dto.QuickReply) error {
+	if quickReply == nil {
+		return fmt.Errorf("quick reply is required")
+	}
+	if strings.TrimSpace(quickReply.ID) == "" || strings.TrimSpace(quickReply.Label) == "" || strings.TrimSpace(quickReply.Action) == "" {
+		return fmt.Errorf("quick reply id, label and action are required")
+	}
+	switch strings.TrimSpace(quickReply.Action) {
+	case "send_text":
+		if quickReplyPayloadText(quickReply.Payload) == "" {
+			return fmt.Errorf("quick reply send_text payload.text is required")
+		}
+	case "select_intent":
+		if quickReplyPayloadString(quickReply.Payload, "intent") == "" {
+			return fmt.Errorf("quick reply select_intent payload.intent is required")
+		}
+	default:
+		return fmt.Errorf("unsupported quick reply action %q", quickReply.Action)
+	}
+	return nil
+}
+
+func quickReplyPayloadString(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	value, ok := payload[key]
 	if !ok {
 		return ""
 	}

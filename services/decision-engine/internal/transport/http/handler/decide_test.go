@@ -17,6 +17,7 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
+	operatorDomain "github.com/VladKovDev/chat-bot/internal/domain/operator"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
@@ -202,7 +203,7 @@ func TestMessageReturnsVersionedPayloadAndStableErrorEnvelope(t *testing.T) {
 	}
 }
 
-func TestMessageOnlyAcceptsChatIDForDevCLI(t *testing.T) {
+func TestMessageRejectsLegacyChatIDAndAcceptsDevCLIClientID(t *testing.T) {
 	t.Parallel()
 
 	handler, _, _, worker := newTestHandler()
@@ -215,32 +216,74 @@ func TestMessageOnlyAcceptsChatIDForDevCLI(t *testing.T) {
 	}
 
 	invalid := httptest.NewRecorder()
-	invalidReqBody, err := json.Marshal(MessageRequest{
-		Type:   httpMessageTypeUser,
-		Text:   "hello",
-		ChatID: 77,
-	})
-	if err != nil {
-		t.Fatalf("marshal invalid request: %v", err)
-	}
+	invalidReqBody := []byte(`{"type":"user_message","text":"hello","channel":"dev-cli","chat_id":77}`)
 	invalidReq := httptest.NewRequest(http.MethodPost, "/api/v1/messages", bytes.NewReader(invalidReqBody))
 	invalidReq.Header.Set("Content-Type", "application/json")
 	handler.Message(invalid, invalidReq)
 	if invalid.Code != http.StatusBadRequest {
-		t.Fatalf("invalid chat_id status = %d, want %d; body=%s", invalid.Code, http.StatusBadRequest, invalid.Body.String())
+		t.Fatalf("legacy chat_id status = %d, want %d; body=%s", invalid.Code, http.StatusBadRequest, invalid.Body.String())
 	}
 
 	resp := postJSON[MessageResponse](t, handler.Message, "/api/v1/messages", MessageRequest{
-		Type:    httpMessageTypeUser,
-		Text:    "hello",
-		Channel: session.ChannelDevCLI,
-		ChatID:  77,
+		Type:     httpMessageTypeUser,
+		Text:     "hello",
+		Channel:  session.ChannelDevCLI,
+		ClientID: "console-test-client",
 	})
-	if worker.lastMessage.Channel != session.ChannelDevCLI || worker.lastMessage.ChatID != 77 {
-		t.Fatalf("worker message = %+v, want dev-cli chat_id=77", worker.lastMessage)
+	if worker.lastMessage.Channel != session.ChannelDevCLI || worker.lastMessage.ClientID != "console-test-client" {
+		t.Fatalf("worker message = %+v, want dev-cli client identity", worker.lastMessage)
 	}
 	if resp.SessionID == "" {
 		t.Fatalf("session_id should not be empty: %+v", resp)
+	}
+}
+
+func TestMessageAcceptsTypedQuickReplySelectedAndStoresIDForWorker(t *testing.T) {
+	t.Parallel()
+
+	handler, store, _, worker := newTestHandler()
+	sessionID := seedSession(t, store, session.Identity{Channel: session.ChannelWebsite, ClientID: "browser-a"})
+	worker.response = response.Response{
+		SessionID:     sessionID,
+		UserMessageID: uuid.MustParse("11111111-1111-1111-1111-111111111111"),
+		BotMessageID:  uuid.MustParse("22222222-2222-2222-2222-222222222222"),
+		Mode:          session.ModeStandard,
+		Text:          "Меню открыто.",
+	}
+
+	resp := postJSON[MessageResponse](t, handler.Message, "/api/v1/messages", MessageRequest{
+		SessionID: sessionID.String(),
+		Type:      httpMessageTypeQuickReply,
+		Channel:   session.ChannelWebsite,
+		ClientID:  "browser-a",
+		EventID:   "33333333-3333-3333-3333-333333333333",
+		QuickReply: &QuickReply{
+			ID:     "renamed-menu",
+			Label:  `<img src=x onerror="alert(1)">`,
+			Action: "select_intent",
+			Payload: map[string]any{
+				"intent": "return_to_menu",
+			},
+		},
+	})
+
+	if resp.Text != "Меню открыто." {
+		t.Fatalf("response text = %q", resp.Text)
+	}
+	if worker.lastMessage.Text != "return_to_menu" {
+		t.Fatalf("worker text = %q, want payload intent fallback", worker.lastMessage.Text)
+	}
+	if worker.lastMessage.QuickReply == nil {
+		t.Fatalf("worker quick reply is nil")
+	}
+	if worker.lastMessage.QuickReply.ID != "renamed-menu" {
+		t.Fatalf("quick reply id = %q, want renamed-menu", worker.lastMessage.QuickReply.ID)
+	}
+	if worker.lastMessage.QuickReply.Label != `<img src=x onerror="alert(1)">` {
+		t.Fatalf("quick reply label was mutated: %q", worker.lastMessage.QuickReply.Label)
+	}
+	if got := worker.lastMessage.QuickReply.Payload["intent"]; got != "return_to_menu" {
+		t.Fatalf("quick reply payload intent = %#v", got)
 	}
 }
 
@@ -317,6 +360,7 @@ func TestOperatorQueueLifecycleAndHistoryEndpoints(t *testing.T) {
 		OperatorStatus: session.OperatorStatusNone,
 		ActiveTopic:    string(state.StatePayment),
 		LastIntent:     "payment_not_activated",
+		FallbackCount:  1,
 		Metadata:       map[string]interface{}{},
 		CreatedAt:      fixedNow.Add(-5 * time.Minute),
 		UpdatedAt:      fixedNow.Add(-5 * time.Minute),
@@ -349,11 +393,21 @@ func TestOperatorQueueLifecycleAndHistoryEndpoints(t *testing.T) {
 	if len(queue.Items) != 1 {
 		t.Fatalf("operator queue items = %#v, want 1 item", queue.Items)
 	}
+	if queue.Items[0].HandoffID != requestResp.Handoff.HandoffID {
+		t.Fatalf("queue handoff_id = %q, want %q", queue.Items[0].HandoffID, requestResp.Handoff.HandoffID)
+	}
 	if queue.Items[0].Preview != seededMessage.Text {
 		t.Fatalf("queue preview = %q, want %q", queue.Items[0].Preview, seededMessage.Text)
 	}
+	if queue.Items[0].Status != operatorQueueStatusWaiting || queue.Items[0].FallbackCount != 1 {
+		t.Fatalf("queue context = status:%q fallback:%d, want waiting/1", queue.Items[0].Status, queue.Items[0].FallbackCount)
+	}
+	if queue.Items[0].ActionSummaries == nil {
+		t.Fatalf("queue action_summaries is nil, want stable empty array")
+	}
 
-	acceptResp := postJSON[OperatorQueueActionResponse](t, withURLParam("handoff_id", sessionID.String(), handler.AcceptOperatorQueue), "/api/v1/operator/queue/"+sessionID.String()+"/accept", OperatorQueueActionRequest{
+	handoffID := requestResp.Handoff.HandoffID
+	acceptResp := postJSON[OperatorQueueActionResponse](t, withURLParam("handoff_id", handoffID, handler.AcceptOperatorQueue), "/api/v1/operator/queue/"+handoffID+"/accept", OperatorQueueActionRequest{
 		OperatorID: "operator-1",
 	})
 	if acceptResp.Handoff.Status != operatorQueueStatusAccepted {
@@ -391,7 +445,7 @@ func TestOperatorQueueLifecycleAndHistoryEndpoints(t *testing.T) {
 		t.Fatalf("history sender_type = %q, want %q", history.Items[1].SenderType, message.SenderTypeOperator)
 	}
 
-	closeResp := postJSON[OperatorQueueActionResponse](t, withURLParam("handoff_id", sessionID.String(), handler.CloseOperatorQueue), "/api/v1/operator/queue/"+sessionID.String()+"/close", OperatorQueueActionRequest{
+	closeResp := postJSON[OperatorQueueActionResponse](t, withURLParam("handoff_id", handoffID, handler.CloseOperatorQueue), "/api/v1/operator/queue/"+handoffID+"/close", OperatorQueueActionRequest{
 		OperatorID: "operator-1",
 	})
 	if closeResp.Handoff.Status != operatorQueueStatusClosed {
@@ -403,7 +457,7 @@ func newTestHandler() (*Handler, *fakeSessionStore, *fakeMessageStore, *fakeWork
 	sessionStore := newFakeSessionStore()
 	messageStore := newFakeMessageStore()
 	worker := &fakeWorker{}
-	handler := NewHandler(worker, sessionStore, sessionStore, messageStore, logger.Noop())
+	handler := NewHandler(worker, sessionStore, sessionStore, messageStore, logger.Noop(), newFakeOperatorQueueService(sessionStore))
 	handler.now = func() time.Time { return fixedNow }
 	return handler, sessionStore, messageStore, worker
 }
@@ -566,6 +620,136 @@ func (f *fakeMessageStore) mustCreate(msg message.Message) message.Message {
 	}
 	f.items[msg.SessionID] = append(f.items[msg.SessionID], msg)
 	return msg
+}
+
+type fakeOperatorQueueService struct {
+	sessions *fakeSessionStore
+	items    map[uuid.UUID]operatorDomain.QueueItem
+}
+
+func newFakeOperatorQueueService(sessions *fakeSessionStore) *fakeOperatorQueueService {
+	return &fakeOperatorQueueService{
+		sessions: sessions,
+		items:    make(map[uuid.UUID]operatorDomain.QueueItem),
+	}
+}
+
+func (f *fakeOperatorQueueService) Queue(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	reason operatorDomain.Reason,
+	snapshot operatorDomain.ContextSnapshot,
+) (operatorDomain.QueueItem, error) {
+	reason = operatorDomain.NormalizeReason(reason)
+	if err := operatorDomain.ValidateReason(reason); err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	sess, err := f.sessions.GetByID(ctx, sessionID)
+	if err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	item := operatorDomain.QueueItem{
+		ID:              uuid.New(),
+		SessionID:       sessionID,
+		UserID:          sess.UserID,
+		Status:          operatorDomain.QueueStatusWaiting,
+		Reason:          reason,
+		ContextSnapshot: snapshot,
+		CreatedAt:       fixedNow,
+		UpdatedAt:       fixedNow,
+	}
+	f.items[item.ID] = item
+	if _, err := f.sessions.ApplyContextDecision(ctx, &sess, session.ContextDecision{
+		Event: session.EventRequestOperator,
+		Metadata: map[string]interface{}{
+			"handoff_id":     item.ID.String(),
+			"handoff_reason": string(reason),
+		},
+	}); err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	return item, nil
+}
+
+func (f *fakeOperatorQueueService) Accept(
+	ctx context.Context,
+	queueID uuid.UUID,
+	operatorID string,
+) (operatorDomain.QueueItem, error) {
+	item, ok := f.items[queueID]
+	if !ok || item.Status != operatorDomain.QueueStatusWaiting {
+		return operatorDomain.QueueItem{}, operatorDomain.ErrInvalidTransition
+	}
+	item.Status = operatorDomain.QueueStatusAccepted
+	item.AssignedOperatorID = strings.TrimSpace(operatorID)
+	item.UpdatedAt = fixedNow
+	acceptedAt := fixedNow
+	item.AcceptedAt = &acceptedAt
+	f.items[queueID] = item
+
+	sess, err := f.sessions.GetByID(ctx, item.SessionID)
+	if err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	if _, err := f.sessions.ApplyContextDecision(ctx, &sess, session.ContextDecision{
+		Event: session.EventOperatorConnected,
+		Metadata: map[string]interface{}{
+			"handoff_id":  item.ID.String(),
+			"operator_id": item.AssignedOperatorID,
+		},
+	}); err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	return item, nil
+}
+
+func (f *fakeOperatorQueueService) Close(
+	ctx context.Context,
+	queueID uuid.UUID,
+	operatorID string,
+) (operatorDomain.QueueItem, error) {
+	item, ok := f.items[queueID]
+	if !ok || item.Status == operatorDomain.QueueStatusClosed {
+		return operatorDomain.QueueItem{}, operatorDomain.ErrInvalidTransition
+	}
+	item.Status = operatorDomain.QueueStatusClosed
+	item.UpdatedAt = fixedNow
+	closedAt := fixedNow
+	item.ClosedAt = &closedAt
+	f.items[queueID] = item
+
+	sess, err := f.sessions.GetByID(ctx, item.SessionID)
+	if err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	if _, err := f.sessions.ApplyContextDecision(ctx, &sess, session.ContextDecision{
+		Event: session.EventOperatorClosed,
+		Metadata: map[string]interface{}{
+			"handoff_id":  item.ID.String(),
+			"operator_id": strings.TrimSpace(operatorID),
+		},
+	}); err != nil {
+		return operatorDomain.QueueItem{}, err
+	}
+	return item, nil
+}
+
+func (f *fakeOperatorQueueService) ListByStatus(
+	_ context.Context,
+	status operatorDomain.QueueStatus,
+	_ int32,
+	_ int32,
+) ([]operatorDomain.QueueItem, error) {
+	if err := operatorDomain.ValidateStatus(status); err != nil {
+		return nil, err
+	}
+	items := make([]operatorDomain.QueueItem, 0)
+	for _, item := range f.items {
+		if item.Status == status {
+			items = append(items, item)
+		}
+	}
+	return items, nil
 }
 
 func postJSON[T any](t *testing.T, handler http.HandlerFunc, path string, body any) T {

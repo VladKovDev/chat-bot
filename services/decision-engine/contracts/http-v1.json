@@ -165,16 +165,16 @@
     },
     "messageRequest": {
       "type": "object",
-      "required": ["text", "type"],
+      "required": ["type"],
       "properties": {
         "text": { "type": "string" },
         "session_id": { "$ref": "#/$defs/uuid" },
         "event_id": { "$ref": "#/$defs/uuid" },
-        "type": { "const": "user_message" },
+        "type": { "enum": ["user_message", "quick_reply.selected"] },
         "channel": { "type": "string" },
         "external_user_id": { "type": "string" },
         "client_id": { "type": "string" },
-        "chat_id": { "type": "integer" }
+        "quick_reply": { "$ref": "#/$defs/quickReply" }
       },
       "additionalProperties": false
     },
@@ -185,7 +185,8 @@
         "id": { "type": "string" },
         "label": { "type": "string" },
         "action": { "type": "string" },
-        "payload": { "type": "object" }
+        "payload": { "type": "object" },
+        "order": { "type": "integer" }
       },
       "additionalProperties": false
     },
@@ -290,15 +291,34 @@
     },
     "operatorQueueItem": {
       "type": "object",
-      "required": ["handoff_id", "session_id", "reason", "active_topic", "last_intent", "created_at", "preview"],
+      "required": ["handoff_id", "session_id", "status", "reason", "active_topic", "last_intent", "fallback_count", "action_summaries", "created_at", "preview"],
       "properties": {
         "handoff_id": { "$ref": "#/$defs/uuid" },
         "session_id": { "$ref": "#/$defs/uuid" },
+        "status": { "type": "string" },
         "reason": { "type": "string" },
+        "operator_id": { "type": "string" },
         "active_topic": { "$ref": "#/$defs/activeTopic" },
         "last_intent": { "type": ["string", "null"] },
+        "confidence": { "type": "number" },
+        "fallback_count": { "type": "integer" },
+        "action_summaries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operatorActionSummary" }
+        },
         "created_at": { "$ref": "#/$defs/timestamp" },
         "preview": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "operatorActionSummary": {
+      "type": "object",
+      "required": ["action_type", "status", "created_at"],
+      "properties": {
+        "action_type": { "type": "string" },
+        "status": { "type": "string" },
+        "summary": { "type": "string" },
+        "created_at": { "$ref": "#/$defs/timestamp" }
       },
       "additionalProperties": false
     },

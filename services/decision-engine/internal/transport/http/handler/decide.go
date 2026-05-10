@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
+	operatorDomain "github.com/VladKovDev/chat-bot/internal/domain/operator"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	httpmiddleware "github.com/VladKovDev/chat-bot/internal/transport/http/middleware"
@@ -20,8 +22,9 @@ import (
 )
 
 const (
-	httpMessageTypeUser  = "user_message"
-	quickReplyActionSend = "send_text"
+	httpMessageTypeUser       = "user_message"
+	httpMessageTypeQuickReply = "quick_reply.selected"
+	quickReplyActionSend      = "send_text"
 
 	operatorQueueStatusWaiting  = "waiting"
 	operatorQueueStatusAccepted = "accepted"
@@ -49,6 +52,13 @@ type MessageRepository interface {
 	GetLastMessagesBySessionID(ctx context.Context, sessionID uuid.UUID, limit int32) ([]message.Message, error)
 }
 
+type OperatorQueueService interface {
+	Queue(ctx context.Context, sessionID uuid.UUID, reason operatorDomain.Reason, snapshot operatorDomain.ContextSnapshot) (operatorDomain.QueueItem, error)
+	Accept(ctx context.Context, queueID uuid.UUID, operatorID string) (operatorDomain.QueueItem, error)
+	Close(ctx context.Context, queueID uuid.UUID, operatorID string) (operatorDomain.QueueItem, error)
+	ListByStatus(ctx context.Context, status operatorDomain.QueueStatus, limit int32, offset int32) ([]operatorDomain.QueueItem, error)
+}
+
 type ReadinessProvider func(context.Context) ReadyResponse
 
 type StartSessionRequest struct {
@@ -66,14 +76,14 @@ type StartSessionResponse struct {
 }
 
 type MessageRequest struct {
-	Text           string `json:"text"`
-	SessionID      string `json:"session_id,omitempty"`
-	EventID        string `json:"event_id,omitempty"`
-	Type           string `json:"type"`
-	Channel        string `json:"channel,omitempty"`
-	ExternalUserID string `json:"external_user_id,omitempty"`
-	ClientID       string `json:"client_id,omitempty"`
-	ChatID         int64  `json:"chat_id,omitempty"`
+	Text           string      `json:"text"`
+	SessionID      string      `json:"session_id,omitempty"`
+	EventID        string      `json:"event_id,omitempty"`
+	Type           string      `json:"type"`
+	Channel        string      `json:"channel,omitempty"`
+	ExternalUserID string      `json:"external_user_id,omitempty"`
+	ClientID       string      `json:"client_id,omitempty"`
+	QuickReply     *QuickReply `json:"quick_reply,omitempty"`
 }
 
 type QuickReply struct {
@@ -81,6 +91,7 @@ type QuickReply struct {
 	Label   string         `json:"label"`
 	Action  string         `json:"action"`
 	Payload map[string]any `json:"payload,omitempty"`
+	Order   int            `json:"order,omitempty"`
 }
 
 type HandoffResponse struct {
@@ -158,13 +169,25 @@ type OperatorQueueResponse struct {
 }
 
 type OperatorQueueItem struct {
-	HandoffID   string  `json:"handoff_id"`
-	SessionID   string  `json:"session_id"`
-	Reason      string  `json:"reason"`
-	ActiveTopic *string `json:"active_topic"`
-	LastIntent  *string `json:"last_intent"`
-	CreatedAt   string  `json:"created_at"`
-	Preview     string  `json:"preview"`
+	HandoffID       string                  `json:"handoff_id"`
+	SessionID       string                  `json:"session_id"`
+	Status          string                  `json:"status"`
+	Reason          string                  `json:"reason"`
+	OperatorID      *string                 `json:"operator_id,omitempty"`
+	ActiveTopic     *string                 `json:"active_topic"`
+	LastIntent      *string                 `json:"last_intent"`
+	Confidence      *float64                `json:"confidence,omitempty"`
+	FallbackCount   int                     `json:"fallback_count"`
+	ActionSummaries []OperatorActionSummary `json:"action_summaries"`
+	CreatedAt       string                  `json:"created_at"`
+	Preview         string                  `json:"preview"`
+}
+
+type OperatorActionSummary struct {
+	ActionType string `json:"action_type"`
+	Status     string `json:"status"`
+	Summary    string `json:"summary,omitempty"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type OperatorQueueActionRequest struct {
@@ -194,6 +217,7 @@ type Handler struct {
 	sessions  SessionService
 	sessionDB SessionRepository
 	messages  MessageRepository
+	operators OperatorQueueService
 	logger    logger.Logger
 	now       func() time.Time
 	ready     ReadinessProvider
@@ -205,12 +229,18 @@ func NewHandler(
 	sessionDB SessionRepository,
 	messages MessageRepository,
 	logger logger.Logger,
+	operators ...OperatorQueueService,
 ) *Handler {
+	var operatorQueue OperatorQueueService
+	if len(operators) > 0 {
+		operatorQueue = operators[0]
+	}
 	return &Handler{
 		worker:    worker,
 		sessions:  sessions,
 		sessionDB: sessionDB,
 		messages:  messages,
+		operators: operatorQueue,
 		logger:    logger,
 		now:       func() time.Time { return time.Now().UTC() },
 		ready:     defaultReadiness,
@@ -222,6 +252,12 @@ func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
 		Status:    "ok",
 		Timestamp: h.now().Format(time.RFC3339Nano),
 	})
+}
+
+func (h *Handler) SetReadiness(provider ReadinessProvider) {
+	if provider != nil {
+		h.ready = provider
+	}
 }
 
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
@@ -271,14 +307,21 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 	requestID := httpmiddleware.RequestIDFromRequest(r)
 
 	var req MessageRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
 		return
 	}
 
-	if strings.TrimSpace(req.Text) == "" || req.Type != httpMessageTypeUser {
+	messageText := strings.TrimSpace(req.Text)
+	quickReply, err := normalizeQuickReplyMessage(req.Type, messageText, req.QuickReply)
+	if err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
 		return
+	}
+	if quickReply != nil {
+		messageText = quickReplyMessageText(messageText, quickReply)
 	}
 
 	identity := session.NormalizeIdentity(session.Identity{
@@ -297,7 +340,7 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 		sessionID = parsedSessionID
 	}
 
-	if err := validateDecideIdentity(identity, sessionID, req.ChatID); err != nil {
+	if err := validateDecideIdentity(identity, sessionID); err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
 		return
 	}
@@ -315,11 +358,11 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.worker.HandleMessage(r.Context(), contracts.IncomingMessage{
 		EventID:        eventID,
 		SessionID:      sessionID,
-		ChatID:         req.ChatID,
 		Channel:        identity.Channel,
 		ExternalUserID: identity.ExternalUserID,
 		ClientID:       identity.ClientID,
-		Text:           strings.TrimSpace(req.Text),
+		Text:           messageText,
+		QuickReply:     quickReply,
 		RequestID:      requestID,
 		Timestamp:      h.now(),
 	})
@@ -375,6 +418,10 @@ func (h *Handler) SessionMessages(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RequestOperator(w http.ResponseWriter, r *http.Request) {
 	requestID := httpmiddleware.RequestIDFromRequest(r)
+	if h.operators == nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
 	sessionID, err := uuid.Parse(chi.URLParam(r, "session_id"))
 	if err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
@@ -400,66 +447,38 @@ func (h *Handler) RequestOperator(w http.ResponseWriter, r *http.Request) {
 		reason = "manual_request"
 	}
 
-	updated, err := h.sessions.ApplyContextDecision(r.Context(), &sess, session.ContextDecision{
-		Event: session.EventRequestOperator,
-		Metadata: map[string]interface{}{
-			"handoff_reason": reason,
-		},
-	})
+	snapshot := h.buildOperatorSnapshot(r.Context(), sess)
+	item, err := h.operators.Queue(r.Context(), sessionID, operatorDomain.Reason(reason), snapshot)
 	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		h.respondOperatorError(w, err, requestID)
 		return
 	}
 
 	h.respondJSON(w, http.StatusOK, OperatorQueueActionResponse{
-		Handoff: HandoffResponse{
-			HandoffID: updated.ID.String(),
-			SessionID: updated.ID.String(),
-			Status:    operatorQueueStatusWaiting,
-			Reason:    reason,
-		},
+		Handoff: handoffResponseFromQueue(item),
 	})
 }
 
 func (h *Handler) OperatorQueue(w http.ResponseWriter, r *http.Request) {
 	requestID := httpmiddleware.RequestIDFromRequest(r)
+	if h.operators == nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
 	queueStatus := strings.TrimSpace(r.URL.Query().Get("status"))
 	if queueStatus == "" {
 		queueStatus = operatorQueueStatusWaiting
 	}
 
-	var desiredSessionStatus session.Status
-	if queueStatus == operatorQueueStatusClosed {
-		desiredSessionStatus = session.StatusClosed
-	} else {
-		desiredSessionStatus = session.StatusActive
-	}
-
-	sessions, err := h.sessionDB.ListByStatus(r.Context(), desiredSessionStatus, 100, 0)
+	queueItems, err := h.operators.ListByStatus(r.Context(), operatorDomain.QueueStatus(queueStatus), 100, 0)
 	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		h.respondOperatorError(w, err, requestID)
 		return
 	}
 
-	items := make([]OperatorQueueItem, 0, len(sessions))
-	for _, item := range sessions {
-		if !matchesQueueStatus(item, queueStatus) {
-			continue
-		}
-		preview := ""
-		lastMessages, err := h.messages.GetLastMessagesBySessionID(r.Context(), item.ID, 1)
-		if err == nil && len(lastMessages) > 0 {
-			preview = lastMessages[0].Text
-		}
-		items = append(items, OperatorQueueItem{
-			HandoffID:   item.ID.String(),
-			SessionID:   item.ID.String(),
-			Reason:      metadataString(item.Metadata, "handoff_reason", "manual_request"),
-			ActiveTopic: optionalString(item.ActiveTopic),
-			LastIntent:  optionalString(item.LastIntent),
-			CreatedAt:   queueCreatedAt(item).Format(time.RFC3339Nano),
-			Preview:     preview,
-		})
+	items := make([]OperatorQueueItem, 0, len(queueItems))
+	for _, item := range queueItems {
+		items = append(items, queueItemResponseFromDomain(item))
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -471,7 +490,11 @@ func (h *Handler) OperatorQueue(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) AcceptOperatorQueue(w http.ResponseWriter, r *http.Request) {
 	requestID := httpmiddleware.RequestIDFromRequest(r)
-	sessionID, err := uuid.Parse(chi.URLParam(r, "handoff_id"))
+	if h.operators == nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
+	handoffID, err := uuid.Parse(chi.URLParam(r, "handoff_id"))
 	if err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
 		return
@@ -483,32 +506,14 @@ func (h *Handler) AcceptOperatorQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, err := h.sessionDB.GetByID(r.Context(), sessionID)
+	item, err := h.operators.Accept(r.Context(), handoffID, req.OperatorID)
 	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		h.respondOperatorError(w, err, requestID)
 		return
 	}
 
-	updated, err := h.sessions.ApplyContextDecision(r.Context(), &sess, session.ContextDecision{
-		Event: session.EventOperatorConnected,
-		Metadata: map[string]interface{}{
-			"operator_id": strings.TrimSpace(req.OperatorID),
-		},
-	})
-	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
-		return
-	}
-
-	operatorID := strings.TrimSpace(req.OperatorID)
 	h.respondJSON(w, http.StatusOK, OperatorQueueActionResponse{
-		Handoff: HandoffResponse{
-			HandoffID:  updated.ID.String(),
-			SessionID:  updated.ID.String(),
-			Status:     operatorQueueStatusAccepted,
-			Reason:     metadataString(updated.Metadata, "handoff_reason", "manual_request"),
-			OperatorID: &operatorID,
-		},
+		Handoff: handoffResponseFromQueue(item),
 	})
 }
 
@@ -554,7 +559,11 @@ func (h *Handler) OperatorMessage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CloseOperatorQueue(w http.ResponseWriter, r *http.Request) {
 	requestID := httpmiddleware.RequestIDFromRequest(r)
-	sessionID, err := uuid.Parse(chi.URLParam(r, "handoff_id"))
+	if h.operators == nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
+	handoffID, err := uuid.Parse(chi.URLParam(r, "handoff_id"))
 	if err != nil {
 		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
 		return
@@ -568,36 +577,14 @@ func (h *Handler) CloseOperatorQueue(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sess, err := h.sessionDB.GetByID(r.Context(), sessionID)
+	item, err := h.operators.Close(r.Context(), handoffID, req.OperatorID)
 	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		h.respondOperatorError(w, err, requestID)
 		return
-	}
-
-	updated, err := h.sessions.ApplyContextDecision(r.Context(), &sess, session.ContextDecision{
-		Event: session.EventOperatorClosed,
-		Metadata: map[string]interface{}{
-			"operator_id": strings.TrimSpace(req.OperatorID),
-		},
-	})
-	if err != nil {
-		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
-		return
-	}
-
-	var operatorID *string
-	if value := strings.TrimSpace(req.OperatorID); value != "" {
-		operatorID = &value
 	}
 
 	h.respondJSON(w, http.StatusOK, OperatorQueueActionResponse{
-		Handoff: HandoffResponse{
-			HandoffID:  updated.ID.String(),
-			SessionID:  updated.ID.String(),
-			Status:     operatorQueueStatusClosed,
-			Reason:     metadataString(updated.Metadata, "handoff_reason", "manual_request"),
-			OperatorID: operatorID,
-		},
+		Handoff: handoffResponseFromQueue(item),
 	})
 }
 
@@ -623,6 +610,7 @@ func buildQuickReplies(configured []response.QuickReply, options []string) []Qui
 				Label:   quickReply.Label,
 				Action:  quickReply.Action,
 				Payload: clonePayload(quickReply.Payload),
+				Order:   quickReply.Order,
 			})
 		}
 		if len(result) > 0 {
@@ -635,7 +623,7 @@ func buildQuickReplies(configured []response.QuickReply, options []string) []Qui
 	}
 
 	result := make([]QuickReply, 0, len(options))
-	for _, option := range options {
+	for index, option := range options {
 		label := strings.TrimSpace(option)
 		if label == "" {
 			continue
@@ -647,9 +635,75 @@ func buildQuickReplies(configured []response.QuickReply, options []string) []Qui
 			Payload: map[string]any{
 				"text": label,
 			},
+			Order: index,
 		})
 	}
 	return result
+}
+
+func normalizeQuickReplyMessage(eventType string, messageText string, quickReply *QuickReply) (*contracts.QuickReplySelection, error) {
+	switch eventType {
+	case httpMessageTypeUser:
+		if strings.TrimSpace(messageText) == "" || quickReply != nil {
+			return nil, errors.New("invalid user message")
+		}
+		return nil, nil
+	case httpMessageTypeQuickReply:
+		if quickReply == nil {
+			return nil, errors.New("quick reply is required")
+		}
+		id := strings.TrimSpace(quickReply.ID)
+		action := strings.TrimSpace(quickReply.Action)
+		if id == "" || action == "" || strings.TrimSpace(quickReply.Label) == "" {
+			return nil, errors.New("quick reply id, label and action are required")
+		}
+		switch action {
+		case quickReplyActionSend:
+			if quickReplyPayloadString(quickReply.Payload, "text") == "" {
+				return nil, errors.New("quick reply send_text payload.text is required")
+			}
+		case "select_intent":
+			if quickReplyPayloadString(quickReply.Payload, "intent") == "" {
+				return nil, errors.New("quick reply select_intent payload.intent is required")
+			}
+		case "request_operator":
+		default:
+			return nil, errors.New("unsupported quick reply action")
+		}
+		return &contracts.QuickReplySelection{
+			ID:      id,
+			Label:   strings.TrimSpace(quickReply.Label),
+			Action:  action,
+			Payload: clonePayload(quickReply.Payload),
+		}, nil
+	default:
+		return nil, errors.New("unsupported message type")
+	}
+}
+
+func quickReplyMessageText(messageText string, quickReply *contracts.QuickReplySelection) string {
+	if messageText != "" {
+		return messageText
+	}
+	if text := quickReplyPayloadString(quickReply.Payload, "text"); text != "" {
+		return text
+	}
+	if intentKey := quickReplyPayloadString(quickReply.Payload, "intent"); intentKey != "" {
+		return intentKey
+	}
+	return quickReply.Action
+}
+
+func quickReplyPayloadString(payload map[string]any, key string) string {
+	if payload == nil {
+		return ""
+	}
+	value, ok := payload[key]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return strings.TrimSpace(text)
 }
 
 func buildHandoff(resp response.Response) *HandoffResponse {
@@ -678,42 +732,106 @@ func handoffStatus(mode session.Mode) string {
 	}
 }
 
-func matchesQueueStatus(sess session.Session, desired string) bool {
-	switch desired {
-	case operatorQueueStatusWaiting:
-		return sess.OperatorStatus == session.OperatorStatusWaiting
-	case operatorQueueStatusAccepted:
-		return sess.OperatorStatus == session.OperatorStatusConnected
-	case operatorQueueStatusClosed:
-		return sess.OperatorStatus == session.OperatorStatusClosed || sess.Status == session.StatusClosed
-	default:
-		return false
+func (h *Handler) buildOperatorSnapshot(ctx context.Context, sess session.Session) operatorDomain.ContextSnapshot {
+	lastMessages, err := h.messages.GetLastMessagesBySessionID(ctx, sess.ID, 20)
+	if err != nil {
+		lastMessages = nil
 	}
+	sort.Slice(lastMessages, func(i, j int) bool {
+		return lastMessages[i].CreatedAt.Before(lastMessages[j].CreatedAt)
+	})
+
+	snapshot := operatorDomain.ContextSnapshot{
+		LastMessages:    make([]operatorDomain.MessageSnapshot, 0, len(lastMessages)),
+		ActiveTopic:     sess.ActiveTopic,
+		LastIntent:      sess.LastIntent,
+		FallbackCount:   sess.FallbackCount,
+		ActionSummaries: []operatorDomain.ActionSummary{},
+	}
+	for _, item := range lastMessages {
+		intent := ""
+		if item.Intent != nil {
+			intent = *item.Intent
+		}
+		snapshot.LastMessages = append(snapshot.LastMessages, operatorDomain.MessageSnapshot{
+			SenderType: string(item.SenderType),
+			Text:       item.Text,
+			Intent:     intent,
+			CreatedAt:  item.CreatedAt.UTC(),
+		})
+	}
+	return snapshot
 }
 
-func metadataString(metadata map[string]interface{}, key, fallback string) string {
-	if metadata == nil {
-		return fallback
+func queueItemResponseFromDomain(item operatorDomain.QueueItem) OperatorQueueItem {
+	resp := OperatorQueueItem{
+		HandoffID:       item.ID.String(),
+		SessionID:       item.SessionID.String(),
+		Status:          string(item.Status),
+		Reason:          string(item.Reason),
+		ActiveTopic:     optionalString(item.ContextSnapshot.ActiveTopic),
+		LastIntent:      optionalString(item.ContextSnapshot.LastIntent),
+		Confidence:      item.ContextSnapshot.Confidence,
+		FallbackCount:   item.ContextSnapshot.FallbackCount,
+		ActionSummaries: operatorActionSummariesFromDomain(item.ContextSnapshot.ActionSummaries),
+		CreatedAt:       item.CreatedAt.UTC().Format(time.RFC3339Nano),
+		Preview:         queuePreview(item.ContextSnapshot),
 	}
-	raw, ok := metadata[key]
-	if !ok {
-		return fallback
+	if strings.TrimSpace(item.AssignedOperatorID) != "" {
+		operatorID := item.AssignedOperatorID
+		resp.OperatorID = &operatorID
 	}
-	value, ok := raw.(string)
-	if !ok || strings.TrimSpace(value) == "" {
-		return fallback
-	}
-	return value
+	return resp
 }
 
-func queueCreatedAt(sess session.Session) time.Time {
-	if !sess.UpdatedAt.IsZero() {
-		return sess.UpdatedAt.UTC()
+func operatorActionSummariesFromDomain(items []operatorDomain.ActionSummary) []OperatorActionSummary {
+	if len(items) == 0 {
+		return []OperatorActionSummary{}
 	}
-	if !sess.CreatedAt.IsZero() {
-		return sess.CreatedAt.UTC()
+	resp := make([]OperatorActionSummary, 0, len(items))
+	for _, item := range items {
+		resp = append(resp, OperatorActionSummary{
+			ActionType: item.ActionType,
+			Status:     item.Status,
+			Summary:    item.Summary,
+			CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339Nano),
+		})
 	}
-	return time.Unix(0, 0).UTC()
+	return resp
+}
+
+func queuePreview(snapshot operatorDomain.ContextSnapshot) string {
+	for i := len(snapshot.LastMessages) - 1; i >= 0; i-- {
+		if text := strings.TrimSpace(snapshot.LastMessages[i].Text); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func handoffResponseFromQueue(item operatorDomain.QueueItem) HandoffResponse {
+	resp := HandoffResponse{
+		HandoffID: item.ID.String(),
+		SessionID: item.SessionID.String(),
+		Status:    string(item.Status),
+		Reason:    string(item.Reason),
+	}
+	if strings.TrimSpace(item.AssignedOperatorID) != "" {
+		operatorID := item.AssignedOperatorID
+		resp.OperatorID = &operatorID
+	}
+	return resp
+}
+
+func (h *Handler) respondOperatorError(w http.ResponseWriter, err error, requestID string) {
+	if errors.Is(err, operatorDomain.ErrInvalidReason) ||
+		errors.Is(err, operatorDomain.ErrInvalidStatus) ||
+		errors.Is(err, operatorDomain.ErrInvalidOperator) ||
+		errors.Is(err, operatorDomain.ErrInvalidTransition) {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
+		return
+	}
+	h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
 }
 
 func defaultReadiness(_ context.Context) ReadyResponse {
@@ -745,30 +863,12 @@ func defaultReadiness(_ context.Context) ReadyResponse {
 	}
 }
 
-func validateDecideIdentity(identity session.Identity, sessionID uuid.UUID, chatID int64) error {
-	if identity.Channel == session.ChannelDevCLI && chatID != 0 && identity.ExternalUserID == "" && identity.ClientID == "" {
-		return nil
-	}
-
+func validateDecideIdentity(identity session.Identity, sessionID uuid.UUID) error {
 	if sessionID != uuid.Nil || identity.Channel != "" || identity.ExternalUserID != "" || identity.ClientID != "" {
 		return session.ValidateIdentity(identity)
 	}
 
-	if chatID != 0 {
-		return errDevCLIChannelRequired()
-	}
-
 	return session.ErrInvalidIdentity
-}
-
-func errDevCLIChannelRequired() error {
-	return identityError("chat_id is only accepted with channel dev-cli")
-}
-
-type identityError string
-
-func (e identityError) Error() string {
-	return string(e)
 }
 
 func optionalString(value string) *string {

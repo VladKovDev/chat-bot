@@ -30,6 +30,14 @@ CLAUDE.md
 # Build artifacts
 tmp/
 dist/
+node_modules/
+test-results/
+playwright-report/
+
+# Python generated artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
 
 # Logs
 *.log
@@ -41,3 +49,6 @@ logs/
 .dolt/
 *.db
 .beads-credential-key
+
+# bv (beads viewer) local config and caches
+.bv/

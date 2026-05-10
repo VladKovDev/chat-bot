@@ -11,6 +11,7 @@ type QuickReply struct {
 	Label   string
 	Action  string
 	Payload map[string]any
+	Order   int
 }
 
 // Response represents the decision engine's response to a message

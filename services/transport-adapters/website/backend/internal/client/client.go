@@ -67,6 +67,31 @@ func (c *Client) SendMessage(ctx context.Context, text string, sessionID string,
 	return respBody, nil
 }
 
+func (c *Client) SendQuickReply(
+	ctx context.Context,
+	quickReply dto.QuickReply,
+	sessionID string,
+	clientID string,
+	eventID string,
+) (dto.DecisionEngineResponse, error) {
+	req := dto.DecisionEngineRequest{
+		Text:       quickReplyPayloadText(quickReply.Payload),
+		SessionID:  sessionID,
+		EventID:    eventID,
+		Type:       "quick_reply.selected",
+		Channel:    WebsiteChannel,
+		ClientID:   clientID,
+		QuickReply: &quickReply,
+	}
+
+	var respBody dto.DecisionEngineResponse
+	if err := c.postJSON(ctx, "/api/v1/messages", req, &respBody); err != nil {
+		return dto.DecisionEngineResponse{}, err
+	}
+
+	return respBody, nil
+}
+
 func (c *Client) RequestHandoff(ctx context.Context, sessionID string) (dto.OperatorQueueActionResponse, error) {
 	var respBody dto.OperatorQueueActionResponse
 	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/request", sessionID), map[string]string{}, &respBody); err != nil {
@@ -79,6 +104,37 @@ func (c *Client) CloseHandoff(ctx context.Context, sessionID string) (dto.Operat
 	var respBody dto.OperatorQueueActionResponse
 	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/close", sessionID), map[string]string{}, &respBody); err != nil {
 		return dto.OperatorQueueActionResponse{}, err
+	}
+	return respBody, nil
+}
+
+func (c *Client) AcceptHandoff(ctx context.Context, handoffID string, operatorID string) (dto.OperatorQueueActionResponse, error) {
+	var respBody dto.OperatorQueueActionResponse
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/accept", handoffID), dto.OperatorQueueActionRequest{
+		OperatorID: operatorID,
+	}, &respBody); err != nil {
+		return dto.OperatorQueueActionResponse{}, err
+	}
+	return respBody, nil
+}
+
+func (c *Client) CloseOperatorHandoff(ctx context.Context, handoffID string, operatorID string) (dto.OperatorQueueActionResponse, error) {
+	var respBody dto.OperatorQueueActionResponse
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/close", handoffID), dto.OperatorQueueActionRequest{
+		OperatorID: operatorID,
+	}, &respBody); err != nil {
+		return dto.OperatorQueueActionResponse{}, err
+	}
+	return respBody, nil
+}
+
+func (c *Client) SendOperatorMessage(ctx context.Context, sessionID string, operatorID string, text string) (dto.OperatorMessageResponse, error) {
+	var respBody dto.OperatorMessageResponse
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/sessions/%s/messages", sessionID), dto.OperatorMessageRequest{
+		OperatorID: operatorID,
+		Text:       text,
+	}, &respBody); err != nil {
+		return dto.OperatorMessageResponse{}, err
 	}
 	return respBody, nil
 }
@@ -164,6 +220,18 @@ func (c *Client) postJSON(ctx context.Context, path string, req interface{}, res
 	}
 
 	return nil
+}
+
+func quickReplyPayloadText(payload map[string]any) string {
+	if payload == nil {
+		return ""
+	}
+	value, ok := payload["text"]
+	if !ok {
+		return ""
+	}
+	text, _ := value.(string)
+	return text
 }
 
 func (c *Client) getJSON(ctx context.Context, path string, respBody interface{}) error {

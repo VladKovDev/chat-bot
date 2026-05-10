@@ -262,6 +262,92 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 	}
 }
 
+func TestHandleConnectionForwardsQuickReplySelectedWithoutParsingLabel(t *testing.T) {
+	t.Parallel()
+
+	var capturedMessage dto.DecisionEngineRequest
+
+	decisionEngine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			_ = json.NewEncoder(w).Encode(dto.SessionResponse{
+				SessionID: "11111111-1111-1111-1111-111111111111",
+				UserID:    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+				Mode:      "standard",
+				Resumed:   false,
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/messages":
+			if err := json.NewDecoder(r.Body).Decode(&capturedMessage); err != nil {
+				t.Fatalf("decode message request: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(dto.DecisionEngineResponse{
+				SessionID:     capturedMessage.SessionID,
+				UserMessageID: capturedMessage.EventID,
+				BotMessageID:  "22222222-2222-2222-2222-222222222222",
+				Mode:          "standard",
+				Text:          "Меню открыто.",
+				CorrelationID: "req-quick-reply",
+				Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer decisionEngine.Close()
+
+	conn := dialTestWebSocket(t, decisionEngine.URL)
+	defer conn.Close()
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventSessionStart,
+		EventID:       "evt-session-start",
+		CorrelationID: "corr-session-start",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+		ClientID:      "browser-a",
+	}); err != nil {
+		t.Fatalf("write session.start event: %v", err)
+	}
+	started := readEvent[dto.SessionStartedEvent](t, conn)
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventQuickReplySelected,
+		SessionID:     started.SessionID,
+		EventID:       "33333333-3333-3333-3333-333333333333",
+		CorrelationID: "corr-quick-reply",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+		QuickReply: &dto.QuickReply{
+			ID:     "renamed-menu",
+			Label:  `<img src=x onerror="alert(1)">`,
+			Action: "select_intent",
+			Payload: map[string]any{
+				"intent": "return_to_menu",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("write quick_reply.selected event: %v", err)
+	}
+
+	botMessage := readEvent[dto.MessageBotEvent](t, conn)
+	if botMessage.Text != "Меню открыто." {
+		t.Fatalf("bot text = %q", botMessage.Text)
+	}
+
+	if capturedMessage.Type != dto.EventQuickReplySelected {
+		t.Fatalf("captured type = %q, want quick_reply.selected", capturedMessage.Type)
+	}
+	if capturedMessage.Text == `<img src=x onerror="alert(1)">` {
+		t.Fatalf("quick reply label was used as decision text")
+	}
+	if capturedMessage.QuickReply == nil || capturedMessage.QuickReply.ID != "renamed-menu" {
+		t.Fatalf("captured quick reply = %#v", capturedMessage.QuickReply)
+	}
+	if got := capturedMessage.QuickReply.Payload["intent"]; got != "return_to_menu" {
+		t.Fatalf("captured payload intent = %#v", got)
+	}
+}
+
 func TestHandleConnectionReturnsTypedErrorEventForInvalidPayload(t *testing.T) {
 	t.Parallel()
 
@@ -621,6 +707,37 @@ func readEvent[T any](t *testing.T, conn *websocket.Conn) T {
 		t.Fatalf("read websocket event: %v", err)
 	}
 	return event
+}
+
+func dialTestWebSocket(t *testing.T, decisionEngineURL string) *websocket.Conn {
+	t.Helper()
+
+	wsHandler := NewHandler(
+		client.NewClient(config.DecisionEngine{
+			URL:     decisionEngineURL,
+			Timeout: 2 * time.Second,
+		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
+		noopLogger{},
+	)
+	wsHandler.now = func() time.Time { return websocketFixedNow }
+
+	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
+	t.Cleanup(server.Close)
+
+	conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), testWebSocketHeaders())
+	if err != nil {
+		statusCode := 0
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		t.Fatalf("dial websocket: err=%v status=%d", err, statusCode)
+	}
+	return conn
 }
 
 func testWebSocketHeaders() http.Header {
