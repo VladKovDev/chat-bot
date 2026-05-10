@@ -1,6 +1,6 @@
 -- name: LogTransition :one
-INSERT INTO transitions_log ("session_id", "from_state", "to_state")
-VALUES ($1::UUID, $2::VARCHAR(50), $3::VARCHAR(50))
+INSERT INTO transitions_log ("session_id", "from_state", "to_state", "event", "reason")
+VALUES ($1::UUID, $2::VARCHAR(50), $3::VARCHAR(50), $4::VARCHAR(64), $5::TEXT)
 RETURNING *;
 
 -- name: GetTransitionsBySessionID :many

@@ -6,7 +6,12 @@ INSERT INTO "sessions" (
     "external_user_id",
     "client_id",
     "state",
+    "mode",
     "active_topic",
+    "last_intent",
+    "fallback_count",
+    "operator_status",
+    "metadata",
     "version",
     "status"
 )
@@ -17,7 +22,12 @@ VALUES (
     sqlc.arg(external_user_id)::TEXT,
     sqlc.arg(client_id)::TEXT,
     sqlc.arg(state)::VARCHAR(50),
+    sqlc.arg(mode)::VARCHAR(32),
     sqlc.arg(active_topic)::VARCHAR(50),
+    sqlc.arg(last_intent)::VARCHAR(80),
+    sqlc.arg(fallback_count)::INT,
+    sqlc.arg(operator_status)::VARCHAR(32),
+    sqlc.arg(metadata)::JSONB,
     1,
     'active'
 )
@@ -47,7 +57,14 @@ WHERE "id" = $1::UUID;
 -- name: UpdateSession :one
 UPDATE "sessions"
 SET "state" = sqlc.arg(state)::VARCHAR(50),
+    "mode" = sqlc.arg(mode)::VARCHAR(32),
     "active_topic" = sqlc.arg(active_topic)::VARCHAR(50),
+    "last_intent" = sqlc.arg(last_intent)::VARCHAR(80),
+    "fallback_count" = sqlc.arg(fallback_count)::INT,
+    "operator_status" = sqlc.arg(operator_status)::VARCHAR(32),
+    "metadata" = sqlc.arg(metadata)::JSONB,
+    "status" = sqlc.arg(status)::VARCHAR(20),
+    "version" = "version" + 1,
     "updated_at" = now()
 WHERE "id" = sqlc.arg(id)::UUID
 RETURNING *;

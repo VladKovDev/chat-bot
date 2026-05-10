@@ -15,6 +15,11 @@ import (
 
 // domainSessionFromDB converts sqlc.Session to domain.Session
 func domainSessionFromDB(dbSession sqlc.Session) session.Session {
+	metadata := make(map[string]interface{})
+	if len(dbSession.Metadata) > 0 {
+		_ = json.Unmarshal(dbSession.Metadata, &metadata)
+	}
+
 	return session.Session{
 		ID:             pgUUIDToUUID(dbSession.ID),
 		ChatID:         dbSession.ChatID,
@@ -23,11 +28,15 @@ func domainSessionFromDB(dbSession sqlc.Session) session.Session {
 		ExternalUserID: dbSession.ExternalUserID,
 		ClientID:       dbSession.ClientID,
 		State:          state.State(dbSession.State),
+		Mode:           session.Mode(dbSession.Mode),
 		ActiveTopic:    dbSession.ActiveTopic,
+		LastIntent:     dbSession.LastIntent,
+		FallbackCount:  int(dbSession.FallbackCount),
+		OperatorStatus: session.OperatorStatus(dbSession.OperatorStatus),
 		Summary:        dbSession.Summary,
 		Version:        int(dbSession.Version),
 		Status:         session.Status(dbSession.Status),
-		Metadata:       make(map[string]interface{}),
+		Metadata:       metadata,
 	}
 }
 
@@ -109,8 +118,10 @@ func domainTransitionLogFromDB(dbLog sqlc.TransitionsLog) transitionlog.Transiti
 	return transitionlog.TransitionLog{
 		ID:        pgUUIDToUUID(dbLog.ID),
 		SessionID: pgUUIDToUUID(dbLog.SessionID),
-		FromState: state.State(dbLog.FromState),
-		ToState:   state.State(dbLog.ToState),
+		FromMode:  session.Mode(dbLog.FromState),
+		ToMode:    session.Mode(dbLog.ToState),
+		Event:     session.Event(dbLog.Event),
+		Reason:    dbLog.Reason,
 		CreatedAt: dbLog.CreatedAt.Time,
 	}
 }

@@ -41,6 +41,11 @@ type Session struct {
 	Status         string           `json:"status"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	Mode           string           `json:"mode"`
+	LastIntent     string           `json:"last_intent"`
+	FallbackCount  int32            `json:"fallback_count"`
+	OperatorStatus string           `json:"operator_status"`
+	Metadata       []byte           `json:"metadata"`
 }
 
 type TransitionsLog struct {
@@ -49,6 +54,8 @@ type TransitionsLog struct {
 	FromState string           `json:"from_state"`
 	ToState   string           `json:"to_state"`
 	CreatedAt pgtype.Timestamp `json:"created_at"`
+	Event     string           `json:"event"`
+	Reason    string           `json:"reason"`
 }
 
 type User struct {

@@ -136,8 +136,17 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 
 	// 9. Update session state
 	sess.State = state.State(decideResp.State)
-	sess.ActiveTopic = activeTopicForState(sess.State, sess.ActiveTopic)
-	if _, err := w.sessionService.UpdateSessionState(ctx, sess); err != nil {
+	topic := activeTopicForState(sess.State, sess.ActiveTopic)
+	contextDecision := session.ContextDecision{
+		Intent:        decideResp.Intent,
+		Topic:         topic,
+		LowConfidence: isLowConfidence(decideResp.Confidence),
+		Event:         eventForDecision(sess.Mode, decideResp),
+		Metadata: map[string]interface{}{
+			"last_decision_state": decideResp.State,
+		},
+	}
+	if _, err := w.sessionService.ApplyContextDecision(ctx, sess, contextDecision); err != nil {
 		w.logger.Error("failed to update session state",
 			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
 			w.logger.Err(err))
@@ -226,9 +235,10 @@ func (w *MessageWorker) parseDecideResponse(raw interface{}) (*contracts.DecideL
 	}
 
 	return &contracts.DecideLLMResponse{
-		Intent:  intent,
-		State:   st,
-		Actions: actions,
+		Intent:     intent,
+		State:      st,
+		Actions:    actions,
+		Confidence: parseConfidence(data["confidence"]),
 	}, nil
 }
 
@@ -246,4 +256,45 @@ func activeTopicForState(st state.State, current string) string {
 	default:
 		return current
 	}
+}
+
+func parseConfidence(raw interface{}) *float64 {
+	switch value := raw.(type) {
+	case float64:
+		return &value
+	case float32:
+		confidence := float64(value)
+		return &confidence
+	default:
+		return nil
+	}
+}
+
+func isLowConfidence(confidence *float64) bool {
+	return confidence != nil && *confidence < 0.6
+}
+
+func eventForDecision(currentMode session.Mode, resp *contracts.DecideLLMResponse) session.Event {
+	if containsAction(resp.Actions, action.ActionEscalateToOperator) ||
+		containsAction(resp.Actions, "escalate_operator") ||
+		resp.Intent == "request_operator" ||
+		state.State(resp.State) == state.StateEscalatedToOperator {
+		return session.EventRequestOperator
+	}
+
+	if state.State(resp.State) == state.StateClosed &&
+		(currentMode == session.ModeWaitingOperator || currentMode == session.ModeOperatorConnected) {
+		return session.EventOperatorClosed
+	}
+
+	return session.EventMessageReceived
+}
+
+func containsAction(actions []string, target string) bool {
+	for _, name := range actions {
+		if name == target {
+			return true
+		}
+	}
+	return false
 }

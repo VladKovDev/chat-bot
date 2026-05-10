@@ -6,28 +6,27 @@ import (
 	"os"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
 )
 
 // Config represents the transitions configuration loaded from JSON
 type Config struct {
-	Transitions  []TransitionConfigJson `json:"transitions"`
+	Transitions  []TransitionConfigJson           `json:"transitions"`
 	GlobalEvents map[string]GlobalEventConfigJson `json:"global_events"`
 }
 
 // TransitionConfigJson represents a transition in JSON (with string enums)
 type TransitionConfigJson struct {
-	From        string `json:"from"`
-	Event       string `json:"event"`
-	To          string `json:"to"`
-	ResponseKey string `json:"response_key"`
+	From        string   `json:"from"`
+	Event       string   `json:"event"`
+	To          string   `json:"to"`
+	ResponseKey string   `json:"response_key"`
 	Actions     []string `json:"actions,omitempty"`
 }
 
 // GlobalEventConfigJson represents a global event in JSON
 type GlobalEventConfigJson struct {
-	To          string `json:"to"`
-	ResponseKey string `json:"response_key"`
+	To          string   `json:"to"`
+	ResponseKey string   `json:"response_key"`
 	Actions     []string `json:"actions,omitempty"`
 }
 
@@ -49,9 +48,9 @@ func LoadConfig(configPath string) (*Config, error) {
 // ToTransitionConfig converts JSON config to domain TransitionConfig
 func (j *TransitionConfigJson) ToTransitionConfig() TransitionConfig {
 	return TransitionConfig{
-		From:        state.State(j.From),
+		From:        session.Mode(j.From),
 		Event:       session.Event(j.Event),
-		To:          state.State(j.To),
+		To:          session.Mode(j.To),
 		ResponseKey: j.ResponseKey,
 		Actions:     j.Actions,
 	}
@@ -61,15 +60,15 @@ func (j *TransitionConfigJson) ToTransitionConfig() TransitionConfig {
 func (j *GlobalEventConfigJson) ToGlobalEventConfig(event string) GlobalEventConfig {
 	return GlobalEventConfig{
 		Event:       session.Event(event),
-		To:          state.State(j.To),
+		To:          session.Mode(j.To),
 		ResponseKey: j.ResponseKey,
 		Actions:     j.Actions,
 	}
 }
 
 // BuildTransitionMaps builds transition and global event maps from config
-func BuildTransitionMaps(cfg *Config) (map[state.State]map[session.Event]*TransitionConfig, map[session.Event]*GlobalEventConfig) {
-	transitions := make(map[state.State]map[session.Event]*TransitionConfig)
+func BuildTransitionMaps(cfg *Config) (map[session.Mode]map[session.Event]*TransitionConfig, map[session.Event]*GlobalEventConfig) {
+	transitions := make(map[session.Mode]map[session.Event]*TransitionConfig)
 	globalEvents := make(map[session.Event]*GlobalEventConfig)
 
 	// Build state transitions
@@ -91,6 +90,7 @@ func BuildTransitionMaps(cfg *Config) (map[state.State]map[session.Event]*Transi
 
 	return transitions, globalEvents
 }
+
 // ExtractResponseKeys extracts all response keys from transition config
 func ExtractResponseKeys(cfg *Config) []string {
 	keys := make(map[string]bool)

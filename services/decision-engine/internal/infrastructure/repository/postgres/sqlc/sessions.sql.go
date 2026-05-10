@@ -16,7 +16,7 @@ UPDATE "sessions"
 SET "status" = 'closed',
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 func (q *Queries) CloseSession(ctx context.Context, dollar_1 pgtype.UUID) (Session, error) {
@@ -36,6 +36,11 @@ func (q *Queries) CloseSession(ctx context.Context, dollar_1 pgtype.UUID) (Sessi
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -59,7 +64,12 @@ INSERT INTO "sessions" (
     "external_user_id",
     "client_id",
     "state",
+    "mode",
     "active_topic",
+    "last_intent",
+    "fallback_count",
+    "operator_status",
+    "metadata",
     "version",
     "status"
 )
@@ -70,11 +80,16 @@ VALUES (
     $4::TEXT,
     $5::TEXT,
     $6::VARCHAR(50),
-    $7::VARCHAR(50),
+    $7::VARCHAR(32),
+    $8::VARCHAR(50),
+    $9::VARCHAR(80),
+    $10::INT,
+    $11::VARCHAR(32),
+    $12::JSONB,
     1,
     'active'
 )
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type CreateSessionParams struct {
@@ -84,7 +99,12 @@ type CreateSessionParams struct {
 	ExternalUserID string      `json:"external_user_id"`
 	ClientID       string      `json:"client_id"`
 	State          string      `json:"state"`
+	Mode           string      `json:"mode"`
 	ActiveTopic    string      `json:"active_topic"`
+	LastIntent     string      `json:"last_intent"`
+	FallbackCount  int32       `json:"fallback_count"`
+	OperatorStatus string      `json:"operator_status"`
+	Metadata       []byte      `json:"metadata"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
@@ -95,7 +115,12 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		arg.ExternalUserID,
 		arg.ClientID,
 		arg.State,
+		arg.Mode,
 		arg.ActiveTopic,
+		arg.LastIntent,
+		arg.FallbackCount,
+		arg.OperatorStatus,
+		arg.Metadata,
 	)
 	var i Session
 	err := row.Scan(
@@ -112,6 +137,11 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -127,7 +157,7 @@ func (q *Queries) DeleteSession(ctx context.Context, dollar_1 pgtype.UUID) error
 }
 
 const getActiveSessionByIdentity = `-- name: GetActiveSessionByIdentity :one
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "channel" = $1::TEXT
   AND "status" = 'active'
   AND (
@@ -161,12 +191,17 @@ func (q *Queries) GetActiveSessionByIdentity(ctx context.Context, arg GetActiveS
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
 
 const getSessionByChatID = `-- name: GetSessionByChatID :one
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "chat_id" = $1::BIGINT
 ORDER BY "created_at" DESC
 LIMIT 1
@@ -189,12 +224,17 @@ func (q *Queries) GetSessionByChatID(ctx context.Context, dollar_1 int64) (Sessi
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
 
 const getSessionByID = `-- name: GetSessionByID :one
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "id" = $1::UUID
 `
 
@@ -215,12 +255,17 @@ func (q *Queries) GetSessionByID(ctx context.Context, dollar_1 pgtype.UUID) (Ses
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
 
 const listSessions = `-- name: ListSessions :many
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 ORDER BY "updated_at" DESC
 LIMIT $1::INT OFFSET $2::INT
 `
@@ -253,6 +298,11 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Mode,
+			&i.LastIntent,
+			&i.FallbackCount,
+			&i.OperatorStatus,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -265,7 +315,7 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 }
 
 const listSessionsByState = `-- name: ListSessionsByState :many
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "state" = $1::VARCHAR(50)
 ORDER BY "updated_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -300,6 +350,11 @@ func (q *Queries) ListSessionsByState(ctx context.Context, arg ListSessionsBySta
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Mode,
+			&i.LastIntent,
+			&i.FallbackCount,
+			&i.OperatorStatus,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -312,7 +367,7 @@ func (q *Queries) ListSessionsByState(ctx context.Context, arg ListSessionsBySta
 }
 
 const listSessionsByStatus = `-- name: ListSessionsByStatus :many
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "status" = $1::VARCHAR(20)
 ORDER BY "updated_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -347,6 +402,11 @@ func (q *Queries) ListSessionsByStatus(ctx context.Context, arg ListSessionsBySt
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Mode,
+			&i.LastIntent,
+			&i.FallbackCount,
+			&i.OperatorStatus,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -359,7 +419,7 @@ func (q *Queries) ListSessionsByStatus(ctx context.Context, arg ListSessionsBySt
 }
 
 const listSessionsByUser = `-- name: ListSessionsByUser :many
-SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at FROM "sessions"
+SELECT id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata FROM "sessions"
 WHERE "user_id" = $1::UUID
 ORDER BY "updated_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -394,6 +454,11 @@ func (q *Queries) ListSessionsByUser(ctx context.Context, arg ListSessionsByUser
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Mode,
+			&i.LastIntent,
+			&i.FallbackCount,
+			&i.OperatorStatus,
+			&i.Metadata,
 		); err != nil {
 			return nil, err
 		}
@@ -408,20 +473,43 @@ func (q *Queries) ListSessionsByUser(ctx context.Context, arg ListSessionsByUser
 const updateSession = `-- name: UpdateSession :one
 UPDATE "sessions"
 SET "state" = $1::VARCHAR(50),
-    "active_topic" = $2::VARCHAR(50),
+    "mode" = $2::VARCHAR(32),
+    "active_topic" = $3::VARCHAR(50),
+    "last_intent" = $4::VARCHAR(80),
+    "fallback_count" = $5::INT,
+    "operator_status" = $6::VARCHAR(32),
+    "metadata" = $7::JSONB,
+    "status" = $8::VARCHAR(20),
+    "version" = "version" + 1,
     "updated_at" = now()
-WHERE "id" = $3::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+WHERE "id" = $9::UUID
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type UpdateSessionParams struct {
-	State       string      `json:"state"`
-	ActiveTopic string      `json:"active_topic"`
-	ID          pgtype.UUID `json:"id"`
+	State          string      `json:"state"`
+	Mode           string      `json:"mode"`
+	ActiveTopic    string      `json:"active_topic"`
+	LastIntent     string      `json:"last_intent"`
+	FallbackCount  int32       `json:"fallback_count"`
+	OperatorStatus string      `json:"operator_status"`
+	Metadata       []byte      `json:"metadata"`
+	Status         string      `json:"status"`
+	ID             pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error) {
-	row := q.db.QueryRow(ctx, updateSession, arg.State, arg.ActiveTopic, arg.ID)
+	row := q.db.QueryRow(ctx, updateSession,
+		arg.State,
+		arg.Mode,
+		arg.ActiveTopic,
+		arg.LastIntent,
+		arg.FallbackCount,
+		arg.OperatorStatus,
+		arg.Metadata,
+		arg.Status,
+		arg.ID,
+	)
 	var i Session
 	err := row.Scan(
 		&i.ID,
@@ -437,6 +525,11 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -446,7 +539,7 @@ UPDATE "sessions"
 SET "state" = $2::VARCHAR(50),
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type UpdateSessionStateParams struct {
@@ -471,6 +564,11 @@ func (q *Queries) UpdateSessionState(ctx context.Context, arg UpdateSessionState
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -480,7 +578,7 @@ UPDATE "sessions"
 SET "status" = $2::VARCHAR(20),
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type UpdateSessionStatusParams struct {
@@ -505,6 +603,11 @@ func (q *Queries) UpdateSessionStatus(ctx context.Context, arg UpdateSessionStat
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -514,7 +617,7 @@ UPDATE "sessions"
 SET "summary" = $2::VARCHAR(255),
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type UpdateSessionSummaryParams struct {
@@ -539,6 +642,11 @@ func (q *Queries) UpdateSessionSummary(ctx context.Context, arg UpdateSessionSum
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }
@@ -549,7 +657,7 @@ SET "state" = $2::VARCHAR(50),
     "version" = "version" + 1,
     "updated_at" = now()
 WHERE "id" = $1::UUID
-RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at
+RETURNING id, chat_id, user_id, channel, external_user_id, client_id, state, active_topic, summary, version, status, created_at, updated_at, mode, last_intent, fallback_count, operator_status, metadata
 `
 
 type UpdateSessionWithVersionParams struct {
@@ -574,6 +682,11 @@ func (q *Queries) UpdateSessionWithVersion(ctx context.Context, arg UpdateSessio
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Mode,
+		&i.LastIntent,
+		&i.FallbackCount,
+		&i.OperatorStatus,
+		&i.Metadata,
 	)
 	return i, err
 }

@@ -15,7 +15,8 @@ type DecideLLMRequest struct {
 
 // DecideLLMResponse - response from LLM /decide endpoint
 type DecideLLMResponse struct {
-	Intent  string   `json:"intent"`
-	State   string   `json:"state"`
-	Actions []string `json:"actions"`
+	Intent     string   `json:"intent"`
+	State      string   `json:"state"`
+	Actions    []string `json:"actions"`
+	Confidence *float64 `json:"confidence,omitempty"`
 }

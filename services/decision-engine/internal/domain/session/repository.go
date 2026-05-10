@@ -27,6 +27,9 @@ type Repository interface {
 	// Update updates the entire session (state, metadata, etc.)
 	Update(ctx context.Context, session Session) (Session, error)
 
+	// UpdateContext updates the persistent BRD context and logs a mode transition atomically when provided.
+	UpdateContext(ctx context.Context, session Session, transition *ModeTransition) (Session, error)
+
 	// UpdateState updates the session state
 	UpdateState(ctx context.Context, id uuid.UUID, st state.State) (Session, error)
 

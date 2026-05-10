@@ -8,6 +8,7 @@ const (
 	EventMessageReceived   Event = "message_received"
 	EventCategorySelected  Event = "category_selected"
 	EventRequestOperator   Event = "request_operator"
+	EventOperatorConnected Event = "operator_connected"
 	EventResetConversation Event = "reset_conversation"
 	EventResolved          Event = "resolved"
 	EventNotResolved       Event = "not_resolved"

@@ -1,186 +1,41 @@
 {
   "transitions": [
     {
-      "from": "new",
-      "event": "message_received",
-      "to": "waiting_for_category",
-      "response_key": "start"
+      "from": "standard",
+      "event": "request_operator",
+      "to": "waiting_operator",
+      "response_key": "escalation_to_operator",
+      "actions": ["escalate_to_operator"]
     },
     {
-      "from": "new",
-      "event": "greeting",
-      "to": "waiting_for_category",
-      "response_key": "start"
+      "from": "waiting_operator",
+      "event": "operator_connected",
+      "to": "operator_connected",
+      "response_key": "escalation_context_sent"
     },
     {
-      "from": "new",
-      "event": "category_selected",
-      "to": "waiting_for_category",
-      "response_key": "category_confirmed"
-    },
-    {
-      "from": "new",
-      "event": "not_resolved",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "new",
-      "event": "resolved",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "new",
-      "event": "clarification",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "new",
-      "event": "confirmation",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "new",
-      "event": "negation",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "new",
-      "event": "gratitude",
-      "to": "waiting_for_category",
-      "response_key": "start"
-    },
-    {
-      "from": "waiting_for_category",
-      "event": "category_selected",
-      "to": "waiting_clarification",
-      "response_key": "category_selected"
-    },
-    {
-      "from": "waiting_for_category",
-      "event": "message_received",
-      "to": "waiting_clarification",
-      "response_key": "category_selected"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "message_received",
-      "to": "solution_offered",
-      "response_key": "solution_offered"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "greeting",
-      "to": "waiting_clarification",
-      "response_key": "waiting_clarification_greeting"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "resolved",
-      "to": "solution_offered",
-      "response_key": "solution_offered"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "not_resolved",
-      "to": "escalated_to_operator",
-      "response_key": "escalated_to_operator",
-      "actions": ["escalate_operator"]
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "clarification",
-      "to": "waiting_clarification",
-      "response_key": "waiting_clarification_help"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "confirmation",
-      "to": "solution_offered",
-      "response_key": "solution_offered"
-    },
-    {
-      "from": "waiting_clarification",
-      "event": "negation",
-      "to": "waiting_clarification",
-      "response_key": "waiting_clarification_clarify"
-    },
-    {
-      "from": "solution_offered",
-      "event": "resolved",
-      "to": "closed",
-      "response_key": "resolved"
-    },
-    {
-      "from": "solution_offered",
-      "event": "not_resolved",
-      "to": "escalated_to_operator",
-      "response_key": "escalated_to_operator",
-      "actions": ["escalate_operator"]
-    },
-    {
-      "from": "solution_offered",
-      "event": "message_received",
-      "to": "waiting_clarification",
-      "response_key": "waiting_clarification"
-    },
-    {
-      "from": "escalated_to_operator",
+      "from": "waiting_operator",
       "event": "operator_closed",
       "to": "closed",
-      "response_key": "operator_closed"
+      "response_key": "goodbye"
     },
     {
-      "from": "escalated_to_operator",
-      "event": "message_received",
-      "to": "escalated_to_operator",
-      "response_key": "already_escalated"
-    },
-    {
-      "from": "escalated_to_operator",
-      "event": "request_operator",
-      "to": "escalated_to_operator",
-      "response_key": "already_escalated"
-    },
-    {
-      "from": "escalated_to_operator",
-      "event": "reset_conversation",
-      "to": "new",
-      "response_key": "start",
-      "actions": ["reset_conversation"]
-    },
-    {
-      "from": "closed",
-      "event": "message_received",
-      "to": "waiting_for_category",
-      "response_key": "new_dialog"
-    },
-    {
-      "from": "closed",
-      "event": "greeting",
-      "to": "waiting_for_category",
-      "response_key": "new_dialog"
+      "from": "operator_connected",
+      "event": "operator_closed",
+      "to": "closed",
+      "response_key": "goodbye"
     },
     {
       "from": "closed",
       "event": "reset_conversation",
-      "to": "new",
+      "to": "standard",
       "response_key": "start",
       "actions": ["reset_conversation"]
     }
   ],
   "global_events": {
-    "request_operator": {
-      "to": "escalated_to_operator",
-      "response_key": "escalated_to_operator",
-      "actions": ["escalate_operator"]
-    },
     "reset_conversation": {
-      "to": "new",
+      "to": "standard",
       "response_key": "start",
       "actions": ["reset_conversation"]
     }

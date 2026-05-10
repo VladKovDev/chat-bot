@@ -1,7 +1,7 @@
 package transitionlog
 
 import (
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/google/uuid"
 	"time"
 )
@@ -9,7 +9,9 @@ import (
 type TransitionLog struct {
 	ID        uuid.UUID
 	SessionID uuid.UUID
-	FromState state.State
-	ToState   state.State
+	FromMode  session.Mode
+	ToMode    session.Mode
+	Event     session.Event
+	Reason    string
 	CreatedAt time.Time
 }

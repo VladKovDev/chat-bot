@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -24,6 +25,11 @@ func NewSessionRepo(pool *Pool) session.Repository {
 }
 
 func (r *sessionRepo) Create(ctx context.Context, s session.Session) (session.Session, error) {
+	metadata, err := marshalMetadata(s.Metadata)
+	if err != nil {
+		return session.Session{}, fmt.Errorf("failed to marshal session metadata: %w", err)
+	}
+
 	dbSession, err := r.querier.CreateSession(ctx, sqlc.CreateSessionParams{
 		ChatID:         s.ChatID,
 		UserID:         uuidToPgUUID(s.UserID),
@@ -31,7 +37,12 @@ func (r *sessionRepo) Create(ctx context.Context, s session.Session) (session.Se
 		ExternalUserID: s.ExternalUserID,
 		ClientID:       s.ClientID,
 		State:          string(s.State),
+		Mode:           string(defaultMode(s.Mode)),
 		ActiveTopic:    s.ActiveTopic,
+		LastIntent:     s.LastIntent,
+		FallbackCount:  int32(s.FallbackCount),
+		OperatorStatus: string(defaultOperatorStatus(s.OperatorStatus, s.Mode)),
+		Metadata:       metadata,
 	})
 	if err != nil {
 		return session.Session{}, fmt.Errorf("failed to create session: %w", err)
@@ -108,16 +119,81 @@ func (r *sessionRepo) Update(
 	ctx context.Context,
 	s session.Session,
 ) (session.Session, error) {
+	metadata, err := marshalMetadata(s.Metadata)
+	if err != nil {
+		return session.Session{}, fmt.Errorf("failed to marshal session metadata: %w", err)
+	}
+
 	dbSession, err := r.querier.UpdateSession(ctx, sqlc.UpdateSessionParams{
-		ID:          uuidToPgUUID(s.ID),
-		State:       string(s.State),
-		ActiveTopic: s.ActiveTopic,
+		ID:             uuidToPgUUID(s.ID),
+		State:          string(s.State),
+		Mode:           string(defaultMode(s.Mode)),
+		ActiveTopic:    s.ActiveTopic,
+		LastIntent:     s.LastIntent,
+		FallbackCount:  int32(s.FallbackCount),
+		OperatorStatus: string(defaultOperatorStatus(s.OperatorStatus, s.Mode)),
+		Metadata:       metadata,
+		Status:         string(defaultStatus(s.Status)),
 	})
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return session.Session{}, err
 		}
 		return session.Session{}, session.ErrNotFound
+	}
+
+	return domainSessionFromDB(dbSession), nil
+}
+
+func (r *sessionRepo) UpdateContext(
+	ctx context.Context,
+	s session.Session,
+	transition *session.ModeTransition,
+) (session.Session, error) {
+	metadata, err := marshalMetadata(s.Metadata)
+	if err != nil {
+		return session.Session{}, fmt.Errorf("failed to marshal session metadata: %w", err)
+	}
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return session.Session{}, fmt.Errorf("failed to begin session context transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := r.querier.WithTx(tx)
+	dbSession, err := qtx.UpdateSession(ctx, sqlc.UpdateSessionParams{
+		ID:             uuidToPgUUID(s.ID),
+		State:          string(s.State),
+		Mode:           string(defaultMode(s.Mode)),
+		ActiveTopic:    s.ActiveTopic,
+		LastIntent:     s.LastIntent,
+		FallbackCount:  int32(s.FallbackCount),
+		OperatorStatus: string(defaultOperatorStatus(s.OperatorStatus, s.Mode)),
+		Metadata:       metadata,
+		Status:         string(defaultStatus(s.Status)),
+	})
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return session.Session{}, err
+		}
+		return session.Session{}, session.ErrNotFound
+	}
+
+	if transition != nil {
+		if _, err := qtx.LogTransition(ctx, sqlc.LogTransitionParams{
+			Column1: uuidToPgUUID(transition.SessionID),
+			Column2: string(transition.From),
+			Column3: string(transition.To),
+			Column4: string(transition.Event),
+			Column5: transition.Reason,
+		}); err != nil {
+			return session.Session{}, fmt.Errorf("failed to log mode transition: %w", err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return session.Session{}, fmt.Errorf("failed to commit session context transaction: %w", err)
 	}
 
 	return domainSessionFromDB(dbSession), nil
@@ -268,4 +344,41 @@ func (r *sessionRepo) Count(ctx context.Context) (int64, error) {
 		return 0, fmt.Errorf("failed to count sessions: %w", err)
 	}
 	return count, nil
+}
+
+func defaultMode(mode session.Mode) session.Mode {
+	if mode == "" {
+		return session.ModeStandard
+	}
+	return mode
+}
+
+func defaultOperatorStatus(status session.OperatorStatus, mode session.Mode) session.OperatorStatus {
+	if status != "" {
+		return status
+	}
+	switch defaultMode(mode) {
+	case session.ModeWaitingOperator:
+		return session.OperatorStatusWaiting
+	case session.ModeOperatorConnected:
+		return session.OperatorStatusConnected
+	case session.ModeClosed:
+		return session.OperatorStatusClosed
+	default:
+		return session.OperatorStatusNone
+	}
+}
+
+func defaultStatus(status session.Status) session.Status {
+	if status == "" {
+		return session.StatusActive
+	}
+	return status
+}
+
+func marshalMetadata(metadata map[string]interface{}) ([]byte, error) {
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+	return json.Marshal(metadata)
 }

@@ -5,20 +5,19 @@ import (
 	"fmt"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
-	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 // Engine executes state transitions based on events
 type Engine struct {
-	transitions  map[state.State]map[session.Event]*TransitionConfig
+	transitions  map[session.Mode]map[session.Event]*TransitionConfig
 	globalEvents map[session.Event]*GlobalEventConfig
 	logger       logger.Logger
 }
 
 // NewEngine creates a new transition engine
 func NewEngine(
-	transitions map[state.State]map[session.Event]*TransitionConfig,
+	transitions map[session.Mode]map[session.Event]*TransitionConfig,
 	globalEvents map[session.Event]*GlobalEventConfig,
 	logger logger.Logger,
 ) *Engine {
@@ -29,9 +28,9 @@ func NewEngine(
 	}
 }
 
-// Execute executes a transition from the current state with the given event
-// Returns TransitionResult with the next state and actions to execute
-func (e *Engine) Execute(ctx context.Context, current state.State, event session.Event) (*TransitionResult, error) {
+// Execute executes a transition from the current mode with the given event.
+// It returns the next mode and actions to execute.
+func (e *Engine) Execute(ctx context.Context, current session.Mode, event session.Event) (*TransitionResult, error) {
 	e.logger.Debug("executing transition",
 		e.logger.String("from", string(current)),
 		e.logger.String("event", string(event)))
@@ -44,7 +43,7 @@ func (e *Engine) Execute(ctx context.Context, current state.State, event session
 			e.logger.String("to_state", string(global.To)))
 
 		return &TransitionResult{
-			NextState:   global.To,
+			NextMode:    global.To,
 			Actions:     global.Actions,
 			ResponseKey: global.ResponseKey,
 		}, nil
@@ -59,7 +58,7 @@ func (e *Engine) Execute(ctx context.Context, current state.State, event session
 				e.logger.String("to", string(trans.To)))
 
 			return &TransitionResult{
-				NextState:   trans.To,
+				NextMode:    trans.To,
 				Actions:     trans.Actions,
 				ResponseKey: trans.ResponseKey,
 			}, nil
@@ -72,8 +71,8 @@ func (e *Engine) Execute(ctx context.Context, current state.State, event session
 		e.logger.String("event", string(event)))
 
 	return &TransitionResult{
-		NextState:   current,
+		NextMode:    current,
 		Actions:     []string{},
 		ResponseKey: "", // Will be handled by presenter as fallback
-	}, fmt.Errorf("no transition found for state %s and event %s", current, event)
+	}, fmt.Errorf("no transition found for mode %s and event %s", current, event)
 }

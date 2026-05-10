@@ -25,8 +25,10 @@ func NewTransitionLogRepo(pool *Pool) transitionlog.Repository {
 func (r *transitionLogRepo) Log(ctx context.Context, entry transitionlog.TransitionLog) (transitionlog.TransitionLog, error) {
 	dbLog, err := r.querier.LogTransition(ctx, sqlc.LogTransitionParams{
 		Column1: uuidToPgUUID(entry.SessionID),
-		Column2: string(entry.FromState),
-		Column3: string(entry.ToState),
+		Column2: string(entry.FromMode),
+		Column3: string(entry.ToMode),
+		Column4: string(entry.Event),
+		Column5: entry.Reason,
 	})
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
