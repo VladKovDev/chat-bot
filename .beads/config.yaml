@@ -57,3 +57,5 @@
 dolt.port: 3307
 
 sync.remote: "https://github.com/VladKovDev/chat-bot.git"
+
+federation.remote: "https://github.com/VladKovDev/chat-bot.git"
