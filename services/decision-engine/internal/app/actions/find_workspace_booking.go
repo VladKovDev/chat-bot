@@ -5,18 +5,28 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 // FindWorkspaceBooking MOCK finds workspace booking in main service DB
 type FindWorkspaceBooking struct {
-	logger logger.Logger
+	logger  logger.Logger
+	dataset *appseed.Dataset
 }
 
 // NewFindWorkspaceBooking creates a new FindWorkspaceBooking action
-func NewFindWorkspaceBooking(logger logger.Logger) *FindWorkspaceBooking {
-	return &FindWorkspaceBooking{logger: logger}
+func NewFindWorkspaceBooking(logger logger.Logger, datasets ...*appseed.Dataset) *FindWorkspaceBooking {
+	var dataset *appseed.Dataset
+	if len(datasets) > 0 {
+		dataset = datasets[0]
+	}
+
+	return &FindWorkspaceBooking{
+		logger:  logger,
+		dataset: dataset,
+	}
 }
 
 // Execute MOCK generates and returns workspace booking data
@@ -28,18 +38,32 @@ func (a *FindWorkspaceBooking) Execute(ctx context.Context, data action.ActionDa
 		identifier = data.UserText
 	}
 
-	// Generate mock data
-	mockData := a.generateMockWorkspaceBooking(identifier, mockIdentitySeed(data.Session))
+	var (
+		mockData map[string]interface{}
+		err      error
+	)
+	if a.dataset != nil {
+		mockData, err = a.dataset.LookupWorkspaceBooking(identifier)
+		if err != nil {
+			return err
+		}
+	} else {
+		mockData = a.generateMockWorkspaceBooking(identifier, mockIdentitySeed(data.Session))
+	}
 
 	// Store result in context for processor
 	data.Context["action_result"] = mockData
 
 	// Store in session metadata for later use
+	if data.Session.Metadata == nil {
+		data.Session.Metadata = map[string]any{}
+	}
 	data.Session.Metadata["workspace_booking_info"] = mockData
 
+	status, _ := mockData["status"].(string)
 	a.logger.Info("MOCK: find_workspace_booking executed",
 		a.logger.String("identifier", identifier),
-		a.logger.String("status", mockData["status"].(string)))
+		a.logger.String("status", status))
 
 	return nil
 }

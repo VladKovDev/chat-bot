@@ -10,6 +10,7 @@ import (
 	appdecision "github.com/VladKovDev/chat-bot/internal/app/decision"
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	appprocessor "github.com/VladKovDev/chat-bot/internal/app/processor"
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	appworker "github.com/VladKovDev/chat-bot/internal/app/worker"
 	"github.com/VladKovDev/chat-bot/internal/config"
 	loggerCfg "github.com/VladKovDev/chat-bot/internal/config/logger"
@@ -131,6 +132,13 @@ func Run(ctx context.Context) error {
 	if err := presenterValidator.ValidateCatalog(intentCatalog); err != nil {
 		return fmt.Errorf("failed to validate intent catalog: %w", err)
 	}
+	dataset, err := appseed.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load seed dataset: %w", err)
+	}
+	if err := dataset.ValidateCatalog(intentCatalog); err != nil {
+		return fmt.Errorf("failed to validate seed dataset: %w", err)
+	}
 	decisionService, err := appdecision.NewService(intentCatalog, nil, logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize decision service: %w", err)
@@ -140,16 +148,16 @@ func Run(ctx context.Context) error {
 	processor := appprocessor.NewProcessor(logger)
 
 	// Register business actions (read-only DB queries)
-	findBooking := appactions.NewFindBooking(logger)
+	findBooking := appactions.NewFindBooking(logger, dataset)
 	processor.Register("find_booking", findBooking)
 
-	findWorkspaceBooking := appactions.NewFindWorkspaceBooking(logger)
+	findWorkspaceBooking := appactions.NewFindWorkspaceBooking(logger, dataset)
 	processor.Register("find_workspace_booking", findWorkspaceBooking)
 
-	findPayment := appactions.NewFindPayment(logger)
+	findPayment := appactions.NewFindPayment(logger, dataset)
 	processor.Register("find_payment", findPayment)
 
-	findUserAccount := appactions.NewFindUserAccount(logger)
+	findUserAccount := appactions.NewFindUserAccount(logger, dataset)
 	processor.Register("find_user_account", findUserAccount)
 
 	// Register utility actions

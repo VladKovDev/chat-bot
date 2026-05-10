@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "id": "workspace-fixture-ws-1001",
+      "booking_number": "WS-1001",
+      "identifiers": ["WRK-HOT-001"],
+      "workspace_type": "hot_seat",
+      "date": "2026-05-15",
+      "time": "10:00",
+      "duration": "4",
+      "status": "confirmed"
+    },
+    {
+      "id": "workspace-fixture-ws-1002",
+      "booking_number": "WS-1002",
+      "identifiers": ["WRK-FIX-002"],
+      "workspace_type": "fixed_desk",
+      "date": "2026-05-16",
+      "time": "09:00",
+      "duration": "8",
+      "status": "pending"
+    },
+    {
+      "id": "workspace-fixture-ws-1003",
+      "booking_number": "WS-1003",
+      "identifiers": ["WRK-OFC1-003"],
+      "workspace_type": "office_1_3",
+      "date": "2026-05-17",
+      "time": "13:00",
+      "duration": "2",
+      "status": "active"
+    },
+    {
+      "id": "workspace-fixture-ws-1004",
+      "booking_number": "WS-1004",
+      "identifiers": ["WRK-OFC4-004"],
+      "workspace_type": "office_4_8",
+      "date": "2026-05-14",
+      "time": "18:00",
+      "duration": "3",
+      "status": "completed"
+    }
+  ]
+}

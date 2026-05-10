@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "operator-fixture-op-001",
+      "operator_id": "OP-001",
+      "name": "Марина Смирнова",
+      "status": "available"
+    },
+    {
+      "id": "operator-fixture-op-002",
+      "operator_id": "OP-002",
+      "name": "Алексей Котов",
+      "status": "busy"
+    },
+    {
+      "id": "operator-fixture-op-003",
+      "operator_id": "OP-003",
+      "name": "Ирина Волкова",
+      "status": "offline"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "id": "payment-fixture-pay-123456",
+      "payment_id": "PAY-123456",
+      "identifiers": ["BRG-482910", "ORDER-482910"],
+      "amount": 2000,
+      "date": "2026-05-14T10:15:00Z",
+      "status": "completed",
+      "purpose": "Женская стрижка"
+    },
+    {
+      "id": "payment-fixture-pay-000001",
+      "payment_id": "PAY-000001",
+      "identifiers": ["WS-1001", "ORDER-000001"],
+      "amount": 800,
+      "date": "2026-05-15T09:00:00Z",
+      "status": "pending",
+      "purpose": "Горячее место на 4 часа"
+    },
+    {
+      "id": "payment-fixture-pay-789012",
+      "payment_id": "PAY-789012",
+      "identifiers": ["ORDER-789012"],
+      "amount": 1500,
+      "date": "2026-05-13T14:30:00Z",
+      "status": "failed",
+      "purpose": "Офис 1-3 человека"
+    },
+    {
+      "id": "payment-fixture-pay-555000",
+      "payment_id": "PAY-555000",
+      "identifiers": ["ORDER-555000"],
+      "amount": 3000,
+      "date": "2026-05-13T18:30:00Z",
+      "status": "debited_not_activated",
+      "purpose": "Офис 4-8 человек"
+    },
+    {
+      "id": "payment-fixture-pay-456789",
+      "payment_id": "PAY-456789",
+      "identifiers": ["ORDER-456789"],
+      "amount": 5000,
+      "date": "2026-05-12T11:00:00Z",
+      "status": "refunded",
+      "purpose": "Возврат по заявке клиента"
+    }
+  ]
+}

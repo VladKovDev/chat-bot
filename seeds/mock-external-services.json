@@ -1,0 +1,99 @@
+{
+  "providers": [
+    {
+      "provider": "booking",
+      "success_fixture_ids": [
+        "booking-fixture-brg-482910",
+        "booking-fixture-brg-482911"
+      ],
+      "not_found_identifiers": [
+        "BRG-404000",
+        "+7 (900) 000-00-00"
+      ],
+      "error_cases": [
+        {
+          "id": "booking-provider-unavailable",
+          "identifier": "BRG-ERROR-503",
+          "code": "provider_unavailable",
+          "message": "booking provider unavailable"
+        }
+      ]
+    },
+    {
+      "provider": "workspace_booking",
+      "success_fixture_ids": [
+        "workspace-fixture-ws-1001",
+        "workspace-fixture-ws-1002"
+      ],
+      "not_found_identifiers": [
+        "WS-4040",
+        "WRK-HOT-404"
+      ],
+      "error_cases": [
+        {
+          "id": "workspace-provider-unavailable",
+          "identifier": "WS-ERROR-503",
+          "code": "provider_unavailable",
+          "message": "workspace provider unavailable"
+        }
+      ]
+    },
+    {
+      "provider": "payment",
+      "success_fixture_ids": [
+        "payment-fixture-pay-123456",
+        "payment-fixture-pay-000001",
+        "payment-fixture-pay-789012"
+      ],
+      "not_found_identifiers": [
+        "PAY-404000",
+        "ORDER-404000"
+      ],
+      "error_cases": [
+        {
+          "id": "payment-provider-unavailable",
+          "identifier": "PAY-ERROR-503",
+          "code": "provider_unavailable",
+          "message": "payment provider unavailable"
+        }
+      ]
+    },
+    {
+      "provider": "user_account",
+      "success_fixture_ids": [
+        "user-fixture-usr-100001",
+        "user-fixture-usr-100002"
+      ],
+      "not_found_identifiers": [
+        "usr-404000",
+        "missing@example.com"
+      ],
+      "error_cases": [
+        {
+          "id": "account-provider-unavailable",
+          "identifier": "error-user@example.com",
+          "code": "provider_unavailable",
+          "message": "account provider unavailable"
+        }
+      ]
+    },
+    {
+      "provider": "pricing",
+      "success_fixture_ids": [
+        "kb-workspace-prices",
+        "kb-services-prices"
+      ],
+      "not_found_identifiers": [
+        "pricing-missing"
+      ],
+      "error_cases": [
+        {
+          "id": "pricing-provider-unavailable",
+          "identifier": "pricing-error",
+          "code": "provider_unavailable",
+          "message": "pricing provider unavailable"
+        }
+      ]
+    }
+  ]
+}

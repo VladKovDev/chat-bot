@@ -93,6 +93,45 @@ func TestPresentNormalizesLegacyOptionsIntoTypedQuickReplies(t *testing.T) {
 	}
 }
 
+func TestValidateCatalogFailsOnMissingResponseAndUnknownAction(t *testing.T) {
+	t.Parallel()
+
+	validator := NewValidator(map[string]*ResponseConfig{
+		"start": {Message: "Старт"},
+	}, logger.Noop())
+
+	err := validator.ValidateCatalog(&IntentCatalog{
+		Intents: []IntentDefinition{
+			{
+				Key:            "greeting",
+				Category:       "system",
+				ResolutionType: "static_response",
+				ResponseKey:    "missing_response",
+				Examples:       []string{"привет", "здравствуйте", "добрый день", "добрый вечер", "помогите", "подскажите", "здравствуйте бот", "можно спросить"},
+				E2ECoverage:    []string{"E2E-001"},
+			},
+			{
+				Key:            "request_operator",
+				Category:       "operator",
+				ResolutionType: "operator_handoff",
+				ResponseKey:    "start",
+				Action:         "missing_action",
+				Examples:       []string{"оператор", "человек", "поддержка", "живой оператор", "соедините с человеком", "специалист", "нужен оператор", "передайте в поддержку"},
+				E2ECoverage:    []string{"E2E-022"},
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected validation error")
+	}
+	if !strings.Contains(err.Error(), "references missing response_key") {
+		t.Fatalf("expected missing response error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "references unknown action") {
+		t.Fatalf("expected unknown action error, got: %v", err)
+	}
+}
+
 func writeResponsesFile(t *testing.T, dir string, content string) {
 	t.Helper()
 

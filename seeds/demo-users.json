@@ -1,0 +1,36 @@
+{
+  "items": [
+    {
+      "id": "user-fixture-usr-100001",
+      "user_id": "usr-100001",
+      "identifiers": ["client-primary"],
+      "email": "user1@example.com",
+      "phone": "+7 (999) 123-45-67",
+      "status": "active"
+    },
+    {
+      "id": "user-fixture-usr-100002",
+      "user_id": "usr-100002",
+      "identifiers": ["client-pending"],
+      "email": "user2@example.com",
+      "phone": "+7 (916) 234-56-78",
+      "status": "pending_verification"
+    },
+    {
+      "id": "user-fixture-usr-100003",
+      "user_id": "usr-100003",
+      "identifiers": ["client-blocked"],
+      "email": "user3@example.com",
+      "phone": "+7 (926) 345-67-89",
+      "status": "blocked"
+    },
+    {
+      "id": "user-fixture-usr-100004",
+      "user_id": "usr-100004",
+      "identifiers": ["client-vip"],
+      "email": "vip@example.com",
+      "phone": "+7 (936) 456-78-90",
+      "status": "vip"
+    }
+  ]
+}

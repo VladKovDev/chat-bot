@@ -1,0 +1,194 @@
+{
+  "articles": [
+    {
+      "id": "kb-booking-info",
+      "key": "booking.info",
+      "category": "booking",
+      "title": "Как работает запись",
+      "content": "Запись оформляется через сайт или оператора, после подтверждения сохраняется в аккаунте и используется в демо как стабильный сценарий.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-booking-cancellation-rules",
+      "key": "booking.cancellation_rules",
+      "category": "booking",
+      "title": "Правила отмены записи",
+      "content": "Бесплатная отмена доступна заранее, а поздняя отмена ведет к удержанию части стоимости согласно правилам демо-сервиса.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-booking-reschedule-rules",
+      "key": "booking.reschedule_rules",
+      "category": "booking",
+      "title": "Правила переноса записи",
+      "content": "Перенос записи возможен при наличии свободного слота, а точные условия выводятся из подготовленного knowledge-base seed.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-workspace-info",
+      "key": "workspace.info",
+      "category": "workspace",
+      "title": "Информация о рабочих местах",
+      "content": "Демо поддерживает горячие места, фиксированные столы и офисы с предзаполненными стабильными сценариями аренды.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-workspace-prices",
+      "key": "workspace.prices",
+      "category": "workspace",
+      "title": "Цены на рабочие места",
+      "content": "Горячее место стоит от 200 рублей в час, фиксированное место от 400, а офисные форматы используются в детерминированных тестовых сценариях.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-workspace-rules",
+      "key": "workspace.rules",
+      "category": "workspace",
+      "title": "Правила аренды рабочего места",
+      "content": "Бронь рабочего места требует своевременного прибытия, соблюдения правил пространства и уважения к другим гостям.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-workspace-unavailable",
+      "key": "workspace.unavailable",
+      "category": "workspace",
+      "title": "Что делать при отсутствии мест",
+      "content": "Если подходящее рабочее место недоступно, бот предлагает альтернативы и связь с администратором без ручного редактирования базы.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-payment-failed",
+      "key": "payment.failed",
+      "category": "payment",
+      "title": "Платеж не прошел",
+      "content": "Сценарий неуспешного платежа покрывается отдельным демо-кейсом с советами по повторной оплате и обращению к оператору.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-payment-debited-not-activated",
+      "key": "payment.debited_not_activated",
+      "category": "payment",
+      "title": "Деньги списались, услуга не активирована",
+      "content": "Для статуса debited_not_activated seed хранит отдельный демо-кейс с рекомендацией подождать обработку и при необходимости передать запрос оператору.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-payment-refund-rules",
+      "key": "payment.refund_rules",
+      "category": "payment",
+      "title": "Правила возврата",
+      "content": "Возвраты в демо описаны как read-only консультационный сценарий со стабильными идентификаторами платежей и единым регламентом обработки.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-tech-site-problem",
+      "key": "tech.site_problem",
+      "category": "tech_issue",
+      "title": "Проблемы с сайтом",
+      "content": "Технические проблемы сайта покрываются knowledge-сценарием с базовыми шагами диагностики и возможностью эскалации.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-tech-login-problem",
+      "key": "tech.login_problem",
+      "category": "tech_issue",
+      "title": "Проблемы со входом",
+      "content": "Сид содержит стабильный текст для входа, восстановления пароля и базовой самодиагностики авторизации.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-tech-code-not-received",
+      "key": "tech.code_not_received",
+      "category": "tech_issue",
+      "title": "Код подтверждения не приходит",
+      "content": "Для проблем с кодом подтверждения knowledge-base seed описывает повторную отправку, проверку почты и fallback на оператора.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-account-help",
+      "key": "account.help",
+      "category": "account",
+      "title": "Помощь с аккаунтом",
+      "content": "Аккаунтный раздел демонстрирует поддержку входа, почты, телефона и lookup по стабильным идентификаторам пользователей.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-info",
+      "key": "services.info",
+      "category": "services",
+      "title": "Информация об услугах",
+      "content": "Каталог услуг в демонстрации используется как статический справочник без генеративных ответов и ручных правок в БД.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-prices",
+      "key": "services.prices",
+      "category": "services",
+      "title": "Цены на услуги",
+      "content": "Цены на услуги сидируются отдельно и также используются как success fixture для pricing provider.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-rules",
+      "key": "services.rules",
+      "category": "services",
+      "title": "Правила сервиса",
+      "content": "Общие правила сервиса и коворкинга доступны как knowledge-сценарий с заранее утвержденным ответом.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-location",
+      "key": "services.location",
+      "category": "services",
+      "title": "Адрес и часы работы",
+      "content": "Адрес, часы работы и каналы связи демо-сервиса лежат в сидовых знаниях и используются в E2E как стабильный справочный ответ.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-faq",
+      "key": "services.faq",
+      "category": "services",
+      "title": "FAQ",
+      "content": "FAQ хранится в knowledge-base и покрывает типовые вопросы о записи, отмене и рабочем месте в детерминированном режиме.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    }
+  ]
+}

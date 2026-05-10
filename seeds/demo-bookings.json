@@ -1,0 +1,44 @@
+{
+  "items": [
+    {
+      "id": "booking-fixture-brg-482910",
+      "booking_number": "BRG-482910",
+      "identifiers": ["+7 (999) 123-45-67", "79991234567", "ORDER-482910"],
+      "service": "Женская стрижка",
+      "master": "Анна Петрова",
+      "date": "2026-05-15",
+      "time": "14:30",
+      "status": "confirmed"
+    },
+    {
+      "id": "booking-fixture-brg-482911",
+      "booking_number": "BRG-482911",
+      "identifiers": ["+7 (999) 555-10-10", "79995551010", "ORDER-482911"],
+      "service": "Маникюр",
+      "master": "Елена Сидорова",
+      "date": "2026-05-16",
+      "time": "10:00",
+      "status": "pending"
+    },
+    {
+      "id": "booking-fixture-brg-482912",
+      "booking_number": "BRG-482912",
+      "identifiers": ["+7 (999) 222-20-20", "79992222020", "ORDER-482912"],
+      "service": "Массаж",
+      "master": "Иван Иванов",
+      "date": "2026-05-10",
+      "time": "16:00",
+      "status": "completed"
+    },
+    {
+      "id": "booking-fixture-brg-482913",
+      "booking_number": "BRG-482913",
+      "identifiers": ["+7 (999) 888-88-88", "79998888888", "ORDER-482913"],
+      "service": "Окрашивание",
+      "master": "Мария Новикова",
+      "date": "2026-05-12",
+      "time": "12:00",
+      "status": "cancelled"
+    }
+  ]
+}

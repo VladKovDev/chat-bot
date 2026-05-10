@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -12,12 +13,21 @@ import (
 
 // FindUserAccount MOCK finds user account in main service DB
 type FindUserAccount struct {
-	logger logger.Logger
+	logger  logger.Logger
+	dataset *appseed.Dataset
 }
 
 // NewFindUserAccount creates a new FindUserAccount action
-func NewFindUserAccount(logger logger.Logger) *FindUserAccount {
-	return &FindUserAccount{logger: logger}
+func NewFindUserAccount(logger logger.Logger, datasets ...*appseed.Dataset) *FindUserAccount {
+	var dataset *appseed.Dataset
+	if len(datasets) > 0 {
+		dataset = datasets[0]
+	}
+
+	return &FindUserAccount{
+		logger:  logger,
+		dataset: dataset,
+	}
 }
 
 // Execute MOCK generates and returns user account data
@@ -29,19 +39,33 @@ func (a *FindUserAccount) Execute(ctx context.Context, data action.ActionData) e
 		identifier = data.UserText
 	}
 
-	// Generate mock data
-	mockData := a.generateMockUserAccount(identifier, mockIdentitySeed(data.Session))
+	var (
+		mockData map[string]interface{}
+		err      error
+	)
+	if a.dataset != nil {
+		mockData, err = a.dataset.LookupUser(identifier)
+		if err != nil {
+			return err
+		}
+	} else {
+		mockData = a.generateMockUserAccount(identifier, mockIdentitySeed(data.Session))
+	}
 
 	// Store result in context for processor
 	data.Context["action_result"] = mockData
 
 	// Store in session metadata for later use
+	if data.Session.Metadata == nil {
+		data.Session.Metadata = map[string]any{}
+	}
 	data.Session.Metadata["user_account_info"] = mockData
 
+	status, _ := mockData["status"].(string)
 	a.logger.Info("MOCK: find_user_account executed",
 		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
 		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
-		a.logger.String("status", mockData["status"].(string)))
+		a.logger.String("status", status))
 
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
@@ -12,12 +13,21 @@ import (
 
 // FindBooking MOCK finds appointment record in main service DB
 type FindBooking struct {
-	logger logger.Logger
+	logger  logger.Logger
+	dataset *appseed.Dataset
 }
 
 // NewFindBooking creates a new FindBooking action
-func NewFindBooking(logger logger.Logger) *FindBooking {
-	return &FindBooking{logger: logger}
+func NewFindBooking(logger logger.Logger, datasets ...*appseed.Dataset) *FindBooking {
+	var dataset *appseed.Dataset
+	if len(datasets) > 0 {
+		dataset = datasets[0]
+	}
+
+	return &FindBooking{
+		logger:  logger,
+		dataset: dataset,
+	}
 }
 
 // Execute MOCK generates and returns booking data
@@ -29,19 +39,33 @@ func (a *FindBooking) Execute(ctx context.Context, data action.ActionData) error
 		identifier = data.UserText
 	}
 
-	// Generate mock data
-	mockData := a.generateMockBooking(identifier, mockIdentitySeed(data.Session))
+	var (
+		mockData map[string]interface{}
+		err      error
+	)
+	if a.dataset != nil {
+		mockData, err = a.dataset.LookupBooking(identifier)
+		if err != nil {
+			return err
+		}
+	} else {
+		mockData = a.generateMockBooking(identifier, mockIdentitySeed(data.Session))
+	}
 
 	// Store result in context for processor
 	data.Context["action_result"] = mockData
 
 	// Store in session metadata for later use
+	if data.Session.Metadata == nil {
+		data.Session.Metadata = map[string]any{}
+	}
 	data.Session.Metadata["booking_info"] = mockData
 
+	status, _ := mockData["status"].(string)
 	a.logger.Info("MOCK: find_booking executed",
 		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
 		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
-		a.logger.String("status", mockData["status"].(string)))
+		a.logger.String("status", status))
 
 	return nil
 }
