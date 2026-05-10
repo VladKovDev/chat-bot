@@ -90,16 +90,10 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	// 4. Convert to LLM format
 	llmMessages := w.convertToLLMMessages(history)
 
-	// 5. Build summary
-	summary := ""
-	if sess.Summary != nil {
-		summary = *sess.Summary
-	}
-
-	// 6. Call LLM /decide
+	// 5. Call LLM /decide
 	decideReq := contracts.DecideLLMRequest{
 		State:    string(sess.State),
-		Summary:  summary,
+		Summary:  "",
 		Messages: llmMessages,
 	}
 
@@ -131,7 +125,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		w.logger.String("next_state", decideResp.State),
 		w.logger.Int("actions", len(decideResp.Actions)))
 
-	// 7. Execute actions and collect results
+	// 6. Execute actions and collect results
 	actionData := action.ActionData{
 		Session:  sess,
 		UserText: msg.Text,
@@ -140,7 +134,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 
 	actionResults := w.processor.ExecuteWithResults(ctx, decideResp.Actions, actionData)
 
-	// 8. Select response based on state and action results
+	// 7. Select response based on state and action results
 	responseKey, err := w.processor.SelectResponse(ctx, state.State(decideResp.State), actionResults)
 	if err != nil {
 		w.logger.Error("failed to select response",
@@ -151,7 +145,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		return response.Response{}, apperror.Wrap(apperror.CodeProcessingFailed, "select_response", err)
 	}
 
-	// 9. Update session state
+	// 8. Update session state
 	sess.State = state.State(decideResp.State)
 	topic := activeTopicForState(sess.State, sess.ActiveTopic)
 	contextDecision := session.ContextDecision{
@@ -172,7 +166,7 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "update_session_context", err)
 	}
 
-	// 10. Present response
+	// 9. Present response
 	resp, err := w.presenter.Present(responseKey, sess.State)
 	if err != nil {
 		w.logger.Error("failed to present response",
@@ -244,7 +238,11 @@ func (w *MessageWorker) loadSession(ctx context.Context, msg contracts.IncomingM
 	}
 
 	if msg.Channel == session.ChannelDevCLI && msg.ChatID != 0 {
-		return w.sessionService.LoadSession(ctx, msg.ChatID)
+		result, err := w.sessionService.StartSession(ctx, session.DevCLIIdentity(msg.ChatID))
+		if err != nil {
+			return nil, err
+		}
+		return &result.Session, nil
 	}
 
 	return nil, session.ErrInvalidIdentity

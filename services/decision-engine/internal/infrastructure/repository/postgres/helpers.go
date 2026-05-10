@@ -22,7 +22,6 @@ func domainSessionFromDB(dbSession sqlc.Session) session.Session {
 
 	return session.Session{
 		ID:             pgUUIDToUUID(dbSession.ID),
-		ChatID:         dbSession.ChatID,
 		UserID:         pgUUIDToUUID(dbSession.UserID),
 		Channel:        dbSession.Channel,
 		ExternalUserID: dbSession.ExternalUserID,
@@ -33,7 +32,6 @@ func domainSessionFromDB(dbSession sqlc.Session) session.Session {
 		LastIntent:     dbSession.LastIntent,
 		FallbackCount:  int(dbSession.FallbackCount),
 		OperatorStatus: session.OperatorStatus(dbSession.OperatorStatus),
-		Summary:        dbSession.Summary,
 		Version:        int(dbSession.Version),
 		Status:         session.Status(dbSession.Status),
 		Metadata:       metadata,

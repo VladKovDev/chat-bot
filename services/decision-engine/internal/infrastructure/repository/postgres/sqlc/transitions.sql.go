@@ -24,7 +24,7 @@ func (q *Queries) CountTransitions(ctx context.Context, dollar_1 pgtype.UUID) (i
 }
 
 const getTransitionsBySessionID = `-- name: GetTransitionsBySessionID :many
-SELECT id, session_id, from_state, to_state, created_at, event, reason FROM transitions_log
+SELECT id, session_id, from_state, to_state, event, reason, created_at FROM transitions_log
 WHERE "session_id" = $1::UUID
 ORDER BY "created_at" DESC
 LIMIT $2::INT OFFSET $3::INT
@@ -50,9 +50,9 @@ func (q *Queries) GetTransitionsBySessionID(ctx context.Context, arg GetTransiti
 			&i.SessionID,
 			&i.FromState,
 			&i.ToState,
-			&i.CreatedAt,
 			&i.Event,
 			&i.Reason,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func (q *Queries) GetTransitionsBySessionID(ctx context.Context, arg GetTransiti
 const logTransition = `-- name: LogTransition :one
 INSERT INTO transitions_log ("session_id", "from_state", "to_state", "event", "reason")
 VALUES ($1::UUID, $2::VARCHAR(50), $3::VARCHAR(50), $4::VARCHAR(64), $5::TEXT)
-RETURNING id, session_id, from_state, to_state, created_at, event, reason
+RETURNING id, session_id, from_state, to_state, event, reason, created_at
 `
 
 type LogTransitionParams struct {
@@ -92,9 +92,9 @@ func (q *Queries) LogTransition(ctx context.Context, arg LogTransitionParams) (T
 		&i.SessionID,
 		&i.FromState,
 		&i.ToState,
-		&i.CreatedAt,
 		&i.Event,
 		&i.Reason,
+		&i.CreatedAt,
 	)
 	return i, err
 }

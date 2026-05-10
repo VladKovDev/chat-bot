@@ -30,7 +30,7 @@ func (a *FindBooking) Execute(ctx context.Context, data action.ActionData) error
 	}
 
 	// Generate mock data
-	mockData := a.generateMockBooking(identifier, data.Session.ChatID)
+	mockData := a.generateMockBooking(identifier, mockIdentitySeed(data.Session))
 
 	// Store result in context for processor
 	data.Context["action_result"] = mockData
@@ -47,7 +47,7 @@ func (a *FindBooking) Execute(ctx context.Context, data action.ActionData) error
 }
 
 // generateMockBooking MOCK generates varied booking records
-func (a *FindBooking) generateMockBooking(input string, chatID int64) map[string]interface{} {
+func (a *FindBooking) generateMockBooking(input string, identitySeed string) map[string]interface{} {
 	// Simulate "not_found" for certain patterns
 	if input == "INVALID" || input == "NOTFOUND" {
 		return map[string]interface{}{
@@ -58,7 +58,7 @@ func (a *FindBooking) generateMockBooking(input string, chatID int64) map[string
 
 	// Deterministic hash-based selection
 	hash := fnv.New32a()
-	hash.Write([]byte(fmt.Sprintf("%d:%s", chatID, input)))
+	hash.Write([]byte(fmt.Sprintf("%s:%s", identitySeed, input)))
 	variant := int(hash.Sum32()) % 4
 
 	bookings := []map[string]interface{}{

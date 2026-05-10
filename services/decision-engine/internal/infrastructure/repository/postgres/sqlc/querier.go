@@ -26,7 +26,6 @@ type Querier interface {
 	GetActiveSessionByIdentity(ctx context.Context, arg GetActiveSessionByIdentityParams) (Session, error)
 	GetLastMessagesBySessionID(ctx context.Context, arg GetLastMessagesBySessionIDParams) ([]Message, error)
 	GetMessagesBySessionID(ctx context.Context, arg GetMessagesBySessionIDParams) ([]Message, error)
-	GetSessionByChatID(ctx context.Context, dollar_1 int64) (Session, error)
 	GetSessionByID(ctx context.Context, dollar_1 pgtype.UUID) (Session, error)
 	GetTransitionsBySessionID(ctx context.Context, arg GetTransitionsBySessionIDParams) ([]TransitionsLog, error)
 	GetUserByExternalID(ctx context.Context, dollar_1 string) (User, error)
@@ -41,7 +40,6 @@ type Querier interface {
 	UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error)
 	UpdateSessionState(ctx context.Context, arg UpdateSessionStateParams) (Session, error)
 	UpdateSessionStatus(ctx context.Context, arg UpdateSessionStatusParams) (Session, error)
-	UpdateSessionSummary(ctx context.Context, arg UpdateSessionSummaryParams) (Session, error)
 	UpdateSessionWithVersion(ctx context.Context, arg UpdateSessionWithVersionParams) (Session, error)
 }
 

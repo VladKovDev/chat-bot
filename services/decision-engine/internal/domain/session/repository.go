@@ -15,9 +15,6 @@ type Repository interface {
 	// GetByID retrieves a session by its ID
 	GetByID(ctx context.Context, id uuid.UUID) (Session, error)
 
-	// GetByChatID retrieves a session by chat ID
-	GetByChatID(ctx context.Context, chatID int64) (Session, error)
-
 	// GetActiveByIdentity retrieves an active session by channel and external user/client identity.
 	GetActiveByIdentity(ctx context.Context, identity Identity) (Session, error)
 
@@ -38,9 +35,6 @@ type Repository interface {
 
 	// UpdateStatus updates the session status
 	UpdateStatus(ctx context.Context, id uuid.UUID, status Status) (Session, error)
-
-	// UpdateSummary updates the session summary
-	UpdateSummary(ctx context.Context, id uuid.UUID, summary string) (Session, error)
 
 	// List retrieves sessions with pagination
 	List(ctx context.Context, limit int32, offset int32) ([]Session, error)

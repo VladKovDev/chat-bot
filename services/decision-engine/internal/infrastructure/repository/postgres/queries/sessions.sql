@@ -1,6 +1,5 @@
 -- name: CreateSession :one
 INSERT INTO "sessions" (
-    "chat_id",
     "user_id",
     "channel",
     "external_user_id",
@@ -16,7 +15,6 @@ INSERT INTO "sessions" (
     "status"
 )
 VALUES (
-    sqlc.arg(chat_id)::BIGINT,
     sqlc.arg(user_id)::UUID,
     sqlc.arg(channel)::TEXT,
     sqlc.arg(external_user_id)::TEXT,
@@ -32,12 +30,6 @@ VALUES (
     'active'
 )
 RETURNING *;
-
--- name: GetSessionByChatID :one
-SELECT * FROM "sessions"
-WHERE "chat_id" = $1::BIGINT
-ORDER BY "created_at" DESC
-LIMIT 1;
 
 -- name: GetActiveSessionByIdentity :one
 SELECT * FROM "sessions"
@@ -87,13 +79,6 @@ RETURNING *;
 -- name: UpdateSessionStatus :one
 UPDATE "sessions"
 SET "status" = $2::VARCHAR(20),
-    "updated_at" = now()
-WHERE "id" = $1::UUID
-RETURNING *;
-
--- name: UpdateSessionSummary :one
-UPDATE "sessions"
-SET "summary" = $2::VARCHAR(255),
     "updated_at" = now()
 WHERE "id" = $1::UUID
 RETURNING *;

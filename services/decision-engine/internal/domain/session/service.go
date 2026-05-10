@@ -3,7 +3,6 @@ package session
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
 	"strings"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
@@ -41,37 +40,6 @@ func ValidateIdentity(identity Identity) error {
 	return nil
 }
 
-// LoadSession loads or creates a session
-// LoadSession is reserved for explicit development adapters that still address sessions by chat ID.
-func (s *Service) LoadSession(ctx context.Context, chatID int64) (*Session, error) {
-	session, err := s.repo.GetByChatID(ctx, chatID)
-	if err != nil {
-		if err == ErrNotFound {
-			defaultUserID := uuid.New()
-			session := Session{
-				ID:             uuid.New(),
-				ChatID:         chatID,
-				UserID:         defaultUserID,
-				Channel:        ChannelDevCLI,
-				ExternalUserID: fmt.Sprintf("chat:%d", chatID),
-				State:          state.StateNew,
-				Mode:           ModeStandard,
-				OperatorStatus: OperatorStatusNone,
-				Status:         StatusActive,
-				Metadata:       make(map[string]interface{}),
-			}
-			createdSession, err := s.repo.Create(ctx, session)
-			if err != nil {
-				return nil, err
-			}
-			return &createdSession, nil
-		}
-		return nil, err
-	}
-	normalizeContext(&session)
-	return &session, nil
-}
-
 func (s *Service) StartSession(ctx context.Context, identity Identity) (StartResult, error) {
 	identity = NormalizeIdentity(identity)
 	if err := ValidateIdentity(identity); err != nil {
@@ -89,7 +57,6 @@ func (s *Service) StartSession(ctx context.Context, identity Identity) (StartRes
 
 	newSession := Session{
 		ID:             uuid.New(),
-		ChatID:         deriveChatID(identity),
 		UserID:         uuid.New(),
 		Channel:        identity.Channel,
 		ExternalUserID: identity.ExternalUserID,
@@ -133,35 +100,6 @@ func (s *Service) LoadSessionByID(ctx context.Context, sessionID uuid.UUID, iden
 	}
 	normalizeContext(&sess)
 	return &sess, nil
-}
-
-// LoadOrCreateSession loads or creates a session with explicit user ID
-func (s *Service) LoadOrCreateSession(ctx context.Context, chatID int64, userID uuid.UUID) (*Session, error) {
-	session, err := s.repo.GetByChatID(ctx, chatID)
-	if err != nil {
-		if err == ErrNotFound {
-			session := Session{
-				ID:             uuid.New(),
-				ChatID:         chatID,
-				UserID:         userID,
-				Channel:        ChannelDevCLI,
-				ExternalUserID: fmt.Sprintf("chat:%d", chatID),
-				State:          state.StateNew,
-				Mode:           ModeStandard,
-				OperatorStatus: OperatorStatusNone,
-				Status:         StatusActive,
-				Metadata:       make(map[string]interface{}),
-			}
-			createdSession, err := s.repo.Create(ctx, session)
-			if err != nil {
-				return nil, err
-			}
-			return &createdSession, nil
-		}
-		return nil, err
-	}
-	normalizeContext(&session)
-	return &session, nil
 }
 
 func (s *Service) UpdateSessionState(ctx context.Context, session *Session) (Session, error) {
@@ -243,33 +181,11 @@ func (s *Service) CloseSession(ctx context.Context, sessionID uuid.UUID) error {
 	return err
 }
 
-// Backward compatibility aliases
-func (s *Service) LoadConversation(ctx context.Context, chatID int64) (*Session, error) {
-	return s.LoadSession(ctx, chatID)
-}
-
-func (s *Service) UpdateConversationState(ctx context.Context, session *Session) (Session, error) {
-	return s.UpdateSessionState(ctx, session)
-}
-
-func (s *Service) CloseConversation(ctx context.Context, sessionID uuid.UUID) error {
-	return s.CloseSession(ctx, sessionID)
-}
-
-func deriveChatID(identity Identity) int64 {
-	h := fnv.New64a()
-	_, _ = h.Write([]byte(identity.Channel))
-	_, _ = h.Write([]byte{0})
-	if identity.ExternalUserID != "" {
-		_, _ = h.Write([]byte(identity.ExternalUserID))
-	} else {
-		_, _ = h.Write([]byte(identity.ClientID))
+func DevCLIIdentity(chatID int64) Identity {
+	return Identity{
+		Channel:        ChannelDevCLI,
+		ExternalUserID: fmt.Sprintf("chat:%d", chatID),
 	}
-	value := int64(h.Sum64() & 0x7fffffffffffffff)
-	if value == 0 {
-		return 2
-	}
-	return value
 }
 
 func normalizeContext(sess *Session) {

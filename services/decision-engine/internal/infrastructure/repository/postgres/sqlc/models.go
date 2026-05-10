@@ -29,23 +29,21 @@ type Message struct {
 
 type Session struct {
 	ID             pgtype.UUID      `json:"id"`
-	ChatID         int64            `json:"chat_id"`
 	UserID         pgtype.UUID      `json:"user_id"`
 	Channel        string           `json:"channel"`
 	ExternalUserID string           `json:"external_user_id"`
 	ClientID       string           `json:"client_id"`
 	State          string           `json:"state"`
 	ActiveTopic    string           `json:"active_topic"`
-	Summary        *string          `json:"summary"`
-	Version        int32            `json:"version"`
-	Status         string           `json:"status"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 	Mode           string           `json:"mode"`
 	LastIntent     string           `json:"last_intent"`
 	FallbackCount  int32            `json:"fallback_count"`
 	OperatorStatus string           `json:"operator_status"`
 	Metadata       []byte           `json:"metadata"`
+	Version        int32            `json:"version"`
+	Status         string           `json:"status"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
 }
 
 type TransitionsLog struct {
@@ -53,9 +51,9 @@ type TransitionsLog struct {
 	SessionID pgtype.UUID      `json:"session_id"`
 	FromState string           `json:"from_state"`
 	ToState   string           `json:"to_state"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
 	Event     string           `json:"event"`
 	Reason    string           `json:"reason"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
 }
 
 type User struct {

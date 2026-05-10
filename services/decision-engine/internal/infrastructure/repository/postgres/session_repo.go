@@ -30,9 +30,20 @@ func (r *sessionRepo) Create(ctx context.Context, s session.Session) (session.Se
 		return session.Session{}, fmt.Errorf("failed to marshal session metadata: %w", err)
 	}
 
-	dbSession, err := r.querier.CreateSession(ctx, sqlc.CreateSessionParams{
-		ChatID:         s.ChatID,
-		UserID:         uuidToPgUUID(s.UserID),
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return session.Session{}, fmt.Errorf("failed to begin session create transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := r.querier.WithTx(tx)
+	dbUser, err := ensureSessionUser(ctx, qtx, s)
+	if err != nil {
+		return session.Session{}, err
+	}
+
+	dbSession, err := qtx.CreateSession(ctx, sqlc.CreateSessionParams{
+		UserID:         dbUser.ID,
 		Channel:        s.Channel,
 		ExternalUserID: s.ExternalUserID,
 		ClientID:       s.ClientID,
@@ -48,26 +59,15 @@ func (r *sessionRepo) Create(ctx context.Context, s session.Session) (session.Se
 		return session.Session{}, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	return domainSessionFromDB(dbSession), nil
-}
-
-func (r *sessionRepo) GetByID(ctx context.Context, id uuid.UUID) (session.Session, error) {
-	dbSession, err := r.querier.GetSessionByID(ctx, uuidToPgUUID(id))
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return session.Session{}, err
-		}
-		return session.Session{}, session.ErrNotFound
+	if err := tx.Commit(ctx); err != nil {
+		return session.Session{}, fmt.Errorf("failed to commit session create transaction: %w", err)
 	}
 
 	return domainSessionFromDB(dbSession), nil
 }
 
-func (r *sessionRepo) GetByChatID(
-	ctx context.Context,
-	chatID int64,
-) (session.Session, error) {
-	dbSession, err := r.querier.GetSessionByChatID(ctx, chatID)
+func (r *sessionRepo) GetByID(ctx context.Context, id uuid.UUID) (session.Session, error) {
+	dbSession, err := r.querier.GetSessionByID(ctx, uuidToPgUUID(id))
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return session.Session{}, err
@@ -256,25 +256,6 @@ func (r *sessionRepo) UpdateStatus(
 	return domainSessionFromDB(dbSession), nil
 }
 
-func (r *sessionRepo) UpdateSummary(
-	ctx context.Context,
-	id uuid.UUID,
-	summary string,
-) (session.Session, error) {
-	dbSession, err := r.querier.UpdateSessionSummary(ctx, sqlc.UpdateSessionSummaryParams{
-		Column1: uuidToPgUUID(id),
-		Column2: summary,
-	})
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return session.Session{}, err
-		}
-		return session.Session{}, session.ErrNotFound
-	}
-
-	return domainSessionFromDB(dbSession), nil
-}
-
 func (r *sessionRepo) List(
 	ctx context.Context,
 	limit int32,
@@ -351,6 +332,43 @@ func defaultMode(mode session.Mode) session.Mode {
 		return session.ModeStandard
 	}
 	return mode
+}
+
+func ensureSessionUser(ctx context.Context, qtx *sqlc.Queries, s session.Session) (sqlc.User, error) {
+	externalID := sessionUserExternalID(s)
+
+	dbUser, err := qtx.CreateUser(ctx, externalID)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return sqlc.User{}, err
+		}
+		return sqlc.User{}, fmt.Errorf("failed to create session user: %w", err)
+	}
+
+	if dbUser.ID.Valid {
+		return dbUser, nil
+	}
+
+	dbUser, err = qtx.GetUserByExternalID(ctx, externalID)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return sqlc.User{}, err
+		}
+		return sqlc.User{}, fmt.Errorf("failed to load session user: %w", err)
+	}
+
+	return dbUser, nil
+}
+
+func sessionUserExternalID(s session.Session) string {
+	switch {
+	case s.ExternalUserID != "":
+		return fmt.Sprintf("%s:%s", s.Channel, s.ExternalUserID)
+	case s.ClientID != "":
+		return fmt.Sprintf("%s:%s", s.Channel, s.ClientID)
+	default:
+		return s.ID.String()
+	}
 }
 
 func defaultOperatorStatus(status session.OperatorStatus, mode session.Mode) session.OperatorStatus {

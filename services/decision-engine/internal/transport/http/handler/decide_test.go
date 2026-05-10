@@ -202,6 +202,48 @@ func TestMessageReturnsVersionedPayloadAndStableErrorEnvelope(t *testing.T) {
 	}
 }
 
+func TestMessageOnlyAcceptsChatIDForDevCLI(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _, worker := newTestHandler()
+	worker.response = response.Response{
+		SessionID:     uuid.MustParse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+		UserMessageID: uuid.MustParse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+		BotMessageID:  uuid.MustParse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+		Mode:          session.ModeStandard,
+		Text:          "ok",
+	}
+
+	invalid := httptest.NewRecorder()
+	invalidReqBody, err := json.Marshal(MessageRequest{
+		Type:   httpMessageTypeUser,
+		Text:   "hello",
+		ChatID: 77,
+	})
+	if err != nil {
+		t.Fatalf("marshal invalid request: %v", err)
+	}
+	invalidReq := httptest.NewRequest(http.MethodPost, "/api/v1/messages", bytes.NewReader(invalidReqBody))
+	invalidReq.Header.Set("Content-Type", "application/json")
+	handler.Message(invalid, invalidReq)
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("invalid chat_id status = %d, want %d; body=%s", invalid.Code, http.StatusBadRequest, invalid.Body.String())
+	}
+
+	resp := postJSON[MessageResponse](t, handler.Message, "/api/v1/messages", MessageRequest{
+		Type:    httpMessageTypeUser,
+		Text:    "hello",
+		Channel: session.ChannelDevCLI,
+		ChatID:  77,
+	})
+	if worker.lastMessage.Channel != session.ChannelDevCLI || worker.lastMessage.ChatID != 77 {
+		t.Fatalf("worker message = %+v, want dev-cli chat_id=77", worker.lastMessage)
+	}
+	if resp.SessionID == "" {
+		t.Fatalf("session_id should not be empty: %+v", resp)
+	}
+}
+
 func TestHealthReadyAndDomainSchemaUseV1Shapes(t *testing.T) {
 	t.Parallel()
 
@@ -367,11 +409,13 @@ func newTestHandler() (*Handler, *fakeSessionStore, *fakeMessageStore, *fakeWork
 }
 
 type fakeWorker struct {
-	response response.Response
-	err      error
+	response    response.Response
+	err         error
+	lastMessage contracts.IncomingMessage
 }
 
-func (f *fakeWorker) HandleMessage(_ context.Context, _ contracts.IncomingMessage) (response.Response, error) {
+func (f *fakeWorker) HandleMessage(_ context.Context, msg contracts.IncomingMessage) (response.Response, error) {
+	f.lastMessage = msg
 	if f.err != nil {
 		return response.Response{}, f.err
 	}

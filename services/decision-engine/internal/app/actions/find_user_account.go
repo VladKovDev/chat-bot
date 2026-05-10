@@ -30,7 +30,7 @@ func (a *FindUserAccount) Execute(ctx context.Context, data action.ActionData) e
 	}
 
 	// Generate mock data
-	mockData := a.generateMockUserAccount(identifier, data.Session.ChatID)
+	mockData := a.generateMockUserAccount(identifier, mockIdentitySeed(data.Session))
 
 	// Store result in context for processor
 	data.Context["action_result"] = mockData
@@ -47,7 +47,7 @@ func (a *FindUserAccount) Execute(ctx context.Context, data action.ActionData) e
 }
 
 // generateMockUserAccount MOCK generates varied user account records
-func (a *FindUserAccount) generateMockUserAccount(input string, chatID int64) map[string]interface{} {
+func (a *FindUserAccount) generateMockUserAccount(input string, identitySeed string) map[string]interface{} {
 	// Special patterns for testing
 	if input == "usr-NOTFOUND" || input == "INVALID" || input == "NOTFOUND" {
 		return map[string]interface{}{
@@ -73,7 +73,7 @@ func (a *FindUserAccount) generateMockUserAccount(input string, chatID int64) ma
 
 	// Deterministic hash-based selection
 	hash := fnv.New32a()
-	hash.Write([]byte(fmt.Sprintf("%d:%s", chatID, input)))
+	hash.Write([]byte(fmt.Sprintf("%s:%s", identitySeed, input)))
 	variant := int(hash.Sum32()) % 4
 
 	accounts := []map[string]interface{}{

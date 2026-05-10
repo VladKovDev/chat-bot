@@ -39,8 +39,8 @@ func TestStartSessionCreatesAndResumesIsolatedBrowserSessions(t *testing.T) {
 	if firstA.Session.Mode != ModeStandard {
 		t.Fatalf("new session mode = %q, want %q", firstA.Session.Mode, ModeStandard)
 	}
-	if firstA.Session.ChatID == firstB.Session.ChatID {
-		t.Fatalf("different browser clients got the same derived chat_id: %d", firstA.Session.ChatID)
+	if firstA.Session.UserID == uuid.Nil || firstB.Session.UserID == uuid.Nil {
+		t.Fatalf("new sessions should include user IDs: A=%s B=%s", firstA.Session.UserID, firstB.Session.UserID)
 	}
 
 	firstA.Session.State = state.StatePayment
@@ -261,6 +261,21 @@ func TestStartSessionRejectsMissingIdentity(t *testing.T) {
 	}
 }
 
+func TestDevCLIIdentityUsesStableExternalUserID(t *testing.T) {
+	t.Parallel()
+
+	identity := DevCLIIdentity(42)
+	if identity.Channel != ChannelDevCLI {
+		t.Fatalf("channel = %q, want %q", identity.Channel, ChannelDevCLI)
+	}
+	if identity.ExternalUserID != "chat:42" {
+		t.Fatalf("external_user_id = %q, want chat:42", identity.ExternalUserID)
+	}
+	if err := ValidateIdentity(identity); err != nil {
+		t.Fatalf("dev cli identity should validate: %v", err)
+	}
+}
+
 type memoryRepo struct {
 	byID        map[uuid.UUID]Session
 	transitions map[uuid.UUID][]ModeTransition
@@ -291,15 +306,6 @@ func (r *memoryRepo) GetByID(_ context.Context, id uuid.UUID) (Session, error) {
 		return Session{}, ErrNotFound
 	}
 	return session, nil
-}
-
-func (r *memoryRepo) GetByChatID(_ context.Context, chatID int64) (Session, error) {
-	for _, session := range r.byID {
-		if session.ChatID == chatID {
-			return session, nil
-		}
-	}
-	return Session{}, ErrNotFound
 }
 
 func (r *memoryRepo) GetActiveByIdentity(_ context.Context, identity Identity) (Session, error) {
@@ -367,10 +373,6 @@ func (r *memoryRepo) UpdateStatus(_ context.Context, id uuid.UUID, status Status
 	session.Status = status
 	r.byID[id] = session
 	return session, nil
-}
-
-func (r *memoryRepo) UpdateSummary(context.Context, uuid.UUID, string) (Session, error) {
-	return Session{}, nil
 }
 
 func (r *memoryRepo) List(context.Context, int32, int32) ([]Session, error) {

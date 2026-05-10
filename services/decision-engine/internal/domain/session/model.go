@@ -9,7 +9,6 @@ import (
 // Session represents a user conversation session
 type Session struct {
 	ID             uuid.UUID
-	ChatID         int64
 	UserID         uuid.UUID
 	Channel        string
 	ExternalUserID string
@@ -20,7 +19,6 @@ type Session struct {
 	LastIntent     string
 	FallbackCount  int
 	OperatorStatus OperatorStatus
-	Summary        *string // Optional summary of the conversation
 	Version        int
 	Status         Status // active, closed
 	Metadata       map[string]interface{}
