@@ -22,7 +22,7 @@ func LoggingMiddleware(logger logger.Logger) func(next http.Handler) http.Handle
 				logger.Int("status", ww.Status()),
 				logger.Int("bytes", ww.BytesWritten()),
 				logger.Any("duration", time.Since(start)),
-				logger.String("request_id", r.Header.Get("X-Request-ID")),
+				logger.String("request_id", RequestIDFromRequest(r)),
 			)
 		})
 	}

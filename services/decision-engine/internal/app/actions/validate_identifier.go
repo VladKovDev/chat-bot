@@ -6,6 +6,7 @@ import (
 	"regexp"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -43,7 +44,8 @@ func (a *ValidateIdentifier) Execute(ctx context.Context, data action.ActionData
 
 	// Log validation
 	a.logger.Debug("identifier validated",
-		a.logger.String("identifier", identifier),
+		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
+		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
 		a.logger.String("type", idType),
 		a.logger.Bool("valid", validationResult["valid"].(bool)))
 
@@ -99,8 +101,8 @@ func (a *ValidateIdentifier) detectIdentifierType(identifier string) string {
 // validateFormat validates identifier format based on type
 func (a *ValidateIdentifier) validateFormat(identifier, idType string) map[string]interface{} {
 	result := map[string]interface{}{
-		"valid":          false,
-		"identifier":     identifier,
+		"valid":           false,
+		"identifier":      identifier,
 		"identifier_type": idType,
 	}
 

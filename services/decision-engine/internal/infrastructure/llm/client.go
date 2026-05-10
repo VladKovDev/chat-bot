@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/sony/gobreaker"
 )
@@ -86,7 +87,7 @@ func (c *Client) Response(ctx context.Context, data interface{}) (interface{}, e
 }
 
 // Summary sends a POST request to /llm/summary
-func (c *Client) Summary (ctx context.Context, data interface{}) (interface{}, error) {
+func (c *Client) Summary(ctx context.Context, data interface{}) (interface{}, error) {
 	return c.post(ctx, "/llm/summary", data)
 }
 
@@ -101,7 +102,10 @@ func (c *Client) post(ctx context.Context, endpoint string, data interface{}) (i
 		return c.doPost(ctx, endpoint, body)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("llm client: %w", err)
+		if apperror.IsAppError(err) {
+			return nil, err
+		}
+		return nil, apperror.Wrap(apperror.CodeProviderUnavailable, "llm_client", err)
 	}
 
 	return result, nil
@@ -124,18 +128,22 @@ func (c *Client) doPost(ctx context.Context, endpoint string, body []byte) (inte
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http do: %w", err)
+		return nil, apperror.Wrap(apperror.CodeProviderUnavailable, "llm_http_do", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status: %d, body: %s", resp.StatusCode, string(bodyBytes))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
+		return nil, apperror.Wrap(
+			apperror.CodeProviderUnavailable,
+			fmt.Sprintf("llm_unexpected_status_%d", resp.StatusCode),
+			nil,
+		)
 	}
 
 	var result Response
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+		return nil, apperror.Wrap(apperror.CodeProviderUnavailable, "llm_decode_response", err)
 	}
 
 	return result.Data, nil

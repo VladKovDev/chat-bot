@@ -2,6 +2,8 @@ package websocket
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -55,7 +57,11 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	clientID := r.URL.Query().Get("client_id")
 	if clientID == "" {
-		h.sendError(conn, "Client identity is required")
+		h.sendError(conn, dto.PublicError{
+			Code:      "invalid_request",
+			Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+			RequestID: newCorrelationID(),
+		})
 		return
 	}
 
@@ -64,10 +70,10 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 	cancel()
 	if err != nil || !sessionResp.Success || sessionResp.SessionID == "" {
 		h.logger.Error("failed to start browser session",
-			logger.Err(err),
+			logger.String("error_code", publicErrorCode(sessionResp.Error, "session_start_failed")),
 			logger.String("client_id", clientID),
 		)
-		h.sendError(conn, "Failed to start session")
+		h.sendError(conn, publicErrorOrDefault(sessionResp.Error, "session_start_failed", "Не удалось начать сессию."))
 		return
 	}
 
@@ -111,10 +117,13 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		var wsMsg dto.WSMessage
 		if err := json.Unmarshal(message, &wsMsg); err != nil {
 			h.logger.Error("failed to unmarshal message",
-				logger.Err(err),
 				logger.String("remote_addr", r.RemoteAddr),
 			)
-			h.sendError(conn, "Invalid message format")
+			h.sendError(conn, dto.PublicError{
+				Code:      "invalid_request",
+				Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+				RequestID: newCorrelationID(),
+			})
 			continue
 		}
 
@@ -124,7 +133,11 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 				logger.String("type", wsMsg.Type),
 				logger.String("remote_addr", r.RemoteAddr),
 			)
-			h.sendError(conn, "Invalid message type")
+			h.sendError(conn, dto.PublicError{
+				Code:      "invalid_request",
+				Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+				RequestID: newCorrelationID(),
+			})
 			continue
 		}
 
@@ -132,14 +145,18 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			h.logger.Warn("empty message text",
 				logger.String("remote_addr", r.RemoteAddr),
 			)
-			h.sendError(conn, "Message text is required")
+			h.sendError(conn, dto.PublicError{
+				Code:      "invalid_request",
+				Message:   "Некорректный запрос. Проверьте данные и попробуйте снова.",
+				RequestID: newCorrelationID(),
+			})
 			continue
 		}
 
 		h.logger.Info("processing message",
-			logger.String("text", wsMsg.Text),
 			logger.String("session_id", sessionID),
 			logger.String("client_id", clientID),
+			logger.Int("text_length", len([]rune(wsMsg.Text))),
 		)
 
 		// Send to decision engine
@@ -147,12 +164,15 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 		resp, err := h.client.SendMessage(ctx, wsMsg.Text, sessionID, clientID)
 		cancel()
 
-		if err != nil {
+		if err != nil || !resp.Success {
+			publicError := publicErrorOrDefault(resp.Error, "processing_failed", "Не удалось обработать сообщение. Попробуйте позже.")
 			h.logger.Error("failed to get response from decision engine",
-				logger.Err(err),
-				logger.String("text", wsMsg.Text),
+				logger.String("error_code", publicError.Code),
+				logger.String("request_id", publicError.RequestID),
+				logger.String("session_id", sessionID),
+				logger.String("client_id", clientID),
 			)
-			h.sendError(conn, "Failed to process message")
+			h.sendError(conn, publicError)
 			continue
 		}
 
@@ -213,11 +233,10 @@ func (h *Handler) sendSession(conn *websocket.Conn, resp dto.SessionResponse) er
 }
 
 // sendError sends an error message to the client
-func (h *Handler) sendError(conn *websocket.Conn, text string) {
+func (h *Handler) sendError(conn *websocket.Conn, publicError dto.PublicError) {
 	wsErr := dto.WSError{
-		Type: dto.MessageTypeError,
-		Text: text,
-		Code: "processing_error",
+		Type:  dto.MessageTypeError,
+		Error: publicError,
 	}
 
 	message, err := json.Marshal(wsErr)
@@ -233,4 +252,30 @@ func (h *Handler) sendError(conn *websocket.Conn, text string) {
 			logger.Err(err),
 		)
 	}
+}
+
+func publicErrorOrDefault(publicError *dto.PublicError, code string, message string) dto.PublicError {
+	if publicError != nil {
+		return *publicError
+	}
+	return dto.PublicError{
+		Code:      code,
+		Message:   message,
+		RequestID: newCorrelationID(),
+	}
+}
+
+func publicErrorCode(publicError *dto.PublicError, fallback string) string {
+	if publicError == nil {
+		return fallback
+	}
+	return publicError.Code
+}
+
+func newCorrelationID() string {
+	var data [16]byte
+	if _, err := rand.Read(data[:]); err != nil {
+		return fmt.Sprintf("local-%d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(data[:])
 }

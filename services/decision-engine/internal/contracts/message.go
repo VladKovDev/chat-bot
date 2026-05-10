@@ -14,5 +14,6 @@ type IncomingMessage struct {
 	ExternalUserID string
 	ClientID       string
 	Text           string
+	RequestID      string
 	Timestamp      time.Time
 }

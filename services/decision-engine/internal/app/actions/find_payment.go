@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -38,7 +39,8 @@ func (a *FindPayment) Execute(ctx context.Context, data action.ActionData) error
 	data.Session.Metadata["payment_info"] = mockData
 
 	a.logger.Info("MOCK: find_payment executed",
-		a.logger.String("identifier", identifier),
+		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
+		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
 		a.logger.String("status", mockData["status"].(string)))
 
 	return nil

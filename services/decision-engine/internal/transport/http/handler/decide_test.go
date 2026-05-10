@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
@@ -70,6 +73,57 @@ func TestDecideRequiresIdentityOrExplicitDevCLIChannel(t *testing.T) {
 				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
 		})
+	}
+}
+
+func TestDecideReturnsPublicErrorShapeWithoutInternalDetails(t *testing.T) {
+	t.Parallel()
+
+	rawErr := errors.New("pq: syntax error near SELECT * FROM messages; upstream body contains prompt=secret")
+	worker := newFakeWorker()
+	worker.handleErr = apperror.Wrap(apperror.CodeDatabaseUnavailable, "save_message", rawErr)
+	handler := NewHandler(worker, logger.Noop())
+
+	body, err := json.Marshal(DecideRequest{
+		Text:      "секретный пользовательский текст",
+		SessionID: uuid.NewString(),
+		Channel:   session.ChannelWebsite,
+		ClientID:  "browser-a",
+	})
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/decide", bytes.NewReader(body))
+	req.Header.Set("X-Request-ID", "req-public-1")
+	rec := httptest.NewRecorder()
+
+	handler.Decide(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+	}
+	bodyText := rec.Body.String()
+	for _, forbidden := range []string{"SELECT", "upstream body", "prompt=secret", "pq:", "секретный пользовательский текст"} {
+		if strings.Contains(bodyText, forbidden) {
+			t.Fatalf("public response leaked %q: %s", forbidden, bodyText)
+		}
+	}
+
+	var resp DecideResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Error == nil {
+		t.Fatalf("error is nil in response: %+v", resp)
+	}
+	if resp.Error.Code != apperror.CodeDatabaseUnavailable {
+		t.Fatalf("code = %q, want %q", resp.Error.Code, apperror.CodeDatabaseUnavailable)
+	}
+	if resp.Error.RequestID != "req-public-1" {
+		t.Fatalf("request_id = %q, want req-public-1", resp.Error.RequestID)
+	}
+	if resp.Error.Message == "" {
+		t.Fatalf("safe message is empty")
 	}
 }
 
@@ -160,9 +214,11 @@ func postDecide(t *testing.T, handler *Handler, body DecideRequest) DecideRespon
 }
 
 type fakeWorker struct {
-	sessions map[string]session.Session
-	byClient map[string]string
-	history  map[string][]string
+	sessions  map[string]session.Session
+	byClient  map[string]string
+	history   map[string][]string
+	handleErr error
+	startErr  error
 }
 
 func newFakeWorker() *fakeWorker {
@@ -174,6 +230,10 @@ func newFakeWorker() *fakeWorker {
 }
 
 func (f *fakeWorker) StartSession(_ context.Context, identity session.Identity) (session.StartResult, error) {
+	if f.startErr != nil {
+		return session.StartResult{}, f.startErr
+	}
+
 	if sessionID, ok := f.byClient[identity.ClientID]; ok {
 		return session.StartResult{Session: f.sessions[sessionID], Resumed: true}, nil
 	}
@@ -193,6 +253,10 @@ func (f *fakeWorker) StartSession(_ context.Context, identity session.Identity) 
 }
 
 func (f *fakeWorker) HandleMessage(_ context.Context, msg contracts.IncomingMessage) (response.Response, error) {
+	if f.handleErr != nil {
+		return response.Response{}, f.handleErr
+	}
+
 	sessionID := msg.SessionID.String()
 	f.history[sessionID] = append(f.history[sessionID], msg.Text)
 

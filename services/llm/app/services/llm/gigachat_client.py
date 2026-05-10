@@ -202,8 +202,7 @@ class GigaChatClient(BaseLLMClient):
         try:
             logger.info("Sending request to GigaChat", model=self.model, prompt_length=len(prompt))
 
-            # Log full prompt in debug mode
-            logger.debug("GigaChat request prompt", prompt_content=prompt[:1000])  # First 1000 chars
+            logger.debug("GigaChat request prepared", prompt_length=len(prompt))
 
             start_time = time.time()
 
@@ -230,8 +229,7 @@ class GigaChatClient(BaseLLMClient):
                 total_elapsed=elapsed,
             )
 
-            # Log full response in debug mode
-            logger.debug("GigaChat full response", response_content=content)
+            logger.debug("GigaChat response parsed", response_length=len(content))
 
             return content
 
@@ -240,7 +238,7 @@ class GigaChatClient(BaseLLMClient):
             raise LLMProviderError("Request to GigaChat timed out")
 
         except httpx.HTTPStatusError as e:
-            logger.error("HTTP error during generation", status_code=e.response.status_code, response_text=e.response.text)
+            logger.error("HTTP error during generation", status_code=e.response.status_code)
             raise LLMProviderError(f"GigaChat API error: {e.response.status_code}")
 
         except (KeyError, IndexError, TypeError) as e:

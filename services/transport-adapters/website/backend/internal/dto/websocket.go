@@ -21,9 +21,8 @@ type WSResponse struct {
 
 // WSError represents a WebSocket error response
 type WSError struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-	Code string `json:"code,omitempty"`
+	Type  string      `json:"type"`
+	Error PublicError `json:"error"`
 }
 
 // Message types

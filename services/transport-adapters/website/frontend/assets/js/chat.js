@@ -72,10 +72,12 @@ function handleWebSocketMessage(data) {
             displayBotMessage(data.text, data.options);
             break;
         case 'error':
-            displayErrorMessage(data.text);
+            displayErrorMessage((data.error && data.error.message) || 'Не удалось обработать сообщение. Попробуйте позже.');
             break;
         default:
-            console.warn('Unknown message type:', data.type);
+            if (typeof debugLog === 'function') {
+                debugLog('Unknown message type:', data.type);
+            }
     }
 }
 

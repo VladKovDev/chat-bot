@@ -19,7 +19,7 @@ class WebSocketClient {
             this.ws = new WebSocket(`${this.url}${separator}client_id=${encodeURIComponent(this.clientId)}`);
 
             this.ws.onopen = () => {
-                console.log('WebSocket connected');
+                debugLog('WebSocket connected');
                 this.reconnectAttempts = 0;
                 this.openHandlers.forEach(handler => handler());
             };
@@ -27,42 +27,42 @@ class WebSocketClient {
             this.ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('WebSocket message received:', data);
+                    debugLog('WebSocket message received:', data);
                     this.messageHandlers.forEach(handler => handler(data));
                 } catch (error) {
-                    console.error('Failed to parse WebSocket message:', error);
+                    debugError('Failed to parse WebSocket message');
                 }
             };
 
             this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+                debugError('WebSocket error');
                 this.errorHandlers.forEach(handler => handler(error));
             };
 
             this.ws.onclose = (event) => {
-                console.log('WebSocket closed:', event.code, event.reason);
+                debugLog('WebSocket closed:', event.code, event.reason);
                 this.closeHandlers.forEach(handler => handler(event));
 
                 // Attempt to reconnect
                 if (this.reconnectAttempts < this.maxReconnectAttempts) {
                     this.reconnectAttempts++;
-                    console.log(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+                    debugLog(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
                     setTimeout(() => this.connect(), this.reconnectDelay);
                 }
             };
         } catch (error) {
-            console.error('Failed to create WebSocket connection:', error);
+            debugError('Failed to create WebSocket connection');
         }
     }
 
     send(message) {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             const jsonMessage = JSON.stringify(message);
-            console.log('Sending WebSocket message:', jsonMessage);
+            debugLog('Sending WebSocket message:', { type: message.type, text_length: message.text.length });
             this.ws.send(jsonMessage);
             return true;
         } else {
-            console.error('WebSocket is not connected');
+            debugError('WebSocket is not connected');
             return false;
         }
     }
@@ -92,6 +92,24 @@ class WebSocketClient {
 
     isConnected() {
         return this.ws && this.ws.readyState === WebSocket.OPEN;
+    }
+}
+
+function isDebugMode() {
+    const devHostnames = ['localhost', '127.0.0.1', '::1'];
+    return window.localStorage.getItem('chat_bot_debug') === '1'
+        || devHostnames.includes(window.location.hostname);
+}
+
+function debugLog(...args) {
+    if (isDebugMode()) {
+        console.log(...args);
+    }
+}
+
+function debugError(...args) {
+    if (isDebugMode()) {
+        console.error(...args);
     }
 }
 

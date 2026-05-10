@@ -41,9 +41,12 @@ func (c *Client) StartSession(ctx context.Context, clientID string) (dto.Session
 
 	var respBody dto.SessionResponse
 	if err := c.postJSON(ctx, "/sessions", req, &respBody); err != nil {
+		if respBody.Error != nil {
+			return respBody, err
+		}
 		return dto.SessionResponse{
 				Success: false,
-				Error:   "Failed to start session",
+				Error:   safePublicError("session_start_failed", "Не удалось начать сессию.", ""),
 			},
 			err
 	}
@@ -62,9 +65,12 @@ func (c *Client) SendMessage(ctx context.Context, text string, sessionID string,
 
 	var respBody dto.DecisionEngineResponse
 	if err := c.postJSON(ctx, "/decide", req, &respBody); err != nil {
+		if respBody.Error != nil {
+			return respBody, err
+		}
 		return dto.DecisionEngineResponse{
 				Success: false,
-				Error:   "Failed to send message",
+				Error:   safePublicError("processing_failed", "Не удалось обработать сообщение. Попробуйте позже.", ""),
 			},
 			err
 	}
@@ -128,4 +134,12 @@ func (c *Client) postJSON(ctx context.Context, path string, req interface{}, res
 	}
 
 	return nil
+}
+
+func safePublicError(code, message, requestID string) *dto.PublicError {
+	return &dto.PublicError{
+		Code:      code,
+		Message:   message,
+		RequestID: requestID,
+	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/VladKovDev/chat-bot/internal/app/presenter"
 	"github.com/VladKovDev/chat-bot/internal/app/processor"
+	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
@@ -13,6 +14,7 @@ import (
 	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/llm"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -48,11 +50,13 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	// 1. Load session first
 	sess, err := w.loadSession(ctx, msg)
 	if err != nil {
-		return response.Response{}, fmt.Errorf("failed to load session: %w", err)
+		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "load_session", err)
 	}
 
 	w.logger.Debug("session loaded",
-		w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
+		w.logger.String("request_id", msg.RequestID),
+		w.logger.String("session_id", sess.ID.String()),
+		w.logger.String("channel", sess.Channel),
 		w.logger.String("state", string(sess.State)))
 
 	// 2. Save incoming message to DB
@@ -62,20 +66,24 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		Text:       msg.Text,
 		CreatedAt:  msg.Timestamp,
 	}
-	if _, err := w.messageRepo.Create(ctx, incomingMsg); err != nil {
-		w.logger.Warn("failed to save message",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		// Continue anyway, message saving is not critical
+	createdMsg, err := w.messageRepo.Create(ctx, incomingMsg)
+	if err != nil {
+		w.logger.Error("failed to save inbound message",
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeDatabaseUnavailable)))
+		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "save_message", err)
 	}
 
 	// 3. Load last 10 messages (now includes the message we just saved)
 	history, err := w.messageRepo.GetLastMessagesBySessionID(ctx, sess.ID, 10)
 	if err != nil {
-		w.logger.Warn("failed to load message history",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		history = []message.Message{}
+		w.logger.Error("failed to load message history",
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeDatabaseUnavailable)))
+		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "load_message_history", err)
 	}
 
 	// 4. Convert to LLM format
@@ -97,21 +105,27 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	decideRespRaw, err := w.llmClient.Decide(ctx, decideReq)
 	if err != nil {
 		w.logger.Error("LLM decide failed",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		return response.Response{}, fmt.Errorf("LLM decide failed: %w", err)
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.PublicFromError(err, msg.RequestID).Code)))
+		return response.Response{}, apperror.Wrap(apperror.CodeProviderUnavailable, "llm_decide", err)
 	}
 
 	decideResp, err := w.parseDecideResponse(decideRespRaw)
 	if err != nil {
 		w.logger.Error("invalid decide response",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		return response.Response{}, fmt.Errorf("invalid decide response: %w", err)
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeProviderUnavailable)))
+		return response.Response{}, apperror.Wrap(apperror.CodeProviderUnavailable, "parse_llm_decision", err)
 	}
 
 	w.logger.Debug("LLM decide response",
-		w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
+		w.logger.String("request_id", msg.RequestID),
+		w.logger.String("session_id", sess.ID.String()),
+		w.logger.String("message_id", createdMsg.ID.String()),
 		w.logger.String("intent", decideResp.Intent),
 		w.logger.String("next_state", decideResp.State),
 		w.logger.Int("actions", len(decideResp.Actions)))
@@ -129,9 +143,11 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	responseKey, err := w.processor.SelectResponse(ctx, state.State(decideResp.State), actionResults)
 	if err != nil {
 		w.logger.Error("failed to select response",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		return response.Response{}, fmt.Errorf("failed to select response: %w", err)
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeProcessingFailed)))
+		return response.Response{}, apperror.Wrap(apperror.CodeProcessingFailed, "select_response", err)
 	}
 
 	// 9. Update session state
@@ -148,25 +164,31 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 	}
 	if _, err := w.sessionService.ApplyContextDecision(ctx, sess, contextDecision); err != nil {
 		w.logger.Error("failed to update session state",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		return response.Response{}, fmt.Errorf("failed to update state: %w", err)
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeDatabaseUnavailable)))
+		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "update_session_context", err)
 	}
 
 	// 10. Present response
 	resp, err := w.presenter.Present(responseKey, sess.State)
 	if err != nil {
 		w.logger.Error("failed to present response",
-			w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
-			w.logger.Err(err))
-		return response.Response{}, fmt.Errorf("failed to present: %w", err)
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeProcessingFailed)))
+		return response.Response{}, apperror.Wrap(apperror.CodeProcessingFailed, "present_response", err)
 	}
 
 	w.logger.Info("response generated",
-		w.logger.String("chat_id", fmt.Sprint(sess.ChatID)),
+		w.logger.String("request_id", msg.RequestID),
+		w.logger.String("session_id", sess.ID.String()),
+		w.logger.String("message_id", createdMsg.ID.String()),
 		w.logger.String("response_key", responseKey),
 		w.logger.String("state", string(resp.State)),
-		w.logger.String("text", resp.Text))
+		w.logger.Int("response_text_length", observability.LenForLog(resp.Text)))
 
 	resp.SessionID = sess.ID
 	resp.Channel = sess.Channel

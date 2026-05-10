@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -38,7 +39,8 @@ func (a *FindUserAccount) Execute(ctx context.Context, data action.ActionData) e
 	data.Session.Metadata["user_account_info"] = mockData
 
 	a.logger.Info("MOCK: find_user_account executed",
-		a.logger.String("identifier", identifier),
+		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
+		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
 		a.logger.String("status", mockData["status"].(string)))
 
 	return nil
@@ -56,16 +58,16 @@ func (a *FindUserAccount) generateMockUserAccount(input string, chatID int64) ma
 
 	if input == "usr-ZERO" {
 		return map[string]interface{}{
-			"status":      "found",
-			"user_id":     "usr-000001",
-			"phone":       "+7 (999) 123-45-67",
-			"email":       "user1@example.com",
-			"name":        "Иван Иванов",
-			"balance":     0,
-			"bonus":       0,
-			"currency":    "RUB",
+			"status":         "found",
+			"user_id":        "usr-000001",
+			"phone":          "+7 (999) 123-45-67",
+			"email":          "user1@example.com",
+			"name":           "Иван Иванов",
+			"balance":        0,
+			"bonus":          0,
+			"currency":       "RUB",
 			"account_status": "active",
-			"created_at":  "01.01.2025",
+			"created_at":     "01.01.2025",
 		}
 	}
 

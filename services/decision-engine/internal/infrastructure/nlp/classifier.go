@@ -3,18 +3,19 @@ package nlp
 import (
 	"context"
 
-	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/intent"
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/normalization"
 	"github.com/VladKovDev/chat-bot/internal/infrastructure/nlp/rule_based"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
 type Classifier struct {
-	RuleBased   *rule_based.RuleBased
-	Normalizer  *normalization.Pipeline
+	RuleBased    *rule_based.RuleBased
+	Normalizer   *normalization.Pipeline
 	EventAdapter *EventAdapter
-	logger      logger.Logger
+	logger       logger.Logger
 }
 
 func NewClassifier(
@@ -34,7 +35,9 @@ func NewClassifier(
 func (c *Classifier) Classify(ctx context.Context, textRow string) (session.Event, error) {
 	textTokens := c.Normalizer.Normalize(ctx, textRow)
 
-	c.logger.Debug("text normalized", c.logger.Any("tokens", textTokens))
+	c.logger.Debug("text normalized",
+		c.logger.Int("text_length", observability.LenForLog(textRow)),
+		c.logger.Int("token_count", len(textTokens)))
 
 	userIntent, err := c.RuleBased.Classify(textTokens)
 	if err != nil {

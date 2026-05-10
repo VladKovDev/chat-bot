@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/action"
+	"github.com/VladKovDev/chat-bot/internal/observability"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
@@ -38,7 +39,8 @@ func (a *FindBooking) Execute(ctx context.Context, data action.ActionData) error
 	data.Session.Metadata["booking_info"] = mockData
 
 	a.logger.Info("MOCK: find_booking executed",
-		a.logger.String("identifier", identifier),
+		a.logger.String("identifier_hash", observability.HashForLog(identifier)),
+		a.logger.Int("identifier_length", observability.LenForLog(identifier)),
 		a.logger.String("status", mockData["status"].(string)))
 
 	return nil
@@ -94,15 +96,15 @@ func (a *FindBooking) generateMockBooking(input string, chatID int64) map[string
 			"duration_minutes": 90,
 		},
 		{
-			"status":           "found",
-			"booking_number":   "БРГ-564738",
-			"service":          "Окрашивание",
-			"master":           "Мария Новикова",
-			"date":             "12.05.2026",
-			"time":             "12:00",
-			"booking_status":   "cancelled",
-			"price":            3000,
-			"duration_minutes": 120,
+			"status":              "found",
+			"booking_number":      "БРГ-564738",
+			"service":             "Окрашивание",
+			"master":              "Мария Новикова",
+			"date":                "12.05.2026",
+			"time":                "12:00",
+			"booking_status":      "cancelled",
+			"price":               3000,
+			"duration_minutes":    120,
 			"cancellation_reason": "client_request",
 		},
 	}

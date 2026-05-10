@@ -7,22 +7,34 @@ import (
 	"github.com/google/uuid"
 )
 
+type requestIDContextKey struct{}
+
 func RequestIDMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			RequestID := r.Header.Get("X-Request-ID")
-			if RequestID == "" {
-				RequestID = uuid.New().String()
+			requestID := r.Header.Get("X-Request-ID")
+			if requestID == "" {
+				requestID = uuid.New().String()
 			}
 
-			// Add the Request ID to the request context
-			ctx := context.WithValue(r.Context(), "RequestID", RequestID)
+			ctx := context.WithValue(r.Context(), requestIDContextKey{}, requestID)
 			r = r.WithContext(ctx)
 
-			// Set the Request ID in the response header
-			w.Header().Set("X-Request-ID", RequestID)
+			w.Header().Set("X-Request-ID", requestID)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func RequestIDFromContext(ctx context.Context) string {
+	requestID, _ := ctx.Value(requestIDContextKey{}).(string)
+	return requestID
+}
+
+func RequestIDFromRequest(r *http.Request) string {
+	if requestID := RequestIDFromContext(r.Context()); requestID != "" {
+		return requestID
+	}
+	return r.Header.Get("X-Request-ID")
 }

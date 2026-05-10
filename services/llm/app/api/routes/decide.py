@@ -1,5 +1,7 @@
+import uuid
+
 import httpx
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -13,9 +15,23 @@ logger = get_logger(__name__)
 
 
 @router.post("/llm/decide")
-async def decide(request: Request, response: Response) -> JSONResponse:
+async def decide(request: Request) -> JSONResponse:
     decide_service: DecideService = request.app.state.decide_service
-    body = await request.json()
+    request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    try:
+        body = await request.json()
+    except Exception as e:
+        logger.warning(
+            "invalid json request body",
+            request_id=request_id,
+            error_type=type(e).__name__,
+        )
+        return public_error(
+            "invalid_request",
+            "Некорректный запрос. Проверьте данные и попробуйте снова.",
+            request_id,
+            422,
+        )
 
     # Support both formats: {"data": {...}} and direct {...}
     # The Go client sends direct format, HTTP examples use {"data": {...}}
@@ -26,51 +42,84 @@ async def decide(request: Request, response: Response) -> JSONResponse:
         data = body
 
     if not data:
-        logger.warning("Empty payload in request body", body=body)
-        return JSONResponse(
-            content={
-                "error": "Empty payload. Expected {'state': str, 'messages': [...]}"
-            },
-            status_code=422,
+        logger.warning("empty payload in request body", request_id=request_id)
+        return public_error(
+            "invalid_request",
+            "Некорректный запрос. Проверьте данные и попробуйте снова.",
+            request_id,
+            422,
         )
 
     try:
         req = DecideRequest(**data)
     except ValidationError as e:
-        logger.warning("Invalid request payload", errors=e.errors(), received_data=data)
-        error_details = [
-            f"  - {err['loc'][0] if err['loc'] else 'field'}: {err['msg']}" for err in e.errors()
-        ]
-        return JSONResponse(
-            content={
-                "error": "Invalid request payload. Required fields: state, messages",
-                "details": error_details,
-            },
-            status_code=422,
+        logger.warning(
+            "invalid request payload",
+            request_id=request_id,
+            validation_error_count=len(e.errors()),
+        )
+        return public_error(
+            "invalid_request",
+            "Некорректный запрос. Проверьте данные и попробуйте снова.",
+            request_id,
+            422,
         )
 
     try:
         result = await decide_service.decide(req)
-        return JSONResponse(content={"data": result.model_dump()}, status_code=200)
+        return JSONResponse(
+            content={"data": result.model_dump()},
+            status_code=200,
+            headers={"X-Request-ID": request_id},
+        )
 
     except httpx.HTTPError as e:
-        logger.error("Failed to connect to decision-engine", error=str(e))
-        return JSONResponse(
-            content={
-                "error": "Failed to fetch domain configuration from decision-engine. "
-                "Please ensure the decision-engine service is running."
-            },
-            status_code=503,
+        logger.error(
+            "failed to connect to decision-engine",
+            request_id=request_id,
+            error_type=type(e).__name__,
+        )
+        return public_error(
+            "provider_unavailable",
+            "Не удалось проверить данные. Попробуйте позже или подключим оператора.",
+            request_id,
+            503,
         )
     except ValidationRetryExhaustedError as e:
-        logger.error("Validation retries exhausted", error=str(e))
-        return JSONResponse(
-            content={"error": f"Failed to get valid response from LLM: {e}"},
-            status_code=500,
+        logger.error(
+            "validation retries exhausted",
+            request_id=request_id,
+            error_type=type(e).__name__,
+        )
+        return public_error(
+            "provider_unavailable",
+            "Не удалось проверить данные. Попробуйте позже или подключим оператора.",
+            request_id,
+            503,
         )
     except Exception as e:
-        logger.error("Unexpected error during decide request", error=str(e))
-        return JSONResponse(
-            content={"error": f"Internal server error: {e}"},
-            status_code=500,
+        logger.error(
+            "unexpected error during decide request",
+            request_id=request_id,
+            error_type=type(e).__name__,
         )
+        return public_error(
+            "internal_error",
+            "Внутренняя ошибка сервиса. Попробуйте позже.",
+            request_id,
+            500,
+        )
+
+
+def public_error(code: str, message: str, request_id: str, status_code: int) -> JSONResponse:
+    return JSONResponse(
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "request_id": request_id,
+            }
+        },
+        status_code=status_code,
+        headers={"X-Request-ID": request_id},
+    )

@@ -91,10 +91,10 @@ func (p *Processor) ExecuteWithResults(
 		if err := act.Execute(ctx, data); err != nil {
 			p.logger.Error("action failed",
 				p.logger.String("action", name),
-				p.logger.Err(err))
+				p.logger.String("error_code", "action_failed"))
 			results[name] = ActionResult{
 				Success: false,
-				Error:   err.Error(),
+				Error:   "action_failed",
 			}
 		} else {
 			// Extract action result from context
@@ -114,8 +114,7 @@ func (p *Processor) ExecuteWithResults(
 			// Log action execution with data
 			p.logger.Debug("action executed",
 				p.logger.String("name", name),
-				p.logger.Bool("success", true),
-				p.logger.Any("data", actionResult))
+				p.logger.Bool("success", true))
 
 			// Clean up action_result from context after extraction
 			delete(data.Context, "action_result")
