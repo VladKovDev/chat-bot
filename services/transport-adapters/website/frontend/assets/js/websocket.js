@@ -143,5 +143,15 @@ function createEventId() {
     return `browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-const wsClient = new WebSocketClient(`${protocol}://${window.location.host}/ws`);
+function buildWebSocketURL(location = window.location) {
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${protocol}://${location.host}/ws`;
+}
+
+const wsClient = new WebSocketClient(buildWebSocketURL());
+
+window.ChatBotWebSocket = {
+    WebSocketClient,
+    buildWebSocketURL,
+    wsClient,
+};

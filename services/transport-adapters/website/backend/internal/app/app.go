@@ -50,7 +50,7 @@ func New(v *viper.Viper) (*App, error) {
 	client := client.NewClient(cfg.DecisionEngine, log)
 
 	// Create WebSocket handler
-	handler := websocket.NewHandler(client, log)
+	handler := websocket.NewHandler(client, cfg.Server, log)
 
 	// Create server
 	srv := websocket.NewServer(cfg.Server, handler, log)

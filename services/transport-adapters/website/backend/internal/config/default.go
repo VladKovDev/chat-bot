@@ -13,6 +13,7 @@ func SetDefaultConfig() Config {
 			Address:         ":8081",
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{"http://localhost:8081"},
 		},
 		Log: Log{
 			Level:  "info",

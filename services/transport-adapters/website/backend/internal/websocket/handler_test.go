@@ -3,6 +3,7 @@ package websocket
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +21,8 @@ import (
 )
 
 var websocketFixedNow = time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
+
+const testAllowedOrigin = "https://chat.example.test"
 
 func TestWebSocketContractDocumentListsTypedEvents(t *testing.T) {
 	t.Parallel()
@@ -140,6 +143,11 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 			URL:     decisionEngine.URL,
 			Timeout: time.Second,
 		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
 		noopLogger{},
 	)
 	wsHandler.now = func() time.Time { return websocketFixedNow }
@@ -147,7 +155,7 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
 	defer server.Close()
 
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), testWebSocketHeaders())
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
@@ -262,6 +270,11 @@ func TestHandleConnectionReturnsTypedErrorEventForInvalidPayload(t *testing.T) {
 			URL:     "http://127.0.0.1:1",
 			Timeout: 100 * time.Millisecond,
 		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
 		noopLogger{},
 	)
 	wsHandler.now = func() time.Time { return websocketFixedNow }
@@ -269,7 +282,7 @@ func TestHandleConnectionReturnsTypedErrorEventForInvalidPayload(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
 	defer server.Close()
 
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), testWebSocketHeaders())
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
@@ -401,6 +414,11 @@ func TestHandleConnectionStreamsOperatorEventsFromDecisionEngineRuntime(t *testi
 			URL:     decisionEngine.URL,
 			Timeout: time.Second,
 		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
 		noopLogger{},
 	)
 	wsHandler.now = func() time.Time { return websocketFixedNow }
@@ -409,7 +427,7 @@ func TestHandleConnectionStreamsOperatorEventsFromDecisionEngineRuntime(t *testi
 	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
 	defer server.Close()
 
-	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), testWebSocketHeaders())
 	if err != nil {
 		t.Fatalf("dial websocket: %v", err)
 	}
@@ -488,6 +506,109 @@ func TestHandleConnectionStreamsOperatorEventsFromDecisionEngineRuntime(t *testi
 	}
 }
 
+func TestHandleConnectionAcceptsAllowedOrigin(t *testing.T) {
+	t.Parallel()
+
+	wsHandler := NewHandler(
+		client.NewClient(config.DecisionEngine{
+			URL:     "http://127.0.0.1:1",
+			Timeout: 100 * time.Millisecond,
+		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
+		noopLogger{},
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
+	defer server.Close()
+
+	headers := http.Header{}
+	headers.Set("Origin", testAllowedOrigin)
+
+	conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), headers)
+	if err != nil {
+		statusCode := 0
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+		t.Fatalf("dial websocket with allowed origin: err=%v status=%d", err, statusCode)
+	}
+	defer conn.Close()
+}
+
+func TestHandleConnectionRejectsDisallowedOriginWithSafeResponse(t *testing.T) {
+	t.Parallel()
+
+	log := &capturingLogger{}
+	wsHandler := NewHandler(
+		client.NewClient(config.DecisionEngine{
+			URL:     "http://127.0.0.1:1",
+			Timeout: 100 * time.Millisecond,
+		}, noopLogger{}),
+		config.Server{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			AllowedOrigins:  []string{testAllowedOrigin},
+		},
+		log,
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(wsHandler.HandleConnection))
+	defer server.Close()
+
+	headers := http.Header{}
+	headers.Set("Origin", "https://evil.example.test")
+
+	conn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), headers)
+	if err == nil {
+		conn.Close()
+		t.Fatal("expected disallowed origin dial to fail")
+	}
+	if resp == nil {
+		t.Fatalf("expected HTTP response for disallowed origin, got err=%v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("disallowed origin status = %d, want %d", resp.StatusCode, http.StatusForbidden)
+	}
+
+	body, readErr := io.ReadAll(resp.Body)
+	if readErr != nil {
+		t.Fatalf("read disallowed origin body: %v", readErr)
+	}
+	if got := string(body); got != "Forbidden\n" {
+		t.Fatalf("disallowed origin body = %q, want %q", got, "Forbidden\n")
+	}
+	if strings.Contains(string(body), "origin") || strings.Contains(string(body), "websocket") {
+		t.Fatalf("disallowed origin body exposes internal details: %q", string(body))
+	}
+
+	entries := log.entries()
+	if len(entries) != 1 {
+		t.Fatalf("captured log entries = %d, want 1", len(entries))
+	}
+	entry := entries[0]
+	if entry.level != "warn" {
+		t.Fatalf("log level = %q, want warn", entry.level)
+	}
+	if entry.message != "websocket origin rejected" {
+		t.Fatalf("log message = %q", entry.message)
+	}
+	if entry.fields["origin"] != "https://evil.example.test" {
+		t.Fatalf("logged origin = %v", entry.fields["origin"])
+	}
+	if entry.fields["host"] == "" {
+		t.Fatalf("logged host is empty: %#v", entry.fields)
+	}
+	if entry.fields["remote_addr"] == "" {
+		t.Fatalf("logged remote_addr is empty: %#v", entry.fields)
+	}
+}
+
 func readEvent[T any](t *testing.T, conn *websocket.Conn) T {
 	t.Helper()
 
@@ -500,6 +621,12 @@ func readEvent[T any](t *testing.T, conn *websocket.Conn) T {
 		t.Fatalf("read websocket event: %v", err)
 	}
 	return event
+}
+
+func testWebSocketHeaders() http.Header {
+	headers := http.Header{}
+	headers.Set("Origin", testAllowedOrigin)
+	return headers
 }
 
 func webSocketContractPath() string {
@@ -546,3 +673,54 @@ func (noopLogger) Debug(string, ...logger.Field) {}
 func (noopLogger) Info(string, ...logger.Field)  {}
 func (noopLogger) Warn(string, ...logger.Field)  {}
 func (noopLogger) Error(string, ...logger.Field) {}
+
+type logEntry struct {
+	level   string
+	message string
+	fields  map[string]any
+}
+
+type capturingLogger struct {
+	mu          sync.Mutex
+	entriesList []logEntry
+}
+
+func (l *capturingLogger) Debug(msg string, fields ...logger.Field) {
+	l.append("debug", msg, fields...)
+}
+
+func (l *capturingLogger) Info(msg string, fields ...logger.Field) {
+	l.append("info", msg, fields...)
+}
+
+func (l *capturingLogger) Warn(msg string, fields ...logger.Field) {
+	l.append("warn", msg, fields...)
+}
+
+func (l *capturingLogger) Error(msg string, fields ...logger.Field) {
+	l.append("error", msg, fields...)
+}
+
+func (l *capturingLogger) entries() []logEntry {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	cloned := make([]logEntry, len(l.entriesList))
+	copy(cloned, l.entriesList)
+	return cloned
+}
+
+func (l *capturingLogger) append(level string, msg string, fields ...logger.Field) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	entryFields := make(map[string]any, len(fields))
+	for _, field := range fields {
+		entryFields[field.Key] = field.Value
+	}
+	l.entriesList = append(l.entriesList, logEntry{
+		level:   level,
+		message: msg,
+		fields:  entryFields,
+	})
+}

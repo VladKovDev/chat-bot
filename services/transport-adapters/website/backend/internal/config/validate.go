@@ -24,6 +24,14 @@ func Validate(cfg Config) error {
 	if cfg.Server.WriteBufferSize <= 0 {
 		return fmt.Errorf("server.write_buffer_size must be positive, got: %d", cfg.Server.WriteBufferSize)
 	}
+	if len(cfg.Server.AllowedOrigins) == 0 {
+		return fmt.Errorf("server.allowed_origins must contain at least one origin")
+	}
+	for _, origin := range cfg.Server.AllowedOrigins {
+		if origin == "" {
+			return fmt.Errorf("server.allowed_origins must not contain empty values")
+		}
+	}
 
 	// Log
 	validLevels := map[string]bool{

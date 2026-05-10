@@ -306,6 +306,14 @@ BRD прямо упоминает preprocessing и lemmatization для Python N
 - Убрать несоответствие ports/env: decision-engine Docker `EXPOSE 3000`, config `:8080` (`services/decision-engine/Dockerfile:44`, `services/decision-engine/configs/config.local.yaml:41`).
 - LLM Dockerfile копирует отсутствующий `poetry.lock` (`services/llm/Dockerfile:12`) - после удаления LLM path заменить на NLP service lock/requirements.
 - Root `.env.example`, compose profiles `dev`, `demo`.
+- Для website backend Origin allowlist должен задаваться через `server.allowed_origins` / `WS_ALLOWED_ORIGINS` как список доверенных browser origins, например `https://chat.example.test,http://localhost:8081`. Пустой allowlist недопустим.
+
+### 5.9.1 Reverse proxy / TLS for website WS
+
+- TLS должен завершаться на reverse proxy или ingress перед website backend.
+- Браузер, открытый по `https://...`, должен строить WebSocket URL как `wss://<host>/ws`; страница на `http://...` использует `ws://<host>/ws` только для локальной/dev среды.
+- Reverse proxy должен проксировать `GET /ws` на website backend без изменения `Host`/`Origin` и с upgrade-заголовками WebSocket.
+- Unknown `Origin` должен отклоняться на backend уровне с HTTP 403 и без раскрытия внутренних деталей в теле ответа; в логах допустимы только origin/host/remote_addr для диагностики.
 
 ### 5.10 Logging/observability
 

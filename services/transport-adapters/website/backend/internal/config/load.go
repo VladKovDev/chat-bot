@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -32,8 +34,24 @@ func bindEnv(v *viper.Viper) {
 	_ = v.BindEnv("server.address", "SERVER_ADDRESS")
 	_ = v.BindEnv("server.read_buffer_size", "WS_READ_BUFFER_SIZE")
 	_ = v.BindEnv("server.write_buffer_size", "WS_WRITE_BUFFER_SIZE")
+	_ = v.BindEnv("server.allowed_origins", "WS_ALLOWED_ORIGINS")
+	if rawOrigins := strings.TrimSpace(os.Getenv("WS_ALLOWED_ORIGINS")); rawOrigins != "" {
+		v.Set("server.allowed_origins", splitCSV(rawOrigins))
+	}
 
 	// Log
 	_ = v.BindEnv("log.level", "LOG_LEVEL")
 	_ = v.BindEnv("log.format", "LOG_FORMAT")
+}
+
+func splitCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+	return origins
 }

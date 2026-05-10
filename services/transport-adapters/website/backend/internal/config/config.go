@@ -17,9 +17,10 @@ type DecisionEngine struct {
 
 // Server holds the WebSocket server configuration
 type Server struct {
-	Address         string `mapstructure:"address"`
-	ReadBufferSize  int    `mapstructure:"read_buffer_size"`
-	WriteBufferSize int    `mapstructure:"write_buffer_size"`
+	Address         string   `mapstructure:"address"`
+	ReadBufferSize  int      `mapstructure:"read_buffer_size"`
+	WriteBufferSize int      `mapstructure:"write_buffer_size"`
+	AllowedOrigins  []string `mapstructure:"allowed_origins"`
 }
 
 // Log holds the logging configuration

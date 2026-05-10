@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/VladKovDev/web-adapter/internal/client"
+	"github.com/VladKovDev/web-adapter/internal/config"
 	"github.com/VladKovDev/web-adapter/internal/dto"
 	"github.com/VladKovDev/web-adapter/pkg/logger"
 	"github.com/gorilla/websocket"
@@ -20,30 +21,44 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
 }
 
 type Handler struct {
-	client       *client.Client
-	logger       logger.Logger
-	now          func() time.Time
-	pollInterval time.Duration
+	client         *client.Client
+	allowedOrigins map[string]struct{}
+	logger         logger.Logger
+	now            func() time.Time
+	pollInterval   time.Duration
+	upgrader       websocket.Upgrader
 }
 
-func NewHandler(client *client.Client, log logger.Logger) *Handler {
-	return &Handler{
-		client:       client,
-		logger:       log,
-		now:          func() time.Time { return time.Now().UTC() },
-		pollInterval: 250 * time.Millisecond,
+func NewHandler(client *client.Client, serverCfg config.Server, log logger.Logger) *Handler {
+	handler := &Handler{
+		client:         client,
+		allowedOrigins: allowedOriginsSet(serverCfg.AllowedOrigins),
+		logger:         log,
+		now:            func() time.Time { return time.Now().UTC() },
+		pollInterval:   250 * time.Millisecond,
 	}
+	handler.upgrader = websocket.Upgrader{
+		ReadBufferSize:  serverCfg.ReadBufferSize,
+		WriteBufferSize: serverCfg.WriteBufferSize,
+		CheckOrigin:     handler.checkOrigin,
+	}
+	return handler
 }
 
 func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
-	rawConn, err := upgrader.Upgrade(w, r, nil)
+	rawConn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		if isOriginRejected(r, err) {
+			h.logger.Warn("websocket origin rejected",
+				logger.String("origin", r.Header.Get("Origin")),
+				logger.String("host", r.Host),
+				logger.String("remote_addr", r.RemoteAddr),
+			)
+			return
+		}
 		h.logger.Error("failed to upgrade connection",
 			logger.Err(err),
 			logger.String("remote_addr", r.RemoteAddr),
@@ -187,6 +202,30 @@ func (h *Handler) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
+}
+
+func (h *Handler) checkOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return false
+	}
+	_, ok := h.allowedOrigins[origin]
+	return ok
+}
+
+func allowedOriginsSet(origins []string) map[string]struct{} {
+	allowed := make(map[string]struct{}, len(origins))
+	for _, origin := range origins {
+		trimmed := strings.TrimSpace(origin)
+		if trimmed != "" {
+			allowed[trimmed] = struct{}{}
+		}
+	}
+	return allowed
+}
+
+func isOriginRejected(r *http.Request, err error) bool {
+	return strings.TrimSpace(r.Header.Get("Origin")) != "" && strings.Contains(err.Error(), "request origin not allowed")
 }
 
 func (h *Handler) handleSessionStart(conn *socketConn, clientID string, event dto.ClientEvent) (string, error) {
