@@ -92,16 +92,16 @@ type HandoffResponse struct {
 }
 
 type MessageResponse struct {
-	SessionID     string            `json:"session_id"`
-	UserMessageID string            `json:"user_message_id"`
-	BotMessageID  string            `json:"bot_message_id"`
-	Mode          string            `json:"mode"`
-	ActiveTopic   *string           `json:"active_topic"`
-	Text          string            `json:"text"`
-	QuickReplies  []QuickReply      `json:"quick_replies,omitempty"`
-	Handoff       *HandoffResponse  `json:"handoff"`
-	CorrelationID string            `json:"correlation_id"`
-	Timestamp     string            `json:"timestamp"`
+	SessionID     string           `json:"session_id"`
+	UserMessageID string           `json:"user_message_id"`
+	BotMessageID  string           `json:"bot_message_id"`
+	Mode          string           `json:"mode"`
+	ActiveTopic   *string          `json:"active_topic"`
+	Text          string           `json:"text"`
+	QuickReplies  []QuickReply     `json:"quick_replies,omitempty"`
+	Handoff       *HandoffResponse `json:"handoff"`
+	CorrelationID string           `json:"correlation_id"`
+	Timestamp     string           `json:"timestamp"`
 }
 
 type SessionMessagesResponse struct {
@@ -335,7 +335,7 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 		Mode:          string(resp.Mode),
 		ActiveTopic:   optionalString(resp.ActiveTopic),
 		Text:          resp.Text,
-		QuickReplies:  buildQuickReplies(resp.Options),
+		QuickReplies:  buildQuickReplies(resp.QuickReplies, resp.Options),
 		Handoff:       buildHandoff(resp),
 		CorrelationID: requestID,
 		Timestamp:     h.now().Format(time.RFC3339Nano),
@@ -611,7 +611,25 @@ func (h *Handler) respondJSON(w http.ResponseWriter, status int, value any) {
 	_ = json.NewEncoder(w).Encode(value)
 }
 
-func buildQuickReplies(options []string) []QuickReply {
+func buildQuickReplies(configured []response.QuickReply, options []string) []QuickReply {
+	if len(configured) > 0 {
+		result := make([]QuickReply, 0, len(configured))
+		for _, quickReply := range configured {
+			if strings.TrimSpace(quickReply.Label) == "" {
+				continue
+			}
+			result = append(result, QuickReply{
+				ID:      quickReply.ID,
+				Label:   quickReply.Label,
+				Action:  quickReply.Action,
+				Payload: clonePayload(quickReply.Payload),
+			})
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
+
 	if len(options) == 0 {
 		return nil
 	}
@@ -780,4 +798,16 @@ func slugifyQuickReplyID(label string) string {
 		return "quick-reply"
 	}
 	return id
+}
+
+func clonePayload(payload map[string]any) map[string]any {
+	if len(payload) == 0 {
+		return nil
+	}
+
+	cloned := make(map[string]any, len(payload))
+	for key, value := range payload {
+		cloned[key] = value
+	}
+	return cloned
 }

@@ -132,6 +132,17 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize presenter: %w", err)
 	}
+	intentCatalog, err := apppresenter.LoadIntentCatalog(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to load intent catalog: %w", err)
+	}
+	presenterValidator := apppresenter.NewValidator(presenter.GetAll(), logger)
+	if err := presenterValidator.Validate(); err != nil {
+		return fmt.Errorf("failed to validate response config: %w", err)
+	}
+	if err := presenterValidator.ValidateCatalog(intentCatalog); err != nil {
+		return fmt.Errorf("failed to validate intent catalog: %w", err)
+	}
 
 	// Initialize processor
 	processor := appprocessor.NewProcessor(logger)

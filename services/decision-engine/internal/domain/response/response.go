@@ -6,10 +6,18 @@ import (
 	"github.com/google/uuid"
 )
 
+type QuickReply struct {
+	ID      string
+	Label   string
+	Action  string
+	Payload map[string]any
+}
+
 // Response represents the decision engine's response to a message
 type Response struct {
 	Text           string
 	Options        []string
+	QuickReplies   []QuickReply
 	State          state.State
 	SessionID      uuid.UUID
 	UserMessageID  uuid.UUID

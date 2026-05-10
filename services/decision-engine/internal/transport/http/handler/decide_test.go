@@ -120,7 +120,13 @@ func TestMessageReturnsVersionedPayloadAndStableErrorEnvelope(t *testing.T) {
 		Mode:          session.ModeStandard,
 		ActiveTopic:   string(state.StatePayment),
 		Text:          "Оплата найдена.",
-		Options:       []string{"Связаться с оператором"},
+		QuickReplies: []response.QuickReply{
+			{
+				ID:     "contact-operator",
+				Label:  "Связаться с оператором",
+				Action: "request_operator",
+			},
+		},
 	}
 
 	req := MessageRequest{
@@ -149,11 +155,11 @@ func TestMessageReturnsVersionedPayloadAndStableErrorEnvelope(t *testing.T) {
 		t.Fatalf("quick replies = %#v, want 1 item", resp.QuickReplies)
 	}
 	quickReply := resp.QuickReplies[0]
-	if quickReply.Action != quickReplyActionSend {
-		t.Fatalf("quick reply action = %q, want %q", quickReply.Action, quickReplyActionSend)
+	if quickReply.Action != "request_operator" {
+		t.Fatalf("quick reply action = %q, want %q", quickReply.Action, "request_operator")
 	}
-	if got := quickReply.Payload["text"]; got != "Связаться с оператором" {
-		t.Fatalf("quick reply payload text = %#v", got)
+	if quickReply.Payload != nil {
+		t.Fatalf("quick reply payload = %#v, want nil", quickReply.Payload)
 	}
 	if resp.Handoff != nil {
 		t.Fatalf("handoff = %#v, want nil", resp.Handoff)

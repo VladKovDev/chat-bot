@@ -1,0 +1,441 @@
+{
+  "intents": [
+    {
+      "key": "greeting",
+      "category": "system",
+      "resolution_type": "static_response",
+      "response_key": "start",
+      "examples": ["привет", "здравствуйте", "добрый день", "добрый вечер", "хочу начать", "можно задать вопрос", "помогите пожалуйста", "приветствую"],
+      "quick_replies": [
+        { "id": "main-menu", "label": "Показать меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+        { "id": "operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-001"]
+    },
+    {
+      "key": "goodbye",
+      "category": "system",
+      "resolution_type": "static_response",
+      "response_key": "goodbye",
+      "examples": ["пока", "до свидания", "спасибо все", "вопросов больше нет", "на этом все", "можно заканчивать", "до встречи", "спасибо до свидания"],
+      "e2e_coverage": ["E2E-001"]
+    },
+    {
+      "key": "return_to_menu",
+      "category": "system",
+      "resolution_type": "static_response",
+      "response_key": "main_menu",
+      "examples": ["вернуться в меню", "в меню", "главное меню", "назад в меню", "показать категории", "хочу в главное меню", "открыть меню", "давайте в меню"],
+      "quick_replies": [
+        { "id": "menu-booking", "label": "Записи и бронирование", "action": "send_text", "payload": { "text": "Записи и бронирование" } },
+        { "id": "menu-operator", "label": "Связь с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-001", "E2E-029"]
+    },
+    {
+      "key": "reset_conversation",
+      "category": "system",
+      "resolution_type": "static_response",
+      "response_key": "start",
+      "action": "reset_conversation",
+      "examples": ["начать заново", "сбросить диалог", "обнулить чат", "давайте сначала", "перезапустить разговор", "новый диалог", "очистить контекст", "хочу начать сначала"],
+      "quick_replies": [
+        { "id": "reset-menu", "label": "Открыть главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-001"]
+    },
+    {
+      "key": "request_operator",
+      "category": "operator",
+      "resolution_type": "operator_handoff",
+      "response_key": "operator_handoff_requested",
+      "action": "escalate_to_operator",
+      "examples": ["оператор", "позовите человека", "хочу в поддержку", "соедините с оператором", "нужен живой человек", "переключите на специалиста", "мне нужен менеджер", "дайте оператора"],
+      "quick_replies": [
+        { "id": "operator-now", "label": "Передать оператору", "action": "request_operator", "payload": {} },
+        { "id": "operator-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-022", "E2E-024", "E2E-025"]
+    },
+    {
+      "key": "ask_booking_info",
+      "category": "booking",
+      "resolution_type": "knowledge",
+      "response_key": "booking_info",
+      "knowledge_key": "booking.info",
+      "examples": ["как записаться", "как работает запись", "как оформить запись", "как записаться на услугу", "как происходит бронирование", "как мне записаться", "расскажите про запись", "что нужно для записи"],
+      "quick_replies": [
+        { "id": "booking-status", "label": "Проверить статус записи", "action": "send_text", "payload": { "text": "Статус записи" } },
+        { "id": "booking-rules", "label": "Правила отмены и переноса", "action": "send_text", "payload": { "text": "Правила отмены и переноса" } }
+      ],
+      "e2e_coverage": ["E2E-003", "E2E-006"]
+    },
+    {
+      "key": "ask_booking_status",
+      "category": "booking",
+      "resolution_type": "business_lookup",
+      "response_key": "booking_request_identifier",
+      "fallback_response_key": "booking_request_identifier",
+      "action": "find_booking",
+      "result_response_keys": ["booking_found", "booking_not_found"],
+      "examples": ["проверь запись", "статус записи", "найди мою запись", "проверьте запись БРГ-482910", "какая запись у меня", "посмотрите запись по номеру", "хочу узнать статус записи", "есть ли моя запись"],
+      "quick_replies": [
+        { "id": "booking-id", "label": "Ввести номер записи", "action": "send_text", "payload": { "text": "Проверить статус записи" } },
+        { "id": "booking-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-006", "E2E-007"]
+    },
+    {
+      "key": "ask_cancellation_rules",
+      "category": "booking",
+      "resolution_type": "knowledge",
+      "response_key": "booking_cancellation_rules",
+      "knowledge_key": "booking.cancellation_rules",
+      "examples": ["как отменить запись", "правила отмены", "можно отменить запись", "какая отмена записи", "что будет если отменить запись", "условия отмены", "отмена брони услуги", "как отказаться от записи"],
+      "quick_replies": [
+        { "id": "booking-reschedule", "label": "Правила переноса", "action": "send_text", "payload": { "text": "Правила переноса записи" } },
+        { "id": "booking-operator-cancel", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-004"]
+    },
+    {
+      "key": "ask_reschedule_rules",
+      "category": "booking",
+      "resolution_type": "knowledge",
+      "response_key": "booking_reschedule_rules",
+      "knowledge_key": "booking.reschedule_rules",
+      "examples": ["можно перенести запись", "перенос брони", "как перенести запись", "правила переноса", "хочу поменять время записи", "можно передвинуть запись", "как изменить время записи", "перенести визит"],
+      "quick_replies": [
+        { "id": "booking-cancel", "label": "Правила отмены", "action": "send_text", "payload": { "text": "Правила отмены записи" } },
+        { "id": "booking-operator-reschedule", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-008"]
+    },
+    {
+      "key": "booking_not_found",
+      "category": "booking",
+      "resolution_type": "clarification",
+      "response_key": "booking_request_identifier",
+      "examples": ["не вижу запись", "запись пропала", "не нахожу свою запись", "куда делась запись", "почему запись не отображается", "у меня нет записи в системе", "не могу найти бронь услуги", "не отображается моя запись"],
+      "quick_replies": [
+        { "id": "booking-retry", "label": "Ввести номер записи", "action": "send_text", "payload": { "text": "Проверить статус записи" } },
+        { "id": "booking-not-found-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-007"]
+    },
+    {
+      "key": "ask_workspace_info",
+      "category": "workspace",
+      "resolution_type": "knowledge",
+      "response_key": "workspace_info",
+      "knowledge_key": "workspace.info",
+      "examples": ["какие есть рабочие места", "что за коворкинг", "какие варианты рабочих мест", "расскажите про рабочие места", "какие места можно арендовать", "что входит в аренду места", "какие типы мест доступны", "хочу узнать про коворкинг"],
+      "quick_replies": [
+        { "id": "workspace-prices", "label": "Типы и цены", "action": "send_text", "payload": { "text": "Типы и цены рабочих мест" } },
+        { "id": "workspace-rules", "label": "Правила аренды", "action": "send_text", "payload": { "text": "Правила аренды" } }
+      ],
+      "e2e_coverage": ["E2E-009"]
+    },
+    {
+      "key": "ask_workspace_prices",
+      "category": "workspace",
+      "resolution_type": "knowledge",
+      "response_key": "workspace_types_prices",
+      "knowledge_key": "workspace.prices",
+      "examples": ["сколько стоит место", "цена аренды", "сколько стоит рабочее место", "цены на коворкинг", "стоимость горячего места", "какая цена офиса", "тарифы на рабочие места", "сколько стоит аренда места"],
+      "quick_replies": [
+        { "id": "workspace-rules-from-prices", "label": "Правила аренды", "action": "send_text", "payload": { "text": "Правила аренды" } },
+        { "id": "workspace-operator", "label": "Связаться с администратором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-009"]
+    },
+    {
+      "key": "ask_workspace_rules",
+      "category": "workspace",
+      "resolution_type": "knowledge",
+      "response_key": "workspace_rental_rules",
+      "knowledge_key": "workspace.rules",
+      "examples": ["правила аренды", "можно шуметь", "какие условия аренды", "какие правила в коворкинге", "что нельзя делать на рабочем месте", "как работает аренда места", "условия использования рабочих мест", "расскажите правила аренды"],
+      "quick_replies": [
+        { "id": "workspace-prices-from-rules", "label": "Типы и цены", "action": "send_text", "payload": { "text": "Типы и цены" } },
+        { "id": "workspace-back-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-011"]
+    },
+    {
+      "key": "ask_workspace_status",
+      "category": "workspace",
+      "resolution_type": "business_lookup",
+      "response_key": "workspace_request_booking_number",
+      "fallback_response_key": "workspace_request_booking_number",
+      "action": "find_workspace_booking",
+      "result_response_keys": ["workspace_booking_found", "workspace_booking_not_found"],
+      "examples": ["статус брони места", "проверь бронь рабочего места", "найди бронь WS-1001", "какой статус брони места", "посмотрите бронь рабочего места", "есть ли моя бронь места", "хочу узнать статус рабочего места", "проверьте бронь коворкинга"],
+      "quick_replies": [
+        { "id": "workspace-booking-id", "label": "Ввести номер брони", "action": "send_text", "payload": { "text": "Статус брони рабочего места" } },
+        { "id": "workspace-booking-operator", "label": "Связаться с администратором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-010"]
+    },
+    {
+      "key": "workspace_unavailable",
+      "category": "workspace",
+      "resolution_type": "knowledge",
+      "response_key": "workspace_unavailable",
+      "knowledge_key": "workspace.unavailable",
+      "examples": ["нет свободных мест", "место недоступно", "не вижу свободный стол", "все рабочие места заняты", "нет доступных мест", "рабочее место недоступно", "не получается забронировать место", "свободных мест нет"],
+      "quick_replies": [
+        { "id": "workspace-unavailable-prices", "label": "Типы и цены", "action": "send_text", "payload": { "text": "Типы и цены рабочих мест" } },
+        { "id": "workspace-unavailable-operator", "label": "Связаться с администратором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-011"]
+    },
+    {
+      "key": "ask_payment_status",
+      "category": "payment",
+      "resolution_type": "business_lookup",
+      "response_key": "payment_request_id",
+      "fallback_response_key": "payment_request_id",
+      "action": "find_payment",
+      "result_response_keys": ["payment_found", "payment_not_found"],
+      "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа"],
+      "quick_replies": [
+        { "id": "payment-id", "label": "Ввести ID платежа", "action": "send_text", "payload": { "text": "Статус платежа" } },
+        { "id": "payment-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-012", "E2E-015"]
+    },
+    {
+      "key": "payment_not_passed",
+      "category": "payment",
+      "resolution_type": "knowledge",
+      "response_key": "payment_failed",
+      "knowledge_key": "payment.failed",
+      "examples": ["оплата не прошла", "платеж отклонен", "не получилось оплатить", "банк отклонил платеж", "оплата упала с ошибкой", "не проходит карта", "платеж не завершился", "деньги не списались и оплата не прошла"],
+      "quick_replies": [
+        { "id": "payment-retry", "label": "Попробовать снова", "action": "send_text", "payload": { "text": "Попробовать оплатить снова" } },
+        { "id": "payment-failed-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-013"]
+    },
+    {
+      "key": "payment_not_activated",
+      "category": "payment",
+      "resolution_type": "knowledge",
+      "response_key": "payment_debited_not_activated",
+      "knowledge_key": "payment.debited_not_activated",
+      "examples": ["деньги списались услуга не активировалась", "списали деньги но запись не появилась", "оплата прошла а услуга не работает", "списание было но активации нет", "деньги ушли а доступ не появился", "платеж списался но услуга не подключилась", "списали оплату и ничего не случилось", "услуга не активировалась после списания"],
+      "quick_replies": [
+        { "id": "payment-wait", "label": "Подождать и проверить снова", "action": "send_text", "payload": { "text": "Подожду и проверю снова" } },
+        { "id": "payment-not-activated-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-014", "E2E-023"]
+    },
+    {
+      "key": "ask_refund_rules",
+      "category": "payment",
+      "resolution_type": "knowledge",
+      "response_key": "payment_refund_rules",
+      "knowledge_key": "payment.refund_rules",
+      "examples": ["как вернуть деньги", "возврат оплаты", "какие правила возврата", "можно вернуть платеж", "как оформить возврат", "как работает возврат денег", "правила возврата средств", "когда можно вернуть оплату"],
+      "quick_replies": [
+        { "id": "payment-status-from-refund", "label": "Проверить статус платежа", "action": "send_text", "payload": { "text": "Статус платежа" } },
+        { "id": "payment-refund-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-012", "E2E-015"]
+    },
+    {
+      "key": "ask_site_problem",
+      "category": "tech_issue",
+      "resolution_type": "knowledge",
+      "response_key": "tech_site_not_loading",
+      "knowledge_key": "tech.site_problem",
+      "examples": ["сайт не работает", "страница не открывается", "не загружается сайт", "сайт завис", "не могу открыть сайт", "белый экран на сайте", "страница крутится и не открывается", "веб сайт недоступен"],
+      "quick_replies": [
+        { "id": "tech-try-fixes", "label": "Попробовать решения", "action": "send_text", "payload": { "text": "Попробую решения" } },
+        { "id": "tech-site-operator", "label": "Перейти к оператору", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-016"]
+    },
+    {
+      "key": "login_not_working",
+      "category": "tech_issue",
+      "resolution_type": "knowledge",
+      "response_key": "tech_login_problem",
+      "knowledge_key": "tech.login_problem",
+      "examples": ["не могу войти", "ошибка входа", "логин не работает", "не пускает в аккаунт", "не удается авторизоваться", "не входит на сайт", "ошибка логина", "не могу зайти в профиль"],
+      "quick_replies": [
+        { "id": "tech-password", "label": "Забыл пароль", "action": "send_text", "payload": { "text": "Забыл пароль" } },
+        { "id": "tech-code", "label": "Не приходит код", "action": "send_text", "payload": { "text": "Не приходит код" } }
+      ],
+      "e2e_coverage": ["E2E-017"]
+    },
+    {
+      "key": "code_not_received",
+      "category": "tech_issue",
+      "resolution_type": "knowledge",
+      "response_key": "tech_code_not_received",
+      "knowledge_key": "tech.code_not_received",
+      "examples": ["не приходит код", "смс нет", "код подтверждения не пришел", "не получаю код на телефон", "не приходит письмо с кодом", "код не отправляется", "код авторизации не приходит", "не вижу код подтверждения"],
+      "quick_replies": [
+        { "id": "code-repeat", "label": "Запросить код повторно", "action": "send_text", "payload": { "text": "Запросить код повторно" } },
+        { "id": "code-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-018"]
+    },
+    {
+      "key": "ask_account_help",
+      "category": "account",
+      "resolution_type": "knowledge",
+      "response_key": "account_category",
+      "knowledge_key": "account.help",
+      "examples": ["помощь с аккаунтом", "что с профилем", "помогите с аккаунтом", "вопрос по аккаунту", "проблема с профилем", "нужна помощь по профилю", "не понимаю как работает аккаунт", "расскажите про аккаунт"],
+      "quick_replies": [
+        { "id": "account-code", "label": "Не приходит код подтверждения", "action": "send_text", "payload": { "text": "Не приходит код подтверждения" } },
+        { "id": "account-password", "label": "Забыл пароль", "action": "send_text", "payload": { "text": "Забыл пароль" } }
+      ],
+      "e2e_coverage": ["E2E-017", "E2E-018"]
+    },
+    {
+      "key": "ask_account_status",
+      "category": "account",
+      "resolution_type": "business_lookup",
+      "response_key": "account_category",
+      "fallback_response_key": "account_category",
+      "action": "find_user_account",
+      "result_response_keys": ["account_found", "account_not_found"],
+      "examples": ["проверь аккаунт", "аккаунт по телефону", "найди мой аккаунт", "посмотрите аккаунт", "какой статус аккаунта", "есть ли мой профиль", "проверьте профиль по почте", "что с моим аккаунтом"],
+      "quick_replies": [
+        { "id": "account-status", "label": "Проверить аккаунт", "action": "send_text", "payload": { "text": "Проверить аккаунт" } },
+        { "id": "account-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-019", "E2E-020"]
+    },
+    {
+      "key": "ask_services_info",
+      "category": "services",
+      "resolution_type": "knowledge",
+      "response_key": "services_prices",
+      "knowledge_key": "services.info",
+      "examples": ["какие услуги есть", "услуги салона", "что вы делаете", "какие услуги доступны", "расскажите про услуги", "что можно у вас получить", "список услуг", "какие процедуры есть"],
+      "quick_replies": [
+        { "id": "services-prices", "label": "Услуги и цены", "action": "send_text", "payload": { "text": "Услуги и цены" } },
+        { "id": "services-rules", "label": "Правила", "action": "send_text", "payload": { "text": "Правила сервиса" } }
+      ],
+      "e2e_coverage": ["E2E-003"]
+    },
+    {
+      "key": "ask_prices",
+      "category": "services",
+      "resolution_type": "knowledge",
+      "response_key": "services_prices",
+      "knowledge_key": "services.prices",
+      "examples": ["цены на услуги", "сколько стоит маникюр", "прайс на услуги", "какая стоимость услуг", "сколько стоит стрижка", "цена на процедуры", "сколько стоят услуги", "покажите цены"],
+      "quick_replies": [
+        { "id": "services-book", "label": "Связаться для записи", "action": "request_operator", "payload": {} },
+        { "id": "services-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-003", "E2E-038"]
+    },
+    {
+      "key": "ask_rules",
+      "category": "services",
+      "resolution_type": "knowledge",
+      "response_key": "services_rules",
+      "knowledge_key": "services.rules",
+      "examples": ["правила", "условия сервиса", "какие у вас правила", "расскажите правила", "условия обслуживания", "правила посещения", "правила коворкинга", "какие условия у услуг"],
+      "quick_replies": [
+        { "id": "services-location-from-rules", "label": "Адрес и часы работы", "action": "send_text", "payload": { "text": "Адрес и часы работы" } },
+        { "id": "services-prices-from-rules", "label": "Услуги и цены", "action": "send_text", "payload": { "text": "Услуги и цены" } }
+      ],
+      "e2e_coverage": ["E2E-004"]
+    },
+    {
+      "key": "ask_location",
+      "category": "services",
+      "resolution_type": "knowledge",
+      "response_key": "services_location",
+      "knowledge_key": "services.location",
+      "examples": ["адрес", "где находитесь", "часы работы", "как вас найти", "где вы", "какой у вас график", "когда вы работаете", "как добраться"],
+      "quick_replies": [
+        { "id": "services-location-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-005"]
+    },
+    {
+      "key": "ask_faq",
+      "category": "services",
+      "resolution_type": "knowledge",
+      "response_key": "services_faq",
+      "knowledge_key": "services.faq",
+      "examples": ["частые вопросы", "раздел частых вопросов", "покажите раздел частых вопросов", "что чаще всего спрашивают", "какие популярные вопросы", "у вас есть раздел вопросов и ответов", "вопросы и ответы", "список частых вопросов"],
+      "quick_replies": [
+        { "id": "faq-booking", "label": "Как записаться?", "action": "send_text", "payload": { "text": "Как записаться?" } },
+        { "id": "faq-cancellation", "label": "Как отменить?", "action": "send_text", "payload": { "text": "Как отменить?" } },
+        { "id": "faq-workspace", "label": "Аренда места", "action": "send_text", "payload": { "text": "Аренда места" } }
+      ],
+      "e2e_coverage": ["E2E-003", "E2E-038"]
+    },
+    {
+      "key": "report_complaint",
+      "category": "complaint",
+      "resolution_type": "operator_handoff",
+      "response_key": "complaint_info_collected",
+      "action": "escalate_to_operator",
+      "examples": ["хочу пожаловаться", "плохой сервис", "у меня жалоба", "нужно оставить жалобу", "хочу сообщить о проблеме", "есть претензия", "недоволен обслуживанием", "нужно передать жалобу"],
+      "quick_replies": [
+        { "id": "complaint-operator", "label": "Передать оператору", "action": "request_operator", "payload": {} },
+        { "id": "complaint-menu", "label": "Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+      ],
+      "e2e_coverage": ["E2E-021"]
+    },
+    {
+      "key": "complaint_master",
+      "category": "complaint",
+      "resolution_type": "operator_handoff",
+      "response_key": "complaint_master",
+      "action": "escalate_to_operator",
+      "examples": ["жалоба на мастера", "мастер плохо обслужил", "хочу пожаловаться на мастера", "проблема с мастером", "мастер опоздал и нагрубил", "недоволен мастером", "мастер испортил услугу", "претензия к мастеру"],
+      "quick_replies": [
+        { "id": "complaint-master-operator", "label": "Передать оператору", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-021"]
+    },
+    {
+      "key": "complaint_premises",
+      "category": "complaint",
+      "resolution_type": "operator_handoff",
+      "response_key": "complaint_premises",
+      "action": "escalate_to_operator",
+      "examples": ["грязно", "не работает оборудование", "жалоба на помещение", "в коворкинге шумно", "сломано кресло", "в помещении холодно", "проблема с кондиционером", "помещение не убрано"],
+      "quick_replies": [
+        { "id": "complaint-premises-operator", "label": "Вызвать администратора", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-021"]
+    },
+    {
+      "key": "general_question",
+      "category": "other",
+      "resolution_type": "fallback",
+      "response_key": "other_clarification",
+      "examples": ["у меня вопрос", "нужна помощь", "хочу кое-что спросить", "есть общий вопрос", "не знаю куда обратиться", "подскажите пожалуйста", "можно спросить", "нужна консультация"],
+      "quick_replies": [
+        { "id": "general-menu", "label": "Выбрать категорию вручную", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+        { "id": "general-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-023"]
+    },
+    {
+      "key": "unknown",
+      "category": "fallback",
+      "resolution_type": "fallback",
+      "response_key": "clarify_request",
+      "examples": ["эээ", "не знаю", "что-то не так", "какой-то вопрос", "помогите разобраться", "не понял что выбрать", "сложный вопрос", "не могу сформулировать"],
+      "quick_replies": [
+        { "id": "unknown-menu", "label": "Выбрать категорию", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+        { "id": "unknown-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
+      ],
+      "e2e_coverage": ["E2E-023"]
+    }
+  ]
+}
