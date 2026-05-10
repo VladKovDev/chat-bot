@@ -13,7 +13,7 @@ import (
 	"github.com/VladKovDev/web-adapter/pkg/logger"
 )
 
-func TestClientStartsBrowserSessionAndSendsSessionIdentity(t *testing.T) {
+func TestClientUsesVersionedDecisionEngineEndpoints(t *testing.T) {
 	t.Parallel()
 
 	var sessionRequest dto.SessionRequest
@@ -23,27 +23,28 @@ func TestClientStartsBrowserSessionAndSendsSessionIdentity(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch r.URL.Path {
-		case "/sessions":
+		case "/api/v1/sessions":
 			if err := json.NewDecoder(r.Body).Decode(&sessionRequest); err != nil {
 				t.Fatalf("decode session request: %v", err)
 			}
 			json.NewEncoder(w).Encode(dto.SessionResponse{
 				SessionID: "session-a",
-				Channel:   WebsiteChannel,
-				ClientID:  sessionRequest.ClientID,
+				UserID:    "user-a",
+				Mode:      "standard",
 				Resumed:   true,
-				Success:   true,
 			})
-		case "/decide":
+		case "/api/v1/messages":
 			if err := json.NewDecoder(r.Body).Decode(&messageRequest); err != nil {
 				t.Fatalf("decode message request: %v", err)
 			}
 			json.NewEncoder(w).Encode(dto.DecisionEngineResponse{
-				Text:      "ok",
-				SessionID: messageRequest.SessionID,
-				Channel:   messageRequest.Channel,
-				ClientID:  messageRequest.ClientID,
-				Success:   true,
+				SessionID:     messageRequest.SessionID,
+				UserMessageID: messageRequest.EventID,
+				BotMessageID:  "bot-message-1",
+				Mode:          "standard",
+				Text:          "ok",
+				CorrelationID: "req-1",
+				Timestamp:     "2026-05-10T12:00:00Z",
 			})
 		default:
 			http.NotFound(w, r)
@@ -60,31 +61,30 @@ func TestClientStartsBrowserSessionAndSendsSessionIdentity(t *testing.T) {
 		t.Fatalf("session response = %+v", sessionResp)
 	}
 
-	messageResp, err := c.SendMessage(context.Background(), "hello", sessionResp.SessionID, "browser-a")
+	messageResp, err := c.SendMessage(context.Background(), "hello", sessionResp.SessionID, "browser-a", "event-1")
 	if err != nil {
 		t.Fatalf("send message: %v", err)
 	}
-	if messageResp.SessionID != "session-a" {
-		t.Fatalf("message response session_id = %q", messageResp.SessionID)
+	if messageResp.BotMessageID != "bot-message-1" {
+		t.Fatalf("message response = %+v", messageResp)
 	}
 
 	if sessionRequest.Channel != WebsiteChannel || sessionRequest.ClientID != "browser-a" {
 		t.Fatalf("session request identity = %+v", sessionRequest)
 	}
-	if messageRequest.Channel != WebsiteChannel || messageRequest.ClientID != "browser-a" || messageRequest.SessionID != "session-a" {
-		t.Fatalf("message request identity = %+v", messageRequest)
+	if messageRequest.Type != "user_message" || messageRequest.EventID != "event-1" {
+		t.Fatalf("message request = %+v", messageRequest)
 	}
 }
 
-func TestClientPreservesSafePublicErrorAndDoesNotExposeRawBody(t *testing.T) {
+func TestClientPreservesStablePublicErrorShape(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(dto.DecisionEngineResponse{
-			Success: false,
-			Error: &dto.PublicError{
+		json.NewEncoder(w).Encode(dto.ErrorEnvelope{
+			Error: dto.PublicError{
 				Code:      "provider_unavailable",
 				Message:   "Не удалось проверить данные. Попробуйте позже или подключим оператора.",
 				RequestID: "req-42",
@@ -94,7 +94,7 @@ func TestClientPreservesSafePublicErrorAndDoesNotExposeRawBody(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(config.DecisionEngine{URL: server.URL}, testLogger{})
-	resp, err := c.SendMessage(context.Background(), "raw user text", "session-a", "browser-a")
+	_, err := c.SendMessage(context.Background(), "raw user text", "session-a", "browser-a", "event-1")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -103,11 +103,10 @@ func TestClientPreservesSafePublicErrorAndDoesNotExposeRawBody(t *testing.T) {
 			t.Fatalf("client error leaked %q: %v", forbidden, err)
 		}
 	}
-	if resp.Error == nil {
-		t.Fatalf("expected public error in response: %+v", resp)
-	}
-	if resp.Error.Code != "provider_unavailable" || resp.Error.RequestID != "req-42" {
-		t.Fatalf("public error = %+v", resp.Error)
+	for _, required := range []string{"provider_unavailable", "req-42"} {
+		if !strings.Contains(err.Error(), required) {
+			t.Fatalf("client error missing %q: %v", required, err)
+		}
 	}
 }
 

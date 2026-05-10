@@ -3,6 +3,7 @@ package session
 import (
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/google/uuid"
+	"time"
 )
 
 // Session represents a user conversation session
@@ -23,6 +24,8 @@ type Session struct {
 	Version        int
 	Status         Status // active, closed
 	Metadata       map[string]interface{}
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // Status represents the session status

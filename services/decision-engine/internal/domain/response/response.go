@@ -1,6 +1,7 @@
 package response
 
 import (
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/google/uuid"
 )
@@ -11,8 +12,12 @@ type Response struct {
 	Options        []string
 	State          state.State
 	SessionID      uuid.UUID
+	UserMessageID  uuid.UUID
+	BotMessageID   uuid.UUID
 	Channel        string
 	ExternalUserID string
 	ClientID       string
 	ActiveTopic    string
+	Mode           session.Mode
+	OperatorStatus session.OperatorStatus
 }

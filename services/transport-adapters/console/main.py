@@ -12,13 +12,14 @@ class ConsoleChat:
 
     def __init__(self, base_url: str = "http://localhost:8080"):
         self.base_url = base_url
-        self.endpoint = f"{base_url}/decide"
+        self.endpoint = f"{base_url}/api/v1/messages"
         self.chat_id = 1
 
     def send_message(self, text: str) -> dict:
         """Send message to decision-engine and return response."""
         payload = {
             "text": text,
+            "type": "user_message",
             "channel": "dev-cli",
             "chat_id": self.chat_id
         }
@@ -34,25 +35,26 @@ class ConsoleChat:
             return response.json()
         except requests.exceptions.RequestException as e:
             return {
-                "success": False,
-                "error": f"Connection error: {e}",
+                "error": {
+                    "message": f"Connection error: {e}",
+                },
                 "text": "",
-                "state": "",
-                "chat_id": self.chat_id
+                "mode": "",
             }
 
     def print_response(self, response: dict):
         """Pretty print the response from decision-engine."""
-        if response.get("success"):
+        if not response.get("error"):
             print(f"\n🤖 Bot: {response.get('text', '')}")
-            if response.get("state"):
-                print(f"   State: {response.get('state')}")
-            if response.get("options"):
-                print("   Options:")
-                for i, option in enumerate(response.get("options", []), 1):
-                    print(f"      {i}. {option}")
+            if response.get("mode"):
+                print(f"   Mode: {response.get('mode')}")
+            if response.get("quick_replies"):
+                print("   Quick replies:")
+                for i, option in enumerate(response.get("quick_replies", []), 1):
+                    print(f"      {i}. {option.get('label')}")
         else:
-            print(f"\n❌ Error: {response.get('error', 'Unknown error')}")
+            error = response.get("error") or {}
+            print(f"\n❌ Error: {error.get('message', 'Unknown error')}")
         print()
 
     def run(self):

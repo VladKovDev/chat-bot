@@ -1,34 +1,70 @@
 package dto
 
-// WSMessage represents a WebSocket message from client
-type WSMessage struct {
-	Type     string `json:"type"`
-	Text     string `json:"text"`
-	ClientID string `json:"client_id,omitempty"`
+type ClientEvent struct {
+	Type          string      `json:"type"`
+	SessionID     string      `json:"session_id,omitempty"`
+	EventID       string      `json:"event_id,omitempty"`
+	CorrelationID string      `json:"correlation_id,omitempty"`
+	Timestamp     string      `json:"timestamp,omitempty"`
+	Text          string      `json:"text,omitempty"`
+	ClientID      string      `json:"client_id,omitempty"`
+	QuickReply    *QuickReply `json:"quick_reply,omitempty"`
 }
 
-// WSResponse represents a WebSocket response to client
-type WSResponse struct {
-	Type        string   `json:"type"`
-	Text        string   `json:"text"`
-	Options     []string `json:"options,omitempty"`
-	State       string   `json:"state,omitempty"`
-	ActiveTopic string   `json:"active_topic,omitempty"`
-	SessionID   string   `json:"session_id,omitempty"`
-	Resumed     bool     `json:"resumed,omitempty"`
-	Timestamp   string   `json:"timestamp,omitempty"`
+type EventEnvelope struct {
+	Type          string `json:"type"`
+	SessionID     string `json:"session_id,omitempty"`
+	EventID       string `json:"event_id"`
+	CorrelationID string `json:"correlation_id"`
+	Timestamp     string `json:"timestamp"`
 }
 
-// WSError represents a WebSocket error response
-type WSError struct {
-	Type  string      `json:"type"`
+type SessionStartedEvent struct {
+	EventEnvelope
+	Mode        string  `json:"mode"`
+	ActiveTopic *string `json:"active_topic"`
+	Resumed     bool    `json:"resumed"`
+}
+
+type MessageBotEvent struct {
+	EventEnvelope
+	MessageID    string       `json:"message_id"`
+	Text         string       `json:"text"`
+	QuickReplies []QuickReply `json:"quick_replies,omitempty"`
+	Mode         string       `json:"mode"`
+	ActiveTopic  *string      `json:"active_topic"`
+}
+
+type MessageOperatorEvent struct {
+	EventEnvelope
+	MessageID  string  `json:"message_id"`
+	OperatorID string  `json:"operator_id,omitempty"`
+	Text       string  `json:"text"`
+	Mode       string  `json:"mode,omitempty"`
+	ActiveTopic *string `json:"active_topic,omitempty"`
+}
+
+type HandoffEvent struct {
+	EventEnvelope
+	Handoff Handoff `json:"handoff"`
+}
+
+type ErrorEvent struct {
+	EventEnvelope
 	Error PublicError `json:"error"`
 }
 
-// Message types
 const (
-	MessageTypeUser    = "message"
-	MessageTypeBot     = "response"
-	MessageTypeError   = "error"
-	MessageTypeSession = "session"
+	EventSessionStart      = "session.start"
+	EventMessageUser       = "message.user"
+	EventQuickReplySelected = "quick_reply.selected"
+	EventOperatorClose     = "operator.close"
+
+	EventSessionStarted   = "session.started"
+	EventMessageBot       = "message.bot"
+	EventMessageOperator  = "message.operator"
+	EventHandoffQueued    = "handoff.queued"
+	EventHandoffAccepted  = "handoff.accepted"
+	EventHandoffClosed    = "handoff.closed"
+	EventError            = "error"
 )

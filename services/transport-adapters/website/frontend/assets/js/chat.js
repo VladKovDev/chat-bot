@@ -1,4 +1,3 @@
-// DOM elements
 const messagesContainer = document.getElementById('messages');
 const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
@@ -7,14 +6,15 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const typingIndicator = document.getElementById('typingIndicator');
 
-// Initialize chat
 function init() {
-    // Set up WebSocket event handlers
     wsClient.onOpen(() => {
         updateConnectionStatus('connected');
         messageInput.disabled = false;
         sendButton.disabled = false;
         messageInput.focus();
+        wsClient.send(wsClient.createEvent('session.start', {
+            client_id: wsClient.clientId,
+        }));
     });
 
     wsClient.onClose(() => {
@@ -31,19 +31,16 @@ function init() {
         handleWebSocketMessage(data);
     });
 
-    // Set up form submit handler
     messageForm.addEventListener('submit', (e) => {
         e.preventDefault();
         sendMessage();
     });
 
-    // Connect WebSocket
     wsClient.connect();
 }
 
-// Update connection status UI
 function updateConnectionStatus(status) {
-    statusDot.className = 'status-dot ' + status;
+    statusDot.className = `status-dot ${status}`;
 
     switch (status) {
         case 'connected':
@@ -60,95 +57,97 @@ function updateConnectionStatus(status) {
     }
 }
 
-// Handle WebSocket message
 function handleWebSocketMessage(data) {
     hideTypingIndicator();
 
     switch (data.type) {
-        case 'session':
+        case 'session.started':
             window.currentSessionId = data.session_id;
             break;
-        case 'response':
-            displayBotMessage(data.text, data.options);
+        case 'message.bot':
+            displayBotMessage(data.text, data.quick_replies || []);
+            break;
+        case 'message.operator':
+            displayOperatorMessage(data.text);
+            break;
+        case 'handoff.queued':
+            displaySystemMessage('Оператор подключается. Оставайтесь в этом чате.');
+            break;
+        case 'handoff.accepted':
+            displaySystemMessage('Оператор подключился к диалогу.');
+            break;
+        case 'handoff.closed':
+            displaySystemMessage('Диалог с оператором завершен.');
             break;
         case 'error':
             displayErrorMessage((data.error && data.error.message) || 'Не удалось обработать сообщение. Попробуйте позже.');
             break;
         default:
-            if (typeof debugLog === 'function') {
-                debugLog('Unknown message type:', data.type);
-            }
+            debugLog('Unknown message type:', data.type);
     }
 }
 
-// Send user message
 function sendMessage() {
     const text = messageInput.value.trim();
-    if (!text) return;
+    if (!text || !window.currentSessionId) {
+        return;
+    }
 
-    // Display user message
     displayUserMessage(text);
     messageInput.value = '';
 
-    // Send to server
-    const message = {
-        type: 'message',
-        text: text
-    };
+    const sent = wsClient.send(wsClient.createEvent('message.user', {
+        session_id: window.currentSessionId,
+        text,
+    }));
 
-    if (!wsClient.send(message)) {
+    if (!sent) {
         displayErrorMessage('Failed to send message');
-    } else {
-        showTypingIndicator();
+        return;
     }
+
+    showTypingIndicator();
 }
 
-// Display user message
 function displayUserMessage(text) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message user-message';
-    messageDiv.innerHTML = `
-        <div class="message-content">
-            <div class="message-text">${escapeHtml(text)}</div>
-            <div class="message-time">${getCurrentTime()}</div>
-        </div>
-    `;
-    messagesContainer.appendChild(messageDiv);
-    scrollToBottom();
+    appendMessage('user-message', text);
 }
 
-// Display bot message
-function displayBotMessage(text, options = []) {
+function displayBotMessage(text, quickReplies = []) {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message bot-message';
 
-    let buttonsHtml = '';
-    if (options && options.length > 0) {
-        buttonsHtml = '<div class="message-buttons">';
-        options.forEach(option => {
-            buttonsHtml += `<button class="option-button" onclick="sendOption('${escapeHtml(option)}')">${escapeHtml(option)}</button>`;
-        });
-        buttonsHtml += '</div>';
-    }
-
+    const buttons = renderQuickReplies(quickReplies);
     messageDiv.innerHTML = `
         <div class="message-content">
             <div class="message-text">${escapeHtml(text)}</div>
-            ${buttonsHtml}
+            ${buttons}
             <div class="message-time">${getCurrentTime()}</div>
         </div>
     `;
+
     messagesContainer.appendChild(messageDiv);
     scrollToBottom();
 }
 
-// Display error message
+function displayOperatorMessage(text) {
+    appendMessage('bot-message', `Оператор: ${text}`);
+}
+
+function displaySystemMessage(text) {
+    appendMessage('bot-message', text);
+}
+
 function displayErrorMessage(text) {
+    appendMessage('error-message', `❌ ${text}`);
+}
+
+function appendMessage(className, text) {
     const messageDiv = document.createElement('div');
-    messageDiv.className = 'message error-message';
+    messageDiv.className = `message ${className}`;
     messageDiv.innerHTML = `
         <div class="message-content">
-            <div class="message-text">❌ ${escapeHtml(text)}</div>
+            <div class="message-text">${escapeHtml(text)}</div>
             <div class="message-time">${getCurrentTime()}</div>
         </div>
     `;
@@ -156,35 +155,67 @@ function displayErrorMessage(text) {
     scrollToBottom();
 }
 
-// Send option button text as message
-function sendOption(text) {
-    messageInput.value = text;
-    sendMessage();
+function renderQuickReplies(quickReplies) {
+    if (!Array.isArray(quickReplies) || quickReplies.length === 0) {
+        return '';
+    }
 
-    // Disable all option buttons after selection
-    const buttons = document.querySelectorAll('.option-button');
-    buttons.forEach(button => {
-        button.disabled = true;
-    });
+    const buttons = quickReplies.map((quickReply) => {
+        const encoded = encodeURIComponent(JSON.stringify(quickReply));
+        return `<button class="option-button" data-quick-reply="${encoded}">${escapeHtml(quickReply.label)}</button>`;
+    }).join('');
+
+    return `<div class="message-buttons">${buttons}</div>`;
 }
 
-// Show typing indicator
+messagesContainer.addEventListener('click', (event) => {
+    const button = event.target.closest('.option-button');
+    if (!button) {
+        return;
+    }
+
+    const rawQuickReply = button.getAttribute('data-quick-reply');
+    if (!rawQuickReply || !window.currentSessionId) {
+        return;
+    }
+
+    let quickReply;
+    try {
+        quickReply = JSON.parse(decodeURIComponent(rawQuickReply));
+    } catch (_error) {
+        displayErrorMessage('Не удалось обработать быстрый ответ.');
+        return;
+    }
+
+    button.disabled = true;
+    displayUserMessage(quickReply.label);
+
+    const sent = wsClient.send(wsClient.createEvent('quick_reply.selected', {
+        session_id: window.currentSessionId,
+        quick_reply: quickReply,
+    }));
+
+    if (!sent) {
+        displayErrorMessage('Failed to send message');
+        return;
+    }
+
+    showTypingIndicator();
+});
+
 function showTypingIndicator() {
     typingIndicator.style.display = 'flex';
     scrollToBottom();
 }
 
-// Hide typing indicator
 function hideTypingIndicator() {
     typingIndicator.style.display = 'none';
 }
 
-// Scroll to bottom of messages
 function scrollToBottom() {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// Get current time in HH:MM format
 function getCurrentTime() {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
@@ -192,14 +223,12 @@ function getCurrentTime() {
     return `${hours}:${minutes}`;
 }
 
-// Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Initialize chat when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

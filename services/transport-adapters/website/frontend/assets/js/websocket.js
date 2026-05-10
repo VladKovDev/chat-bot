@@ -1,4 +1,3 @@
-// WebSocket connection management
 class WebSocketClient {
     constructor(url) {
         this.url = url;
@@ -9,62 +8,74 @@ class WebSocketClient {
         this.openHandlers = [];
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        this.reconnectDelay = 2000; // 2 seconds
+        this.reconnectDelay = 2000;
         this.clientId = getOrCreateClientId();
     }
 
     connect() {
         try {
-            const separator = this.url.includes('?') ? '&' : '?';
-            this.ws = new WebSocket(`${this.url}${separator}client_id=${encodeURIComponent(this.clientId)}`);
+            this.ws = new WebSocket(this.url);
 
             this.ws.onopen = () => {
                 debugLog('WebSocket connected');
                 this.reconnectAttempts = 0;
-                this.openHandlers.forEach(handler => handler());
+                this.openHandlers.forEach((handler) => handler());
             };
 
             this.ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
                     debugLog('WebSocket message received:', data);
-                    this.messageHandlers.forEach(handler => handler(data));
-                } catch (error) {
+                    this.messageHandlers.forEach((handler) => handler(data));
+                } catch (_error) {
                     debugError('Failed to parse WebSocket message');
                 }
             };
 
             this.ws.onerror = (error) => {
                 debugError('WebSocket error');
-                this.errorHandlers.forEach(handler => handler(error));
+                this.errorHandlers.forEach((handler) => handler(error));
             };
 
             this.ws.onclose = (event) => {
                 debugLog('WebSocket closed:', event.code, event.reason);
-                this.closeHandlers.forEach(handler => handler(event));
+                this.closeHandlers.forEach((handler) => handler(event));
 
-                // Attempt to reconnect
                 if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.reconnectAttempts++;
+                    this.reconnectAttempts += 1;
                     debugLog(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
                     setTimeout(() => this.connect(), this.reconnectDelay);
                 }
             };
-        } catch (error) {
+        } catch (_error) {
             debugError('Failed to create WebSocket connection');
         }
     }
 
     send(message) {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            const jsonMessage = JSON.stringify(message);
-            debugLog('Sending WebSocket message:', { type: message.type, text_length: message.text.length });
-            this.ws.send(jsonMessage);
-            return true;
-        } else {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             debugError('WebSocket is not connected');
             return false;
         }
+
+        const jsonMessage = JSON.stringify(message);
+        debugLog('Sending WebSocket message:', {
+            type: message.type,
+            session_id: message.session_id,
+        });
+        this.ws.send(jsonMessage);
+        return true;
+    }
+
+    createEvent(type, payload = {}) {
+        const eventId = createEventId();
+        return {
+            type,
+            event_id: eventId,
+            correlation_id: eventId,
+            timestamp: new Date().toISOString(),
+            ...payload,
+        };
     }
 
     onMessage(handler) {
@@ -85,7 +96,7 @@ class WebSocketClient {
 
     close() {
         if (this.ws) {
-            this.reconnectAttempts = this.maxReconnectAttempts; // Prevent reconnection
+            this.reconnectAttempts = this.maxReconnectAttempts;
             this.ws.close();
         }
     }
@@ -120,12 +131,17 @@ function getOrCreateClientId() {
         return existing;
     }
 
-    const generated = window.crypto && window.crypto.randomUUID
-        ? window.crypto.randomUUID()
-        : `browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const generated = createEventId();
     window.localStorage.setItem(storageKey, generated);
     return generated;
 }
 
-// Create WebSocket client instance
-const wsClient = new WebSocketClient(`ws://${window.location.host}/ws`);
+function createEventId() {
+    if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+    return `browser-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+const wsClient = new WebSocketClient(`${protocol}://${window.location.host}/ws`);

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/VladKovDev/chat-bot/internal/app/presenter"
 	"github.com/VladKovDev/chat-bot/internal/app/processor"
@@ -182,19 +183,39 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		return response.Response{}, apperror.Wrap(apperror.CodeProcessingFailed, "present_response", err)
 	}
 
+	botMsg := message.Message{
+		SessionID:  sess.ID,
+		SenderType: message.SenderTypeBot,
+		Text:       resp.Text,
+		CreatedAt:  time.Now().UTC(),
+	}
+	createdBotMsg, err := w.messageRepo.Create(ctx, botMsg)
+	if err != nil {
+		w.logger.Error("failed to save bot message",
+			w.logger.String("request_id", msg.RequestID),
+			w.logger.String("session_id", sess.ID.String()),
+			w.logger.String("message_id", createdMsg.ID.String()),
+			w.logger.String("error_code", string(apperror.CodeDatabaseUnavailable)))
+		return response.Response{}, apperror.Wrap(apperror.CodeDatabaseUnavailable, "save_bot_message", err)
+	}
+
 	w.logger.Info("response generated",
 		w.logger.String("request_id", msg.RequestID),
 		w.logger.String("session_id", sess.ID.String()),
-		w.logger.String("message_id", createdMsg.ID.String()),
+		w.logger.String("message_id", createdBotMsg.ID.String()),
 		w.logger.String("response_key", responseKey),
 		w.logger.String("state", string(resp.State)),
 		w.logger.Int("response_text_length", observability.LenForLog(resp.Text)))
 
 	resp.SessionID = sess.ID
+	resp.UserMessageID = createdMsg.ID
+	resp.BotMessageID = createdBotMsg.ID
 	resp.Channel = sess.Channel
 	resp.ExternalUserID = sess.ExternalUserID
 	resp.ClientID = sess.ClientID
 	resp.ActiveTopic = sess.ActiveTopic
+	resp.Mode = sess.Mode
+	resp.OperatorStatus = sess.OperatorStatus
 
 	return resp, nil
 }

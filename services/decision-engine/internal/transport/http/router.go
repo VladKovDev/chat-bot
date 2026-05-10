@@ -11,6 +11,9 @@ import (
 
 func NewRouter(
 	messageHandler handler.MessageHandler,
+	sessionService handler.SessionService,
+	sessionRepo handler.SessionRepository,
+	messageRepo handler.MessageRepository,
 	logger logger.Logger,
 	cfg Config,
 ) http.Handler {
@@ -34,19 +37,21 @@ func NewRouter(
 		r.Use(middleware.TimeoutMiddleware(cfg.Timeout))
 	}
 
-	// Health check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+	h := handler.NewHandler(messageHandler, sessionService, sessionRepo, messageRepo, logger)
+
+	r.Route("/api/v1", func(api chi.Router) {
+		api.Get("/health", h.Health)
+		api.Get("/ready", h.Ready)
+		api.Post("/sessions", h.StartSession)
+		api.Post("/messages", h.Message)
+		api.Get("/sessions/{session_id}/messages", h.SessionMessages)
+		api.Get("/domain/schema", h.DomainSchema)
+		api.Post("/operator/queue/{session_id}/request", h.RequestOperator)
+		api.Get("/operator/queue", h.OperatorQueue)
+		api.Post("/operator/queue/{handoff_id}/accept", h.AcceptOperatorQueue)
+		api.Post("/operator/sessions/{session_id}/messages", h.OperatorMessage)
+		api.Post("/operator/queue/{handoff_id}/close", h.CloseOperatorQueue)
 	})
-
-	// Decision engine endpoints
-	h := handler.NewHandler(messageHandler, logger)
-	r.Post("/sessions", h.StartSession)
-	r.Post("/decide", h.Decide)
-
-	// LLM configuration endpoint
-	r.Get("/config_llm", h.ConfigLLM)
 
 	return r
 }

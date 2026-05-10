@@ -1,0 +1,366 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Decision Engine HTTP v1 Contracts",
+  "type": "object",
+  "required": ["routes", "$defs"],
+  "routes": {
+    "health": {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "response": { "$ref": "#/$defs/healthResponse" }
+    },
+    "ready": {
+      "method": "GET",
+      "path": "/api/v1/ready",
+      "response": { "$ref": "#/$defs/readyResponse" }
+    },
+    "sessions": {
+      "method": "POST",
+      "path": "/api/v1/sessions",
+      "request": { "$ref": "#/$defs/startSessionRequest" },
+      "response": { "$ref": "#/$defs/startSessionResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "messages": {
+      "method": "POST",
+      "path": "/api/v1/messages",
+      "request": { "$ref": "#/$defs/messageRequest" },
+      "response": { "$ref": "#/$defs/messageResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "session_messages": {
+      "method": "GET",
+      "path": "/api/v1/sessions/{session_id}/messages",
+      "response": { "$ref": "#/$defs/sessionMessagesResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "domain_schema": {
+      "method": "GET",
+      "path": "/api/v1/domain/schema",
+      "response": { "$ref": "#/$defs/domainSchemaResponse" }
+    },
+    "operator_request": {
+      "method": "POST",
+      "path": "/api/v1/operator/queue/{session_id}/request",
+      "response": { "$ref": "#/$defs/operatorQueueActionResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "operator_queue": {
+      "method": "GET",
+      "path": "/api/v1/operator/queue",
+      "response": { "$ref": "#/$defs/operatorQueueResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "operator_accept": {
+      "method": "POST",
+      "path": "/api/v1/operator/queue/{handoff_id}/accept",
+      "request": { "$ref": "#/$defs/operatorQueueActionRequest" },
+      "response": { "$ref": "#/$defs/operatorQueueActionResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "operator_message": {
+      "method": "POST",
+      "path": "/api/v1/operator/sessions/{session_id}/messages",
+      "request": { "$ref": "#/$defs/operatorMessageRequest" },
+      "response": { "$ref": "#/$defs/operatorMessageResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
+    "operator_close": {
+      "method": "POST",
+      "path": "/api/v1/operator/queue/{handoff_id}/close",
+      "response": { "$ref": "#/$defs/operatorQueueActionResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "activeTopic": {
+      "type": ["string", "null"]
+    },
+    "publicError": {
+      "type": "object",
+      "required": ["code", "message", "request_id"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "request_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "errorEnvelope": {
+      "type": "object",
+      "required": ["error"],
+      "properties": {
+        "error": { "$ref": "#/$defs/publicError" }
+      },
+      "additionalProperties": false
+    },
+    "healthResponse": {
+      "type": "object",
+      "required": ["status", "timestamp"],
+      "properties": {
+        "status": { "const": "ok" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "readinessItem": {
+      "type": "object",
+      "required": ["ready"],
+      "properties": {
+        "ready": { "type": "boolean" },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "readyResponse": {
+      "type": "object",
+      "required": ["ready", "timestamp", "checks"],
+      "properties": {
+        "ready": { "type": "boolean" },
+        "timestamp": { "$ref": "#/$defs/timestamp" },
+        "checks": {
+          "type": "object",
+          "required": ["database", "migrations", "nlp", "pgvector", "seed_data"],
+          "properties": {
+            "database": { "$ref": "#/$defs/readinessItem" },
+            "migrations": { "$ref": "#/$defs/readinessItem" },
+            "nlp": { "$ref": "#/$defs/readinessItem" },
+            "pgvector": { "$ref": "#/$defs/readinessItem" },
+            "seed_data": { "$ref": "#/$defs/readinessItem" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "startSessionRequest": {
+      "type": "object",
+      "required": ["channel"],
+      "properties": {
+        "channel": { "type": "string" },
+        "external_user_id": { "type": "string" },
+        "client_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "startSessionResponse": {
+      "type": "object",
+      "required": ["session_id", "user_id", "mode", "active_topic", "resumed"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "user_id": { "$ref": "#/$defs/uuid" },
+        "mode": { "type": "string" },
+        "active_topic": { "$ref": "#/$defs/activeTopic" },
+        "resumed": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "messageRequest": {
+      "type": "object",
+      "required": ["text", "type"],
+      "properties": {
+        "text": { "type": "string" },
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "event_id": { "$ref": "#/$defs/uuid" },
+        "type": { "const": "user_message" },
+        "channel": { "type": "string" },
+        "external_user_id": { "type": "string" },
+        "client_id": { "type": "string" },
+        "chat_id": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "quickReply": {
+      "type": "object",
+      "required": ["id", "label", "action"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "action": { "type": "string" },
+        "payload": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": ["object", "null"],
+      "properties": {
+        "handoff_id": { "$ref": "#/$defs/uuid" },
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "operator_id": { "type": "string" }
+      },
+      "required": ["handoff_id", "session_id", "status"],
+      "additionalProperties": false
+    },
+    "messageResponse": {
+      "type": "object",
+      "required": [
+        "session_id",
+        "user_message_id",
+        "bot_message_id",
+        "mode",
+        "active_topic",
+        "text",
+        "handoff",
+        "correlation_id",
+        "timestamp"
+      ],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "user_message_id": { "$ref": "#/$defs/uuid" },
+        "bot_message_id": { "$ref": "#/$defs/uuid" },
+        "mode": { "type": "string" },
+        "active_topic": { "$ref": "#/$defs/activeTopic" },
+        "text": { "type": "string" },
+        "quick_replies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/quickReply" }
+        },
+        "handoff": { "$ref": "#/$defs/handoff" },
+        "correlation_id": { "type": "string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "sessionMessageRecord": {
+      "type": "object",
+      "required": ["message_id", "session_id", "sender_type", "text", "timestamp"],
+      "properties": {
+        "message_id": { "$ref": "#/$defs/uuid" },
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "sender_type": { "type": "string" },
+        "text": { "type": "string" },
+        "intent": { "type": "string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    },
+    "sessionMessagesResponse": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sessionMessageRecord" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "websocketEvents": {
+      "type": "object",
+      "required": ["client", "server"],
+      "properties": {
+        "client": { "type": "array", "items": { "type": "string" } },
+        "server": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "domainSchemaResponse": {
+      "type": "object",
+      "required": [
+        "intents",
+        "states",
+        "actions",
+        "channels",
+        "modes",
+        "operator_statuses",
+        "quick_reply_actions",
+        "websocket_events"
+      ],
+      "properties": {
+        "intents": { "type": "array", "items": { "type": "string" } },
+        "states": { "type": "array", "items": { "type": "string" } },
+        "actions": { "type": "array", "items": { "type": "string" } },
+        "channels": { "type": "array", "items": { "type": "string" } },
+        "modes": { "type": "array", "items": { "type": "string" } },
+        "operator_statuses": { "type": "array", "items": { "type": "string" } },
+        "quick_reply_actions": { "type": "array", "items": { "type": "string" } },
+        "websocket_events": { "$ref": "#/$defs/websocketEvents" }
+      },
+      "additionalProperties": false
+    },
+    "operatorQueueItem": {
+      "type": "object",
+      "required": ["handoff_id", "session_id", "reason", "active_topic", "last_intent", "created_at", "preview"],
+      "properties": {
+        "handoff_id": { "$ref": "#/$defs/uuid" },
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "reason": { "type": "string" },
+        "active_topic": { "$ref": "#/$defs/activeTopic" },
+        "last_intent": { "type": ["string", "null"] },
+        "created_at": { "$ref": "#/$defs/timestamp" },
+        "preview": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "operatorQueueResponse": {
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operatorQueueItem" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "operatorQueueActionRequest": {
+      "type": "object",
+      "required": ["operator_id"],
+      "properties": {
+        "operator_id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "operatorQueueActionResponse": {
+      "type": "object",
+      "required": ["handoff"],
+      "properties": {
+        "handoff": {
+          "type": "object",
+          "required": ["handoff_id", "session_id", "status"],
+          "properties": {
+            "handoff_id": { "$ref": "#/$defs/uuid" },
+            "session_id": { "$ref": "#/$defs/uuid" },
+            "status": { "type": "string" },
+            "reason": { "type": "string" },
+            "operator_id": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "operatorMessageRequest": {
+      "type": "object",
+      "required": ["operator_id", "text"],
+      "properties": {
+        "operator_id": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "operatorMessageResponse": {
+      "type": "object",
+      "required": ["session_id", "message_id", "operator_id", "text", "correlation_id", "timestamp"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "message_id": { "$ref": "#/$defs/uuid" },
+        "operator_id": { "type": "string" },
+        "text": { "type": "string" },
+        "correlation_id": { "type": "string" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -157,7 +157,7 @@ func Run(ctx context.Context) error {
 	msgWorker := appworker.NewMessageWorker(sessionService, processor, presenter, messageRepo, llmClient, logger)
 
 	// Initialize HTTP transport
-	router := http.NewRouter(msgWorker, logger, httpConfig)
+	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig)
 	httpServer := http.NewServer(httpConfig, logger, router)
 
 	// Initialize application

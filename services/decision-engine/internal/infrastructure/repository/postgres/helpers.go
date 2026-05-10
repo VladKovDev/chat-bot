@@ -37,6 +37,8 @@ func domainSessionFromDB(dbSession sqlc.Session) session.Session {
 		Version:        int(dbSession.Version),
 		Status:         session.Status(dbSession.Status),
 		Metadata:       metadata,
+		CreatedAt:      dbSession.CreatedAt.Time,
+		UpdatedAt:      dbSession.UpdatedAt.Time,
 	}
 }
 

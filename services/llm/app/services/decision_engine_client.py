@@ -43,7 +43,7 @@ class DecisionEngineClient:
             raise RuntimeError("Client not initialized. Use async context manager.")
 
         logger = get_logger(__name__)
-        url = f"{self._base_url}/config_llm"
+        url = f"{self._base_url}/api/v1/domain/schema"
 
         logger.info("Fetching config from decision-engine", url=url)
 
@@ -51,14 +51,10 @@ class DecisionEngineClient:
         response.raise_for_status()
 
         data = response.json()
-        if "data" not in data:
-            raise ValueError("Invalid response format: missing 'data' field")
-
-        config_data = data["data"]
         schema = DomainSchema(
-            intents=config_data.get("intents", []),
-            states=config_data.get("states", []),
-            actions=config_data.get("actions", []),
+            intents=data.get("intents", []),
+            states=data.get("states", []),
+            actions=data.get("actions", []),
         )
 
         logger.info(
