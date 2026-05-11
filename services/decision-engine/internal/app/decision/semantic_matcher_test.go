@@ -198,6 +198,78 @@ func TestSemanticMatcherFiltersSemanticCandidatesToAllowedIntents(t *testing.T) 
 	}
 }
 
+func TestSemanticMatcherEmbeddingOutageFallsBackToLexicalCandidates(t *testing.T) {
+	t.Parallel()
+
+	matcher, err := NewSemanticIntentMatcher(
+		&fakeEmbedder{err: errors.New("nlp unavailable")},
+		&fakeIntentSearch{},
+		SemanticMatcherConfig{},
+	)
+	if err != nil {
+		t.Fatalf("new semantic matcher: %v", err)
+	}
+
+	match, err := matcher.Match(context.Background(), "какие актуальные цены на места", []apppresenter.IntentDefinition{
+		{
+			Key:      "ask_workspace_prices",
+			Category: "workspace",
+			Examples: []string{"какие цены на рабочие места", "актуальные цены на места"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+
+	if match.IntentKey != "ask_workspace_prices" {
+		t.Fatalf("match = %#v, want ask_workspace_prices", match)
+	}
+	if len(match.Candidates) == 0 || match.Candidates[0].Source != CandidateSourceLexicalFuzzy {
+		t.Fatalf("candidates = %#v, want lexical_fuzzy fallback", match.Candidates)
+	}
+}
+
+func TestSemanticMatcherMergesSemanticAndLexicalSignals(t *testing.T) {
+	t.Parallel()
+
+	embedder := &fakeEmbedder{embedding: []float64{1, 0, 0}}
+	search := &fakeIntentSearch{rows: []IntentSearchResult{
+		{
+			IntentID:       "intent-workspace",
+			IntentKey:      "ask_workspace_prices",
+			Category:       "workspace",
+			ResponseKey:    "workspace_types_prices",
+			Text:           "цены на коворкинг",
+			NormalizedText: "цены на коворкинг",
+			Locale:         "ru",
+			Weight:         1,
+			Confidence:     0.74,
+		},
+	}}
+	matcher, err := NewSemanticIntentMatcher(embedder, search, SemanticMatcherConfig{TopK: 3})
+	if err != nil {
+		t.Fatalf("new semantic matcher: %v", err)
+	}
+
+	match, err := matcher.Match(context.Background(), "какие актуальные цены на места", []apppresenter.IntentDefinition{
+		{
+			Key:      "ask_workspace_prices",
+			Category: "workspace",
+			Examples: []string{"какие цены на рабочие места", "актуальные цены на места"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+
+	if match.IntentKey != "ask_workspace_prices" {
+		t.Fatalf("match = %#v, want ask_workspace_prices", match)
+	}
+	if match.Confidence <= 0.74 {
+		t.Fatalf("confidence = %v, want merged score above pure semantic score", match.Confidence)
+	}
+}
+
 func TestSemanticMatcherExactCommandsBypassEmbeddingOutage(t *testing.T) {
 	t.Parallel()
 

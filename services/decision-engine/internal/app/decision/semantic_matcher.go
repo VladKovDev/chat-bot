@@ -3,6 +3,7 @@ package decision
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 const (
 	CandidateSourceIntentExample = "intent_example"
 	CandidateSourceExactCommand  = "exact_command"
+	CandidateSourceLexicalFuzzy  = "lexical_fuzzy"
 	CandidateSourceFallback      = "fallback"
 )
 
@@ -83,8 +85,13 @@ func (m *SemanticIntentMatcher) Match(
 		return exact, nil
 	}
 
+	lexicalCandidates := lexicalIntentCandidates(text, intents, m.topK)
+
 	embedding, err := m.embedder.Embed(ctx, text)
 	if err != nil {
+		if len(lexicalCandidates) > 0 {
+			return rankCandidates(lexicalCandidates), nil
+		}
 		return MatchResult{
 			LowConfidence:  true,
 			FallbackReason: "embedding_unavailable",
@@ -103,11 +110,15 @@ func (m *SemanticIntentMatcher) Match(
 
 	rows, err := m.search.SearchIntentExamples(ctx, embedding, m.locale, m.topK*3)
 	if err != nil {
+		if len(lexicalCandidates) > 0 {
+			return rankCandidates(lexicalCandidates), nil
+		}
 		return MatchResult{}, fmt.Errorf("search intent examples: %w", err)
 	}
 
 	allowed := allowedIntentKeys(intents)
-	candidates := uniqueIntentCandidates(rows, allowed, m.topK)
+	semanticCandidates := uniqueIntentCandidates(rows, allowed, m.topK)
+	candidates := mergeCandidates(semanticCandidates, lexicalCandidates, m.topK)
 	if len(candidates) == 0 {
 		return MatchResult{
 			LowConfidence:  true,
@@ -234,4 +245,72 @@ func allowedIntentKeys(intents []apppresenter.IntentDefinition) map[string]struc
 		allowed[intentDefinition.Key] = struct{}{}
 	}
 	return allowed
+}
+
+func mergeCandidates(semanticCandidates, lexicalCandidates []Candidate, limit int) []Candidate {
+	if len(semanticCandidates) == 0 {
+		return lexicalCandidates
+	}
+	if len(lexicalCandidates) == 0 {
+		return semanticCandidates
+	}
+
+	merged := make(map[string]Candidate, len(semanticCandidates)+len(lexicalCandidates))
+	for _, candidate := range semanticCandidates {
+		merged[candidate.IntentKey] = candidate
+	}
+	for _, lexical := range lexicalCandidates {
+		current, ok := merged[lexical.IntentKey]
+		if !ok {
+			merged[lexical.IntentKey] = lexical
+			continue
+		}
+
+		combined := current
+		combined.Confidence = normalizeConfidence(math.Max(current.Confidence, lexical.Confidence) + 0.08)
+		if lexical.Confidence > current.Confidence {
+			combined.Source = lexical.Source
+			combined.Text = lexical.Text
+		}
+		if combined.Metadata == nil {
+			combined.Metadata = map[string]any{}
+		}
+		combined.Metadata["matched_sources"] = []string{current.Source, lexical.Source}
+		merged[lexical.IntentKey] = combined
+	}
+
+	candidates := make([]Candidate, 0, len(merged))
+	for _, candidate := range merged {
+		candidates = append(candidates, candidate)
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].Confidence == candidates[j].Confidence {
+			return candidates[i].IntentKey < candidates[j].IntentKey
+		}
+		return candidates[i].Confidence > candidates[j].Confidence
+	})
+	if limit > 0 && len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	return candidates
+}
+
+func rankCandidates(candidates []Candidate) MatchResult {
+	match := MatchResult{
+		IntentKey:      candidates[0].IntentKey,
+		Confidence:     candidates[0].Confidence,
+		Candidates:     append([]Candidate(nil), candidates...),
+		AmbiguityDelta: 1,
+	}
+	if len(candidates) > 1 {
+		match.AmbiguityDelta = candidates[0].Confidence - candidates[1].Confidence
+	}
+	if match.Confidence < DefaultMatchThreshold {
+		match.LowConfidence = true
+		match.FallbackReason = defaultLowConfidence
+	} else if len(candidates) > 1 && match.AmbiguityDelta < DefaultAmbiguityDelta {
+		match.LowConfidence = true
+		match.FallbackReason = defaultAmbiguousMatch
+	}
+	return match
 }
