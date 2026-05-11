@@ -41,3 +41,5 @@
 {"id":"int-bb821b19","kind":"field_change","created_at":"2026-05-11T04:12:18.072919Z","actor":"DanilaBesk","issue_id":"chat-bot-7v7","extra":{"field":"status","new_value":"closed","old_value":"in_progress","reason":"Сделано"}}
 {"id":"int-9e9caa72","kind":"field_change","created_at":"2026-05-11T04:25:19.636508Z","actor":"DanilaBesk","issue_id":"chat-bot-jzy","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Перезапущено"}}
 {"id":"int-4906d0fc","kind":"field_change","created_at":"2026-05-11T04:36:47.030829Z","actor":"DanilaBesk","issue_id":"chat-bot-7n6","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
+{"id":"int-989106d2","kind":"field_change","created_at":"2026-05-11T04:50:36.93153Z","actor":"DanilaBesk","issue_id":"chat-bot-9u0","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
+{"id":"int-86687b9b","kind":"field_change","created_at":"2026-05-11T04:50:36.965807Z","actor":"DanilaBesk","issue_id":"chat-bot-15r","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
