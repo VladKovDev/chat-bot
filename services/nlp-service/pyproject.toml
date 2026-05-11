@@ -17,6 +17,10 @@ test = [
     "httpx==0.28.1",
     "pytest==9.0.2",
 ]
+qwen = [
+    "sentence-transformers>=2.7.0",
+    "transformers>=4.51.0,<5",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

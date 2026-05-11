@@ -3,7 +3,7 @@ from fastapi import FastAPI
 
 from app.api.router import api_router, root_router
 from app.config import Settings, settings
-from core.embeddings import FakeEmbeddingProvider, UnavailableEmbeddingProvider
+from core.embeddings import FakeEmbeddingProvider, Qwen3EmbeddingProvider, UnavailableEmbeddingProvider
 from core.preprocessor import RussianPreprocessor
 
 
@@ -22,9 +22,16 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
             dimension=current_settings.embedding_dimension,
             seed=current_settings.embedding_seed,
         )
-    else:
+    elif current_settings.embedding_mode == "unavailable":
         app.extra["embeddings"] = UnavailableEmbeddingProvider(
             dimension=current_settings.embedding_dimension,
+        )
+    else:
+        app.extra["embeddings"] = Qwen3EmbeddingProvider(
+            model_id=current_settings.embedding_model_id,
+            dimension=current_settings.embedding_dimension,
+            device=current_settings.embedding_device,
+            query_instruction=current_settings.embedding_query_instruction,
         )
 
     app.include_router(root_router)

@@ -16,6 +16,7 @@ class HealthResponse(BaseModel):
 
 class ReadyResponse(BaseModel):
     status: str
+    provider: str
     model: str
     dimension: int
     lemmatizer_model: str

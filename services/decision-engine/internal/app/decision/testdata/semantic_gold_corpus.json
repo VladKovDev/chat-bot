@@ -1,0 +1,395 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "system.greeting",
+      "category": "system",
+      "expected_intent": "greeting",
+      "expected_top3": true,
+      "tags": ["paraphrase", "short"],
+      "utterances": ["привет", "добрый день, помогите", "здравствуйте, можно вопрос", "hello, хочу начать", "помогите пожалуйста"]
+    },
+    {
+      "id": "system.goodbye",
+      "category": "system",
+      "expected_intent": "goodbye",
+      "expected_top3": true,
+      "tags": ["paraphrase", "short"],
+      "utterances": ["спасибо, до свидания", "вопросов больше нет", "на этом все", "можно закрывать чат", "bye, спасибо"]
+    },
+    {
+      "id": "system.menu",
+      "category": "system",
+      "expected_intent": "return_to_menu",
+      "expected_top3": true,
+      "tags": ["navigation"],
+      "utterances": ["главное меню", "верните меня в меню", "назад к категориям", "показать разделы", "давайте начнем с меню"]
+    },
+    {
+      "id": "system.reset",
+      "category": "system",
+      "expected_intent": "reset_conversation",
+      "expected_top3": true,
+      "tags": ["navigation"],
+      "utterances": ["начать заново", "сбросьте диалог", "очистить контекст", "давайте сначала", "new chat please"]
+    },
+    {
+      "id": "operator.request",
+      "category": "operator",
+      "expected_intent": "request_operator",
+      "expected_top3": true,
+      "expected_operator": true,
+      "tags": ["handoff"],
+      "utterances": ["оператор", "позовите человека", "нужен живой специалист", "соедините с менеджером", "call operator please"]
+    },
+    {
+      "id": "booking.info",
+      "category": "booking",
+      "expected_intent": "ask_booking_info",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["как записаться", "хочу оформить запись", "как проходит бронирование услуги", "расскажите про запись", "booking info please"]
+    },
+    {
+      "id": "booking.status",
+      "category": "booking",
+      "expected_intent": "ask_booking_status",
+      "expected_top3": true,
+      "tags": ["identifier", "paraphrase"],
+      "utterances": ["проверь запись", "что с записью БРГ-482910", "найдите бронь BRG-404000", "какой статус моей записи", "booking status BRG-123456"]
+    },
+    {
+      "id": "booking.cancel",
+      "category": "booking",
+      "expected_intent": "ask_cancellation_rules",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["как отменить запись", "можно отказаться от брони", "какие условия отмены", "что будет если не прийти", "cancel booking rules"]
+    },
+    {
+      "id": "booking.reschedule",
+      "category": "booking",
+      "expected_intent": "ask_reschedule_rules",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["можно перенести запись", "хочу поменять время визита", "как передвинуть бронь", "перенос записи возможен?", "reschedule appointment"]
+    },
+    {
+      "id": "booking.missing",
+      "category": "booking",
+      "expected_intent": "booking_not_found",
+      "expected_top3": true,
+      "tags": ["negative"],
+      "utterances": ["не вижу запись", "моя запись пропала", "не могу найти бронь услуги", "куда делась запись", "booking disappeared"]
+    },
+    {
+      "id": "workspace.info",
+      "category": "workspace",
+      "expected_intent": "ask_workspace_info",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["какие есть рабочие места", "расскажите про коворкинг", "что входит в аренду места", "какие варианты столов есть", "coworking info"]
+    },
+    {
+      "id": "workspace.prices",
+      "category": "workspace",
+      "expected_intent": "ask_workspace_prices",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["сколько стоит рабочее место", "цена аренды стола", "прайс на коворкинг", "тариф на горячее место", "workspace price"]
+    },
+    {
+      "id": "workspace.rules",
+      "category": "workspace",
+      "expected_intent": "ask_workspace_rules",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["правила аренды места", "можно шуметь в коворкинге", "что нельзя делать за рабочим местом", "условия использования офиса", "workspace rules"]
+    },
+    {
+      "id": "workspace.status",
+      "category": "workspace",
+      "expected_intent": "ask_workspace_status",
+      "expected_top3": true,
+      "tags": ["identifier"],
+      "utterances": ["статус брони места", "проверьте бронь WS-1001", "найдите WRK-HOT-001", "есть ли моя бронь коворкинга", "workspace booking status"]
+    },
+    {
+      "id": "workspace.unavailable",
+      "category": "workspace",
+      "expected_intent": "workspace_unavailable",
+      "expected_top3": true,
+      "tags": ["negative"],
+      "utterances": ["нет свободных мест", "все столы заняты", "не получается забронировать место", "свободный офис не отображается", "no available desks"]
+    },
+    {
+      "id": "payment.status",
+      "category": "payment",
+      "expected_intent": "ask_payment_status",
+      "expected_top3": true,
+      "tags": ["identifier"],
+      "utterances": ["статус платежа", "проверь оплату PAY-123456", "что с моим платежом", "найдите оплату по номеру", "payment status please"]
+    },
+    {
+      "id": "payment.failed",
+      "category": "payment",
+      "expected_intent": "payment_not_passed",
+      "expected_top3": true,
+      "tags": ["negative"],
+      "utterances": ["оплата не прошла", "банк отклонил платеж", "не получается оплатить картой", "платеж упал с ошибкой", "payment failed"]
+    },
+    {
+      "id": "payment.not_activated",
+      "category": "payment",
+      "expected_intent": "payment_not_activated",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["деньги списали а услуга не включилась", "оплата прошла но записи нет", "платеж списался без активации", "доступ не появился после оплаты", "paid but service inactive"]
+    },
+    {
+      "id": "payment.refund",
+      "category": "payment",
+      "expected_intent": "ask_refund_rules",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["как вернуть деньги", "нужен возврат оплаты", "правила возврата средств", "можно отменить платеж и вернуть оплату", "refund rules"]
+    },
+    {
+      "id": "tech.site",
+      "category": "tech_issue",
+      "expected_intent": "ask_site_problem",
+      "expected_top3": true,
+      "tags": ["typo", "paraphrase"],
+      "utterances": ["сайт не работает", "страница не открываеться", "белый экран на сайте", "веб сайт недоступен", "site is down"]
+    },
+    {
+      "id": "tech.login",
+      "category": "tech_issue",
+      "expected_intent": "login_not_working",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["не могу войти", "логин не работает", "не пускает в аккаунт", "ошибка авторизации", "login problem"]
+    },
+    {
+      "id": "tech.code",
+      "category": "tech_issue",
+      "expected_intent": "code_not_received",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["не приходит код", "смс с кодом нет", "код авторизации не отправляется", "не вижу код подтверждения для входа", "sms code missing"]
+    },
+    {
+      "id": "account.password",
+      "category": "account",
+      "expected_intent": "forgot_password",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["забыл пароль", "не помню пароль от профиля", "как восстановить доступ", "нужно поменять пароль", "forgot password"]
+    },
+    {
+      "id": "account.code",
+      "category": "account",
+      "expected_intent": "account_code_not_received",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["код для аккаунта не приходит", "не пришел код на почту", "не вижу код для профиля", "подтверждение аккаунта без кода", "account code missing"]
+    },
+    {
+      "id": "account.help",
+      "category": "account",
+      "expected_intent": "ask_account_help",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["помощь с аккаунтом", "проблема с профилем", "что с личным кабинетом", "нужна консультация по аккаунту", "account help"]
+    },
+    {
+      "id": "account.status",
+      "category": "account",
+      "expected_intent": "ask_account_status",
+      "expected_top3": true,
+      "tags": ["identifier"],
+      "utterances": ["проверь аккаунт", "найдите профиль user1@example.com", "статус аккаунта по телефону", "есть ли мой профиль", "account status"]
+    },
+    {
+      "id": "services.contacts",
+      "category": "services",
+      "expected_intent": "show_contacts",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["контакты", "номер телефона поддержки", "как с вами связаться", "почта администратора", "contact info"]
+    },
+    {
+      "id": "services.info",
+      "category": "services",
+      "expected_intent": "ask_services_info",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["какие услуги есть", "что вы делаете", "список процедур", "расскажите про услуги салона", "services list"]
+    },
+    {
+      "id": "services.prices",
+      "category": "services",
+      "expected_intent": "ask_prices",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["цены на услуги", "сколько стоит маникюр", "прайс на процедуры", "какая стоимость стрижки", "service prices"]
+    },
+    {
+      "id": "services.rules",
+      "category": "services",
+      "expected_intent": "ask_rules",
+      "expected_top3": true,
+      "tags": ["hard_negative"],
+      "utterances": ["правила сервиса", "условия обслуживания", "какие правила у услуг", "что нельзя при посещении", "service rules"]
+    },
+    {
+      "id": "services.location",
+      "category": "services",
+      "expected_intent": "ask_location",
+      "expected_top3": true,
+      "tags": ["paraphrase"],
+      "utterances": ["адрес", "где вы находитесь", "какой график работы", "как добраться до вас", "location and hours"]
+    },
+    {
+      "id": "services.faq",
+      "category": "services",
+      "expected_intent": "ask_faq",
+      "expected_top3": true,
+      "tags": ["faq"],
+      "utterances": ["частые вопросы", "вопросы и ответы", "популярные вопросы клиентов", "есть faq раздел?", "faq"]
+    },
+    {
+      "id": "services.faq_booking",
+      "category": "services",
+      "expected_intent": "ask_faq_booking",
+      "expected_top3": true,
+      "tags": ["faq", "hard_negative"],
+      "utterances": ["как записаться из faq", "что нужно чтобы оформить запись", "как сделать запись на услугу", "faq booking", "как начать запись"]
+    },
+    {
+      "id": "services.faq_cancel",
+      "category": "services",
+      "expected_intent": "ask_faq_cancellation",
+      "expected_top3": true,
+      "tags": ["faq", "hard_negative"],
+      "utterances": ["как отменить из faq", "как убрать запись", "как отказаться от услуги", "faq cancel appointment", "можно ли удалить бронь"]
+    },
+    {
+      "id": "services.faq_workspace",
+      "category": "services",
+      "expected_intent": "ask_faq_workspace",
+      "expected_top3": true,
+      "tags": ["faq", "hard_negative"],
+      "utterances": ["аренда места в faq", "как взять рабочее место", "как арендовать стол", "faq workspace rent", "как снять коворкинг"]
+    },
+    {
+      "id": "complaint.general",
+      "category": "complaint",
+      "expected_intent": "report_complaint",
+      "expected_top3": true,
+      "expected_operator": true,
+      "tags": ["handoff"],
+      "utterances": ["хочу пожаловаться", "плохой сервис", "есть претензия", "нужно сообщить о проблеме", "complaint"]
+    },
+    {
+      "id": "complaint.master",
+      "category": "complaint",
+      "expected_intent": "complaint_master",
+      "expected_top3": true,
+      "expected_operator": true,
+      "tags": ["handoff"],
+      "utterances": ["жалоба на мастера", "мастер опоздал", "мастер испортил услугу", "недоволен специалистом", "master complaint"]
+    },
+    {
+      "id": "complaint.premises",
+      "category": "complaint",
+      "expected_intent": "complaint_premises",
+      "expected_top3": true,
+      "expected_operator": true,
+      "tags": ["handoff"],
+      "utterances": ["грязно в помещении", "сломано кресло", "в коворкинге шумно", "кондиционер не работает", "premises complaint"]
+    },
+    {
+      "id": "other.general",
+      "category": "other",
+      "expected_intent": "general_question",
+      "expected_top3": true,
+      "tags": ["ambiguous"],
+      "utterances": ["у меня вопрос", "можно спросить", "нужна консультация", "не знаю куда обратиться", "general question"]
+    },
+    {
+      "id": "fallback.unknown",
+      "category": "fallback",
+      "expected_intent": "unknown",
+      "expected_top3": true,
+      "expected_clarify": true,
+      "tags": ["negative", "unknown"],
+      "utterances": ["эээ", "абракадабра 123", "что-то непонятное", "не могу сформулировать", "random unclear text"]
+    }
+  ],
+  "cases": [
+    {
+      "id": "context.payment.short_status",
+      "text": "а статус?",
+      "category": "payment",
+      "expected_intent": "ask_payment_status",
+      "expected_top3": true,
+      "active_topic": "payment",
+      "tags": ["context", "short"]
+    },
+    {
+      "id": "context.workspace.short_price",
+      "text": "а сколько стоит?",
+      "category": "workspace",
+      "expected_intent": "ask_workspace_prices",
+      "expected_top3": true,
+      "active_topic": "workspace",
+      "tags": ["context", "short"]
+    },
+    {
+      "id": "context.booking.identifier",
+      "text": "БРГ-482910",
+      "category": "booking",
+      "expected_intent": "ask_booking_status",
+      "expected_top3": true,
+      "active_topic": "booking",
+      "tags": ["context", "identifier"]
+    },
+    {
+      "id": "context.account.identifier",
+      "text": "user1@example.com",
+      "category": "account",
+      "expected_intent": "ask_account_status",
+      "expected_top3": true,
+      "active_topic": "account",
+      "tags": ["context", "identifier"]
+    },
+    {
+      "id": "fallback.repeat_escalates",
+      "text": "непонятная штука без смысла",
+      "category": "fallback",
+      "expected_intent": "unknown",
+      "expected_clarify": false,
+      "expected_operator": true,
+      "fallback_count": 1,
+      "active_topic": "services",
+      "tags": ["negative", "operator"]
+    },
+    {
+      "id": "ambiguous.price.services_vs_workspace",
+      "text": "сколько стоит место и услуга",
+      "category": "fallback",
+      "expected_intent": "unknown",
+      "expected_clarify": true,
+      "tags": ["ambiguous", "hard_negative"]
+    },
+    {
+      "id": "ambiguous.code.account_vs_tech",
+      "text": "код не приходит",
+      "category": "fallback",
+      "expected_intent": "unknown",
+      "expected_clarify": true,
+      "tags": ["ambiguous", "hard_negative"]
+    }
+  ]
+}

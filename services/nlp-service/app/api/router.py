@@ -30,6 +30,7 @@ async def ready(request: Request) -> ReadyResponse | JSONResponse:
     status = "ready" if embeddings.available else "unavailable"
     response = ReadyResponse(
         status=status,
+        provider=embeddings.provider_name,
         model=embeddings.model_name,
         dimension=embeddings.dimension,
         lemmatizer_model=preprocessor.model_name,
@@ -63,10 +64,8 @@ async def embed(body: EmbedRequest, request: Request) -> EmbedResponse:
 async def embed_batch(body: BatchEmbedRequest, request: Request) -> BatchEmbedResponse:
     embeddings = request.app.extra["embeddings"]
     try:
-        items = [
-            BatchEmbeddingItem(index=index, embedding=embeddings.embed(text))
-            for index, text in enumerate(body.texts)
-        ]
+        vectors = embeddings.embed_batch(body.texts)
+        items = [BatchEmbeddingItem(index=index, embedding=vector) for index, vector in enumerate(vectors)]
     except EmbeddingUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return BatchEmbedResponse(

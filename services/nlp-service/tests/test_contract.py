@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from core.embeddings import FakeEmbeddingProvider
 from app.config import Settings
 from app.main import create_app
 
@@ -34,6 +35,7 @@ def test_health_and_ready_report_available_model(client: TestClient) -> None:
     assert ready.status_code == 200
     payload = ready.json()
     assert payload["status"] == "ready"
+    assert payload["provider"] == "fake"
     assert payload["model"] == "fake-hash-embedding-v1"
     assert payload["dimension"] == 8
     assert_no_decision_fields(payload)
@@ -69,6 +71,15 @@ def test_embed_returns_stable_dimensioned_vector(client: TestClient) -> None:
     assert_no_decision_fields(payload)
 
 
+def test_fake_embeddings_keep_related_price_phrases_close() -> None:
+    provider = FakeEmbeddingProvider(dimension=384, seed="test")
+    query = provider.embed("какая цена услуг?")
+    related = provider.embed("цены на услуги")
+    unrelated = provider.embed("проверь аккаунт")
+
+    assert cosine(query, related) > cosine(query, unrelated)
+
+
 def test_batch_embed_returns_one_vector_per_input(client: TestClient) -> None:
     response = client.post(
         "/api/v1/embed/batch",
@@ -92,6 +103,7 @@ def test_ready_and_embed_fail_when_model_is_unavailable() -> None:
         ready = unavailable_client.get("/ready")
         assert ready.status_code == 503
         assert ready.json()["status"] == "unavailable"
+        assert ready.json()["provider"] == "unavailable"
 
         embed = unavailable_client.post("/api/v1/embed", json={"text": "Привет"})
         assert embed.status_code == 503
@@ -121,3 +133,7 @@ def test_contract_rejects_empty_or_unbounded_requests(
 def test_target_runtime_does_not_mount_legacy_decide_route(client: TestClient) -> None:
     response = client.post("/llm/decide", json={})
     assert response.status_code == 404
+
+
+def cosine(left: list[float], right: list[float]) -> float:
+    return sum(a * b for a, b in zip(left, right))
