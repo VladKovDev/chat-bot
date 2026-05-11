@@ -43,3 +43,4 @@
 {"id":"int-4906d0fc","kind":"field_change","created_at":"2026-05-11T04:36:47.030829Z","actor":"DanilaBesk","issue_id":"chat-bot-7n6","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
 {"id":"int-989106d2","kind":"field_change","created_at":"2026-05-11T04:50:36.93153Z","actor":"DanilaBesk","issue_id":"chat-bot-9u0","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
 {"id":"int-86687b9b","kind":"field_change","created_at":"2026-05-11T04:50:36.965807Z","actor":"DanilaBesk","issue_id":"chat-bot-15r","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
+{"id":"int-ead51179","kind":"field_change","created_at":"2026-05-11T04:55:53.115307Z","actor":"DanilaBesk","issue_id":"chat-bot-1p5","extra":{"field":"status","new_value":"closed","old_value":"open","reason":"Исправлено"}}
