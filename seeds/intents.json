@@ -330,7 +330,7 @@
       "resolution_type": "knowledge",
       "response_key": "services_prices",
       "knowledge_key": "services.prices",
-      "examples": ["цены на услуги", "сколько стоит маникюр", "прайс на услуги", "какая стоимость услуг", "сколько стоит стрижка", "цена на процедуры", "сколько стоят услуги", "покажите цены"],
+      "examples": ["цены на услуги", "какая цена услуг", "сколько стоит маникюр", "прайс на услуги", "какая стоимость услуг", "сколько стоит стрижка", "цена на процедуры", "сколько стоят услуги", "покажите цены"],
       "quick_replies": [
         { "id": "services-book", "label": "Связаться для записи", "action": "request_operator", "payload": {} },
         { "id": "services-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }

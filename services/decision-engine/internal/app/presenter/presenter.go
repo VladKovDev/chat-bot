@@ -4,13 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"unicode"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
 
-const quickReplyActionSend = "send_text"
+const (
+	quickReplyActionSend         = "send_text"
+	quickReplyActionSelectIntent = "select_intent"
+	quickReplyActionOperator     = "request_operator"
+)
 
 type QuickReplyConfig struct {
 	ID      string         `json:"id"`
@@ -145,18 +151,101 @@ func (c *ResponseConfig) quickReplies() []response.QuickReply {
 
 	replies := make([]response.QuickReply, 0, len(c.Options))
 	for index, option := range c.Options {
-		replies = append(replies, response.QuickReply{
-			ID:     slugifyQuickReplyID(option),
-			Label:  option,
-			Action: quickReplyActionSend,
-			Payload: map[string]any{
-				"text": option,
-			},
-			Order: index,
-		})
+		replies = append(replies, legacyOptionQuickReply(option, index))
 	}
 
 	return replies
+}
+
+func legacyOptionQuickReply(option string, order int) response.QuickReply {
+	label := strings.TrimSpace(option)
+	payloadText := sanitizeLegacyOptionText(label)
+	if payloadText == "" {
+		payloadText = label
+	}
+
+	reply := response.QuickReply{
+		ID:    slugifyQuickReplyID(payloadText),
+		Label: label,
+		Order: order,
+	}
+
+	switch canonicalLegacyOptionKey(payloadText) {
+	case "request_operator":
+		reply.Action = quickReplyActionOperator
+	case "return_to_menu":
+		reply.Action = quickReplyActionSelectIntent
+		reply.Payload = map[string]any{
+			"intent": "return_to_menu",
+			"text":   "главное меню",
+		}
+	case "ask_booking_info",
+		"ask_workspace_info",
+		"ask_payment_status",
+		"ask_site_problem",
+		"ask_account_help",
+		"ask_services_info",
+		"report_complaint",
+		"general_question":
+		reply.Action = quickReplyActionSelectIntent
+		reply.Payload = map[string]any{
+			"intent": canonicalLegacyOptionKey(payloadText),
+			"text":   payloadText,
+		}
+	default:
+		reply.Action = quickReplyActionSend
+		reply.Payload = map[string]any{
+			"text": payloadText,
+		}
+	}
+
+	return reply
+}
+
+func sanitizeLegacyOptionText(label string) string {
+	trimmed := strings.TrimSpace(label)
+	trimmed = strings.TrimLeftFunc(trimmed, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	return strings.TrimSpace(trimmed)
+}
+
+func canonicalLegacyOptionKey(text string) string {
+	switch normalizeLegacyOptionKey(text) {
+	case "связаться с оператором",
+		"связь с оператором",
+		"связаться для записи",
+		"связаться с администратором",
+		"передать оператору",
+		"вызвать администратора":
+		return "request_operator"
+	case "вернуться в главное меню",
+		"вернуться в меню",
+		"выбрать категорию":
+		return "return_to_menu"
+	case "записи и бронирование":
+		return "ask_booking_info"
+	case "рабочие места":
+		return "ask_workspace_info"
+	case "оплата":
+		return "ask_payment_status"
+	case "проблемы с сайтом или входом":
+		return "ask_site_problem"
+	case "аккаунт":
+		return "ask_account_help"
+	case "услуги и правила":
+		return "ask_services_info"
+	case "жалобы и проблемы":
+		return "report_complaint"
+	case "другое":
+		return "general_question"
+	default:
+		return ""
+	}
+}
+
+func normalizeLegacyOptionKey(text string) string {
+	return strings.ToLower(strings.TrimSpace(strings.ReplaceAll(text, "ё", "е")))
 }
 
 func clonePayload(payload map[string]any) map[string]any {

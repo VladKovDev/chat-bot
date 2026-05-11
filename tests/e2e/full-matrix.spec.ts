@@ -97,6 +97,28 @@ test('E2E-001 @smoke новый пользователь creates isolated web se
   await expectDecision(sessionID, 'return_to_menu', 'main_menu');
 });
 
+test('E2E-001b @smoke website account quick reply opens account category instead of clarify fallback', async ({ page }) => {
+  const sessionID = await openChat(page);
+  await sendChatMessage(page, 'главное меню');
+  await page.getByRole('button', { name: /Аккаунт/i }).click();
+
+  await expectLastBotContains(page, /Аккаунт/);
+  await expectLastBotContains(page, /Что вас интересует/i);
+  await expectDecision(sessionID, 'ask_account_help', 'account_category');
+});
+
+test('E2E-001c @smoke handoff menu quick reply returns to main menu without generic public error', async ({ page }) => {
+  const sessionID = await openChat(page);
+  await sendChatMessage(page, 'оператор');
+  await expectLastBotContains(page, /оператор/i);
+
+  await page.getByRole('button', { name: /Вернуться в главное меню/i }).click();
+
+  await expectLastBotContains(page, /Главное меню|категори/i);
+  await expect(page.locator('.message.error-message')).toHaveCount(0);
+  await expectDecision(sessionID, 'return_to_menu', 'main_menu');
+});
+
 test('E2E-002 изоляция пользователей keeps sessions, history and context separated', async ({ request }) => {
   const first = await apiFlow(request, '002-a', 'как отменить запись');
   const second = await apiFlow(request, '002-b', 'оплата не прошла');
@@ -116,6 +138,10 @@ test('E2E-003 @smoke FAQ services/prices returns canned answer, quick replies an
   expect(response.quick_replies?.length ?? 0).toBeGreaterThan(0);
   await expectMessagePersistence(session.session_id, response);
   await expectDecision(session.session_id, /ask_prices|ask_services_info/, 'services_prices');
+
+  const paraphrase = await apiFlow(request, '003-paraphrase', 'какая цена услуг?');
+  expect(paraphrase.response.text).toContain('Услуги и цены');
+  await expectDecision(paraphrase.session.session_id, /ask_prices|ask_services_info/, 'services_prices');
 });
 
 test('E2E-004 cancellation rules do not run business lookup action', async ({ request }) => {
@@ -544,4 +570,14 @@ test('E2E-038 @smoke knowledge-backed prices use seeded KB/provider evidence, no
   expect(evidence.metadata.knowledge_key).toBeTruthy();
   expect(Number(evidence.article_count)).toBeGreaterThan(0);
   expect(response.text).not.toContain('window.');
+});
+
+test('E2E-039 @smoke account menu quick reply opens account flow instead of clarification', async ({ page }) => {
+  const sessionID = await openChat(page);
+  await sendChatMessage(page, 'главное меню');
+  await expectLastBotContains(page, /Главное меню|категори/i);
+  await page.locator('.option-button', { hasText: 'Аккаунт' }).click();
+  await expectLastBotContains(page, 'Что вас интересует?');
+  await expectLastBotContains(page, 'Аккаунт');
+  await expectDecision(sessionID, 'ask_account_help', 'account_category');
 });

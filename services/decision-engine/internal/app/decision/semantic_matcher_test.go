@@ -3,6 +3,7 @@ package decision
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
@@ -176,6 +177,37 @@ func TestSemanticMatcherExactCommandsBypassEmbeddingOutage(t *testing.T) {
 	}
 }
 
+func TestSemanticMatcherExactIntentExamplesBypassEmbeddingForNonSystemIntent(t *testing.T) {
+	t.Parallel()
+
+	embedder := &fakeEmbedder{err: errors.New("nlp unavailable")}
+	search := &fakeIntentSearch{}
+	matcher, err := NewSemanticIntentMatcher(embedder, search, SemanticMatcherConfig{})
+	if err != nil {
+		t.Fatalf("new semantic matcher: %v", err)
+	}
+
+	match, err := matcher.Match(context.Background(), "Цены на услуги?", []apppresenter.IntentDefinition{
+		{
+			Key:      "ask_prices",
+			Category: "services",
+			Examples: []string{"цены на услуги"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+	if match.IntentKey != "ask_prices" || match.Confidence != 1 {
+		t.Fatalf("match = %#v, want exact ask_prices", match)
+	}
+	if embedder.calls != 0 || search.calls != 0 {
+		t.Fatalf("embed/search calls = %d/%d, want 0/0 for exact intent example", embedder.calls, search.calls)
+	}
+	if len(match.Candidates) != 1 || match.Candidates[0].Source != CandidateSourceExactCommand {
+		t.Fatalf("candidates = %#v, want one exact_command candidate", match.Candidates)
+	}
+}
+
 func TestSemanticMatcherEmbeddingOutageReturnsLowConfidenceFallback(t *testing.T) {
 	t.Parallel()
 
@@ -197,5 +229,29 @@ func TestSemanticMatcherEmbeddingOutageReturnsLowConfidenceFallback(t *testing.T
 	}
 	if len(match.Candidates) != 1 || match.Candidates[0].Source != CandidateSourceFallback {
 		t.Fatalf("fallback candidates = %#v, want one fallback candidate", match.Candidates)
+	}
+}
+
+func TestActualIntentCatalogMatchesPricingParaphrase(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	catalog, err := apppresenter.LoadIntentCatalog(configPath)
+	if err != nil {
+		t.Fatalf("load intent catalog: %v", err)
+	}
+
+	match, err := NewCatalogMatcher().Match(context.Background(), "какая цена услуг?", catalog.Intents)
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+	if match.IntentKey != "ask_prices" {
+		t.Fatalf("intent = %q, want ask_prices", match.IntentKey)
+	}
+	if match.Confidence < DefaultMatchThreshold {
+		t.Fatalf("confidence = %.2f, want >= %.2f", match.Confidence, DefaultMatchThreshold)
 	}
 }

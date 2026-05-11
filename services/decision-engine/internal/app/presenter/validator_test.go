@@ -69,7 +69,7 @@ func TestPresentNormalizesLegacyOptionsIntoTypedQuickReplies(t *testing.T) {
 	writeResponsesFile(t, tempDir, `{
   "main_menu": {
     "message": "Меню",
-    "options": ["Связаться с оператором", "Вернуться в главное меню"]
+    "options": ["Связаться с оператором", "Вернуться в главное меню", "❓ Не приходит код подтверждения"]
   }
 }`)
 
@@ -82,14 +82,55 @@ func TestPresentNormalizesLegacyOptionsIntoTypedQuickReplies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("present: %v", err)
 	}
-	if len(resp.QuickReplies) != 2 {
-		t.Fatalf("quick replies = %#v, want 2 items", resp.QuickReplies)
+	if len(resp.QuickReplies) != 3 {
+		t.Fatalf("quick replies = %#v, want 3 items", resp.QuickReplies)
 	}
-	if resp.QuickReplies[0].Action != "send_text" {
-		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[0].Action, "send_text")
+	if resp.QuickReplies[0].Action != "request_operator" {
+		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[0].Action, "request_operator")
 	}
-	if got := resp.QuickReplies[0].Payload["text"]; got != "Связаться с оператором" {
-		t.Fatalf("payload.text = %#v, want operator label", got)
+	if resp.QuickReplies[1].Action != "select_intent" {
+		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[1].Action, "select_intent")
+	}
+	if got := resp.QuickReplies[1].Payload["intent"]; got != "return_to_menu" {
+		t.Fatalf("payload.intent = %#v, want return_to_menu", got)
+	}
+	if resp.QuickReplies[2].Action != "send_text" {
+		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[2].Action, "send_text")
+	}
+	if got := resp.QuickReplies[2].Payload["text"]; got != "Не приходит код подтверждения" {
+		t.Fatalf("payload.text = %#v, want sanitized label", got)
+	}
+}
+
+func TestActualStartMenuUsesIntentQuickRepliesForCategories(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	p, err := NewPresenter(configPath)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
+	resp, err := p.Present("start", state.StateWaitingForCategory)
+	if err != nil {
+		t.Fatalf("present start: %v", err)
+	}
+
+	quickRepliesByID := make(map[string]map[string]any, len(resp.QuickReplies))
+	for _, quickReply := range resp.QuickReplies {
+		if quickReply.Action == "select_intent" {
+			quickRepliesByID[quickReply.ID] = quickReply.Payload
+		}
+	}
+
+	if got := quickRepliesByID["menu-account"]["intent"]; got != "ask_account_help" {
+		t.Fatalf("menu-account payload.intent = %#v, want ask_account_help", got)
+	}
+	if got := quickRepliesByID["menu-services"]["intent"]; got != "ask_services_info" {
+		t.Fatalf("menu-services payload.intent = %#v, want ask_services_info", got)
 	}
 }
 

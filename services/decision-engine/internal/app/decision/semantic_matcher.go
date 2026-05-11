@@ -139,9 +139,6 @@ func exactCommandMatch(text string, intents []apppresenter.IntentDefinition) Mat
 		return MatchResult{}
 	}
 	for _, intentDefinition := range intents {
-		if !isExactCommandIntent(intentDefinition) {
-			continue
-		}
 		for _, example := range intentDefinition.Examples {
 			if normalizedQuery != normalizeText(example) {
 				continue
@@ -161,19 +158,6 @@ func exactCommandMatch(text string, intents []apppresenter.IntentDefinition) Mat
 		}
 	}
 	return MatchResult{}
-}
-
-func isExactCommandIntent(intentDefinition apppresenter.IntentDefinition) bool {
-	switch intentDefinition.Category {
-	case "system", "operator":
-		return true
-	default:
-		return intentDefinition.Key == "request_operator" ||
-			intentDefinition.Key == "return_to_menu" ||
-			intentDefinition.Key == "reset_conversation" ||
-			intentDefinition.Key == "greeting" ||
-			intentDefinition.Key == "goodbye"
-	}
 }
 
 func uniqueIntentCandidates(rows []IntentSearchResult, limit int) []Candidate {

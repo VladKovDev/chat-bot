@@ -1,30 +1,30 @@
 {
     "start": {
         "message": "Здравствуйте! 👋\n\nДобро пожаловать в службу поддержки. Я бот-ассистент и могу помочь вам с вопросами о наших услугах.\n\nПожалуйста, выберите категорию вашего вопроса:",
-        "options": [
-            "📅 Записи и бронирование",
-            "🖥️ Рабочие места",
-            "💳 Оплата",
-            "🔧 Проблемы с сайтом или входом",
-            "👤 Аккаунт",
-            "ℹ️ Услуги и правила",
-            "⚠️ Жалобы и проблемы",
-            "💬 Другое",
-            "📞 Связь с оператором"
+        "quick_replies": [
+            { "id": "menu-booking", "label": "📅 Записи и бронирование", "action": "select_intent", "payload": { "intent": "ask_booking_info", "text": "Записи и бронирование" } },
+            { "id": "menu-workspace", "label": "🖥️ Рабочие места", "action": "select_intent", "payload": { "intent": "ask_workspace_info", "text": "Рабочие места" } },
+            { "id": "menu-payment", "label": "💳 Оплата", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Оплата" } },
+            { "id": "menu-tech", "label": "🔧 Проблемы с сайтом или входом", "action": "select_intent", "payload": { "intent": "ask_site_problem", "text": "Проблемы с сайтом или входом" } },
+            { "id": "menu-account", "label": "👤 Аккаунт", "action": "select_intent", "payload": { "intent": "ask_account_help", "text": "Аккаунт" } },
+            { "id": "menu-services", "label": "ℹ️ Услуги и правила", "action": "select_intent", "payload": { "intent": "ask_services_info", "text": "Услуги и правила" } },
+            { "id": "menu-complaint", "label": "⚠️ Жалобы и проблемы", "action": "select_intent", "payload": { "intent": "report_complaint", "text": "Жалобы и проблемы" } },
+            { "id": "menu-other", "label": "💬 Другое", "action": "select_intent", "payload": { "intent": "general_question", "text": "Другое" } },
+            { "id": "menu-operator", "label": "📞 Связь с оператором", "action": "request_operator", "payload": {} }
         ]
     },
     "main_menu": {
         "message": "🏠 Главное меню\n\nВыберите категорию вашего вопроса:",
-        "options": [
-            "📅 Записи и бронирование",
-            "🖥️ Рабочие места",
-            "💳 Оплата",
-            "🔧 Проблемы с сайтом или входом",
-            "👤 Аккаунт",
-            "ℹ️ Услуги и правила",
-            "⚠️ Жалобы и проблемы",
-            "💬 Другое",
-            "📞 Связь с оператором"
+        "quick_replies": [
+            { "id": "menu-booking", "label": "📅 Записи и бронирование", "action": "select_intent", "payload": { "intent": "ask_booking_info", "text": "Записи и бронирование" } },
+            { "id": "menu-workspace", "label": "🖥️ Рабочие места", "action": "select_intent", "payload": { "intent": "ask_workspace_info", "text": "Рабочие места" } },
+            { "id": "menu-payment", "label": "💳 Оплата", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Оплата" } },
+            { "id": "menu-tech", "label": "🔧 Проблемы с сайтом или входом", "action": "select_intent", "payload": { "intent": "ask_site_problem", "text": "Проблемы с сайтом или входом" } },
+            { "id": "menu-account", "label": "👤 Аккаунт", "action": "select_intent", "payload": { "intent": "ask_account_help", "text": "Аккаунт" } },
+            { "id": "menu-services", "label": "ℹ️ Услуги и правила", "action": "select_intent", "payload": { "intent": "ask_services_info", "text": "Услуги и правила" } },
+            { "id": "menu-complaint", "label": "⚠️ Жалобы и проблемы", "action": "select_intent", "payload": { "intent": "report_complaint", "text": "Жалобы и проблемы" } },
+            { "id": "menu-other", "label": "💬 Другое", "action": "select_intent", "payload": { "intent": "general_question", "text": "Другое" } },
+            { "id": "menu-operator", "label": "📞 Связь с оператором", "action": "request_operator", "payload": {} }
         ]
     },
 
