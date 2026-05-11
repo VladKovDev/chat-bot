@@ -87,7 +87,7 @@ func (p *Presenter) Render(input RenderInput) (response.Response, error) {
 	return response.Response{
 		Text:         text,
 		Options:      cfg.legacyOptions(),
-		QuickReplies: buildResponseQuickReplies(responseKey, cfg),
+		QuickReplies: buildResponseQuickReplies(cfg),
 		State:        input.State,
 	}, nil
 }
@@ -109,7 +109,7 @@ func (p *Presenter) fallbackResponse(st state.State, failedResponseKey string, c
 	return response.Response{
 		Text:         text,
 		Options:      cfg.legacyOptions(),
-		QuickReplies: buildResponseQuickReplies(safeRenderFallbackKey, cfg),
+		QuickReplies: buildResponseQuickReplies(cfg),
 		State:        st,
 	}, nil
 }

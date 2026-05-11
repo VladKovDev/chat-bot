@@ -48,38 +48,38 @@
     },
     "booking_request_identifier": {
         "message": "Для поиска информации о записи введите:\n• Номер записи\n\nИли номер телефона, связанный с записью",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "booking-request-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_found": {
         "message": "✅ Запись найдена:\n\n🔹 Номер: #{booking_number}\n🔹 Услуга: {service}\n🔹 Мастер: {master}\n🔹 Дата: {date} в {time}\n🔹 Статус: {status}\n\nЧто хотите узнать?",
-        "options": [
-            "❓ Правила отмены",
-            "📞 Контакты",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "booking-found-rules", "label": "❓ Правила отмены", "action": "select_intent", "payload": { "intent": "ask_cancellation_rules", "text": "Правила отмены" } },
+            { "id": "booking-found-contacts", "label": "📞 Контакты", "action": "select_intent", "payload": { "intent": "show_contacts", "text": "Контакты" } },
+            { "id": "booking-found-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_not_found": {
         "message": "❌ Запись не найдена\n\nПроверьте введённые данные или попробуйте другой номер телефона.\n\nЕсли проблема сохраняется, вы можете связаться с оператором.",
-        "options": [
-            "🔄 Ввести данные снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "booking-not-found-retry", "label": "🔄 Ввести данные снова", "action": "select_intent", "payload": { "intent": "ask_booking_status", "text": "Проверить статус записи" } },
+            { "id": "booking-not-found-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "booking-not-found-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_cancellation_rules": {
         "message": "📅 Правила отмены и переноса записей\n\nБесплатная отмена:\n✅ За 24 часа и более до записи\n\nЧастичная оплата:\n⚠️ За 2-24 часа - 50% стоимости\n\nПолная оплата:\n❌ Менее чем за 2 часа - 100% стоимости\n\n💡 Для отмены или переноса записи свяжитесь с оператором или воспользуйтесь сайтом.",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "booking-cancel-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "booking-cancel-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_reschedule_rules": {
         "message": "📅 Правила переноса записей\n\nПеренос возможен:\n✅ Бесплатно - за 24 часа и более\n⚠️ За 2-24 часа - 50% стоимости (если перенос по вашей инициативе)\n\n💡 Для переноса записи свяжитесь с оператором или воспользуйтесь сайтом.",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "booking-reschedule-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "booking-reschedule-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
@@ -150,320 +150,320 @@
 
     "payment_category": {
         "message": "💳 Оплата\n\nЯ могу помочь с вопросами по оплате и платежам.\n\nЧто вас интересует?",
-        "options": [
-            "🔍 Статус платежа",
-            "❌ Оплата не прошла",
-            "⚠️ Деньги списались, услуга не активирована",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "payment-status-category", "label": "🔍 Статус платежа", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
+            { "id": "payment-failed-category", "label": "❌ Оплата не прошла", "action": "select_intent", "payload": { "intent": "payment_not_passed", "text": "Оплата не прошла" } },
+            { "id": "payment-not-activated-category", "label": "⚠️ Деньги списались, услуга не активирована", "action": "select_intent", "payload": { "intent": "payment_not_activated", "text": "Деньги списались, услуга не активирована" } },
+            { "id": "payment-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_request_id": {
         "message": "Для проверки статуса платежа введите:\n• ID платежа\n• Или номер заказа/записи",
-        "options": [
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-menu-request", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_found": {
         "message": "✅ Платёж найден:\n\n🔹 Номер: #{payment_id}\n🔹 Сумма: {amount}₽\n🔹 Дата: {date}\n🔹 Статус: {status}\n🔹 Назначение: {purpose}\n\nЧто хотите узнать?",
-        "options": [
-            "⏳ Подождать обработки",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-found-wait", "label": "⏳ Подождать обработки", "action": "send_text", "payload": { "text": "Подождать обработки" } },
+            { "id": "payment-found-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "payment-found-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_not_found": {
         "message": "❌ Платёж не найден\n\nПроверьте:\n• Правильность введённых данных\n• Выполнялась ли оплата с этой карты\n• Списаны ли деньги\n\nЧто хотите сделать?",
-        "options": [
-            "🔄 Ввести данные снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-not-found-retry", "label": "🔄 Ввести данные снова", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
+            { "id": "payment-not-found-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "payment-not-found-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_failed": {
         "message": "❌ Оплата не прошла\n\nВозможные причины:\n• Недостаточно средств на карте\n• Превышен лимит операций\n• Ошибка в банковской системе\n• Неверные данные карты\n\nРешения:\n• Проверьте баланс карты\n• Попробуйте другую карту\n• Обратитесь в банк\n\nЧто хотите сделать?",
-        "options": [
-            "🔄 Попробовать снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-failed-retry", "label": "🔄 Попробовать снова", "action": "send_text", "payload": { "text": "Попробовать снова" } },
+            { "id": "payment-failed-operator-response", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "payment-failed-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_debited_not_activated": {
         "message": "⚠️ Деньги списались, услуга не активирована\n\nЭто может означать, что платёж в обработке.\n\nРекомендуемые действия:\n• Подождите 5-10 минут - обработка может занять время\n• Проверьте почту - должно прийти подтверждение\n\nЕсли проблема сохраняется более 15 минут, свяжитесь с оператором.",
-        "options": [
-            "⏳ Подождать и проверить снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-activated-wait", "label": "⏳ Подождать и проверить снова", "action": "send_text", "payload": { "text": "Подождать и проверить снова" } },
+            { "id": "payment-activated-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "payment-activated-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "payment_refund_rules": {
         "message": "💳 Правила возврата\n\nВозврат возможен, если услуга не была оказана или платёж прошёл с ошибкой. Обычно заявка на возврат рассматривается в течение 3-5 рабочих дней.\n\nПодготовьте номер платежа или записи: это ускорит проверку. Если нужно оформить обращение, я могу переключить вас на оператора.",
-        "options": [
-            "🔍 Проверить статус платежа",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "payment-status-refund", "label": "🔍 Проверить статус платежа", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
+            { "id": "payment-operator-refund", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "payment-menu-refund", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "tech_issue_category": {
         "message": "🔧 Проблемы с сайтом или входом\n\nВыберите тип проблемы:",
-        "options": [
-            "🌐 Сайт не работает",
-            "🔐 Не могу войти",
-            "📧 Не приходит код",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "tech-site-category", "label": "🌐 Сайт не работает", "action": "select_intent", "payload": { "intent": "ask_site_problem", "text": "Сайт не работает" } },
+            { "id": "tech-login-category", "label": "🔐 Не могу войти", "action": "select_intent", "payload": { "intent": "login_not_working", "text": "Не могу войти" } },
+            { "id": "tech-code-category", "label": "📧 Не приходит код", "action": "select_intent", "payload": { "intent": "code_not_received", "text": "Не приходит код" } },
+            { "id": "tech-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "tech_site_not_loading": {
         "message": "🌐 Сайт не работает\n\nУточните, пожалуйста:\n• Какое устройство вы используете? (компьютер/телефон)\n• Какой браузер?\n• Какая ошибка отображается?\n\nБазовые решения:\n• Обновите страницу (F5)\n• Очистите кэш браузера\n• Попробуйте другой браузер\n\nЕсли проблема сохраняется, я передам её оператору.",
-        "options": [
-            "✅ Попробовать решения",
-            "📞 Перейти к оператору",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "tech-site-fixes", "label": "✅ Попробовать решения", "action": "send_text", "payload": { "text": "Попробую решения" } },
+            { "id": "tech-site-operator-response", "label": "📞 Перейти к оператору", "action": "request_operator", "payload": {} },
+            { "id": "tech-site-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "tech_login_problem": {
         "message": "🔐 Проблема со входом\n\nВыберите ситуацию:",
-        "options": [
-            "🔑 Забыл пароль",
-            "❌ Ошибка \"Неверный логин/пароль\"",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "tech-password-login", "label": "🔑 Забыл пароль", "action": "select_intent", "payload": { "intent": "forgot_password", "text": "Забыл пароль" } },
+            { "id": "tech-invalid-login", "label": "❌ Ошибка \"Неверный логин/пароль\"", "action": "select_intent", "payload": { "intent": "login_not_working", "text": "Неверный логин пароль" } },
+            { "id": "tech-menu-login", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "tech_forgot_password": {
         "message": "🔑 Восстановление пароля\n\nИнструкция:\n1. На странице входа нажмите \"Забыл пароль\"\n2. Введите ваш email или телефон\n3. Следуйте инструкциям в письме/SMS\n\nЕсли код не приходит:\n• Проверьте папку SPAM в почте\n• Проверьте правильность номера телефона\n• Подождите несколько минут\n\nНужна помощь?",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "tech-operator-password", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "tech-menu-password", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "tech_code_not_received": {
         "message": "📧 Код не приходит\n\nПроверьте:\n1. Папку SPAM в почте\n2. Правильность номера телефона/email\n3. Подождите несколько минут (иногда задержка)\n\nЕсли код не пришёл, запросите повторную отправку или свяжитесь с оператором.",
-        "options": [
-            "🔄 Запросить код повторно",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "tech-code-repeat", "label": "🔄 Запросить код повторно", "action": "select_intent", "payload": { "intent": "code_not_received", "text": "Запросить код повторно" } },
+            { "id": "tech-code-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "tech-code-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "tech_issue_collect_info": {
         "message": "📋 Для решения проблемы нужна информация\n\nУкажите:\n1. Какое устройство используете? (телефон/компьютер/планшет)\n2. Какой браузер?\n3. На каком шаге возникает ошибка?\n4. Текст ошибки (если есть)",
-        "options": [
-            "📞 Передать оператору",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "tech-collect-operator", "label": "📞 Передать оператору", "action": "request_operator", "payload": {} },
+            { "id": "tech-collect-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "account_category": {
         "message": "👤 Аккаунт\n\nЧто вас интересует?",
-        "options": [
-            "❓ Не приходит код подтверждения",
-            "🔑 Забыл пароль",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "account-code-category", "label": "❓ Не приходит код подтверждения", "action": "select_intent", "payload": { "intent": "account_code_not_received", "text": "Не приходит код подтверждения" } },
+            { "id": "account-password-category", "label": "🔑 Забыл пароль", "action": "select_intent", "payload": { "intent": "forgot_password", "text": "Забыл пароль" } },
+            { "id": "account-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "account_found": {
         "message": "✅ Аккаунт найден:\n\n🔹 ID: {user_id}\n🔹 Email: {email}\n🔹 Телефон: {phone}\n🔹 Статус: {status}\n\nЧто хотите узнать?",
-        "options": [
-            "🔑 Изменить пароль",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "account-reset-found", "label": "🔑 Изменить пароль", "action": "select_intent", "payload": { "intent": "forgot_password", "text": "Изменить пароль" } },
+            { "id": "account-operator-found", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "account-menu-found", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "account_not_found": {
         "message": "❌ Аккаунт не найден\n\nПроверьте введённые данные.\n\nЕсли вы зарегистрированы через другой email или телефон, попробуйте войти через эти данные.",
-        "options": [
-            "🔄 Ввести данные снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "account-retry-not-found", "label": "🔄 Ввести данные снова", "action": "select_intent", "payload": { "intent": "ask_account_status", "text": "Проверить аккаунт" } },
+            { "id": "account-operator-not-found", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "account-menu-not-found", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "account_code_not_received": {
         "message": "📧 Код подтверждения не приходит\n\nПроверьте:\n• Папку SPAM в почте\n• Правильность номера телефона/email\n• Подождите несколько минут\n\nЕсли код не пришёл, можно запросить повторную отправку.",
-        "options": [
-            "🔄 Запросить код повторно",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "account-code-repeat-response", "label": "🔄 Запросить код повторно", "action": "select_intent", "payload": { "intent": "account_code_not_received", "text": "Запросить код повторно" } },
+            { "id": "account-code-operator-response", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "account-code-menu-response", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "account_forgot_password": {
         "message": "🔑 Восстановление пароля\n\n1. На сайте нажмите \"Забыл пароль\"\n2. Введите email или телефон\n3. Введите код из письма/SMS\n4. Придумайте новый пароль\n\nЕсли возникают проблемы, свяжитесь с оператором.",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "account-password-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "account-password-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "services_category": {
         "message": "ℹ️ Услуги и правила\n\nЧто хотите узнать?",
-        "options": [
-            "💇 Услуги и цены",
-            "📜 Правила",
-            "📍 Адрес и часы работы",
-            "❓ FAQ",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "services-prices-category", "label": "💇 Услуги и цены", "action": "select_intent", "payload": { "intent": "ask_prices", "text": "Услуги и цены" } },
+            { "id": "services-rules-category", "label": "📜 Правила", "action": "select_intent", "payload": { "intent": "ask_rules", "text": "Правила" } },
+            { "id": "services-location-category", "label": "📍 Адрес и часы работы", "action": "select_intent", "payload": { "intent": "ask_location", "text": "Адрес и часы работы" } },
+            { "id": "services-faq-category", "label": "❓ FAQ", "action": "select_intent", "payload": { "intent": "ask_faq", "text": "FAQ" } },
+            { "id": "services-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "services_prices": {
         "message": "💇 Услуги и цены\n\n• Стрижка мужская - от 1000₽\n• Стрижка женская - от 1500₽\n• Маникюр - от 800₽\n• Педикюр - от 1200₽\n• Массаж - от 2000₽\n• Макияж - от 1500₽\n• Укладка - от 1000₽\n• Окрашивание - от 3000₽\n\nТочную стоимость можно узнать на сайте или у оператора.",
-        "options": [
-            "📞 Связаться для записи",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "services-book-prices", "label": "📞 Связаться для записи", "action": "request_operator", "payload": {} },
+            { "id": "services-menu-prices", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "services_rules": {
         "message": "📜 Правила коворкинга\n\n📅 Отмена записи:\n• Бесплатно за 24 часа\n• За 2-4 часа - 50% стоимости\n• Менее чем за 2 часа - 100% стоимости\n\n💳 Возврат средств:\n• В течение 30 дней при отсутствии услуги\n• 3-5 рабочих дней на обработку\n\n🖥️ Использование рабочих мест:\n• Бронь действует 15 минут\n• Курение только в отведённых местах\n• Уважайте других гостей",
-        "options": [
-            "ℹ️ Узнать подробнее",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "services-rules-more", "label": "ℹ️ Узнать подробнее", "action": "send_text", "payload": { "text": "Узнать подробнее" } },
+            { "id": "services-rules-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "services_location": {
         "message": "📍 Контакты и расположение\n\n🏠 Адрес: ул. Примерная, д. 1\n🚇 Метро: Площадь Революции\n🕒 Работаем: Ежедневно 9:00-21:00\n\n📞 Телефон: +7 (XXX) XXX-XX-XX\n📧 Email: info@coworking.ru\n🌐 Сайт: www.coworking.ru\n\nКак добраться:\n• От метро 5 минут пешком\n• Парковка бесплатная",
-        "options": [
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "services-menu-location", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "services_faq": {
         "message": "❓ Часто задаваемые вопросы\n\nПопулярные вопросы:\n1. Как записаться?\n2. Как отменить запись?\n3. Как работает аренда рабочего места?\n4. Есть ли скидки?\n\nВыберите вопрос или задайте свой:",
-        "options": [
-            "❓ Как записаться?",
-            "❓ Как отменить?",
-            "❓ Аренда места",
-            "💬 Задать свой вопрос"
+        "quick_replies": [
+            { "id": "services-faq-booking", "label": "❓ Как записаться?", "action": "select_intent", "payload": { "intent": "ask_faq_booking", "text": "Как записаться?" } },
+            { "id": "services-faq-cancel", "label": "❓ Как отменить?", "action": "select_intent", "payload": { "intent": "ask_faq_cancellation", "text": "Как отменить?" } },
+            { "id": "services-faq-workspace", "label": "❓ Аренда места", "action": "select_intent", "payload": { "intent": "ask_faq_workspace", "text": "Аренда места" } },
+            { "id": "services-faq-question", "label": "💬 Задать свой вопрос", "action": "send_text", "payload": { "text": "Задать свой вопрос" } }
         ]
     },
     "services_faq_booking": {
         "message": "❓ Как записаться\n\n1. На сайте выберите услугу\n2. Выберите мастера (или любой доступный)\n3. Выберите дату и время\n4. Оплатите или подтвердите запись\n\n✅ Вам придёт уведомление за 2 часа до записи.\n\nДля записи свяжитесь с оператором.",
-        "options": [
-            "📞 Связаться для записи",
-            "↩️ Вернуться в FAQ"
+        "quick_replies": [
+            { "id": "services-faq-booking-operator", "label": "📞 Связаться для записи", "action": "request_operator", "payload": {} },
+            { "id": "services-faq-booking-back", "label": "↩️ Вернуться в FAQ", "action": "select_intent", "payload": { "intent": "ask_faq", "text": "FAQ" } }
         ]
     },
     "services_faq_cancellation": {
         "message": "❓ Как отменить запись\n\nСпособ 1: На сайте\n1. Войдите в аккаунт\n2. \"Мои записи\"\n3. Выберите запись и нажмите \"Отменить\"\n\nСпособ 2: Через оператора\n📞 Свяжитесь с поддержкой\n\n💡 Бесплатная отмена - за 24 часа.",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в FAQ"
+        "quick_replies": [
+            { "id": "services-faq-cancellation-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "services-faq-cancellation-back", "label": "↩️ Вернуться в FAQ", "action": "select_intent", "payload": { "intent": "ask_faq", "text": "FAQ" } }
         ]
     },
     "services_faq_workspace": {
         "message": "❓ Как арендовать рабочее место\n\n1. Выберите тип места на сайте\n2. Укажите дату и время\n3. Оплатите аренду\n4. Получите код доступа за 30 минут\n\n📍 Цены от 200₽/час.\n\nДля бронирования свяжитесь с оператором.",
-        "options": [
-            "📞 Связаться для бронирования",
-            "↩️ Вернуться в FAQ"
+        "quick_replies": [
+            { "id": "services-faq-workspace-operator", "label": "📞 Связаться для бронирования", "action": "request_operator", "payload": {} },
+            { "id": "services-faq-workspace-back", "label": "↩️ Вернуться в FAQ", "action": "select_intent", "payload": { "intent": "ask_faq", "text": "FAQ" } }
         ]
     },
     "services_faq_not_found": {
         "message": "⚠️ К сожалению, не нашёл ответа на этот вопрос.\n\nЧто хотите сделать?",
-        "options": [
-            "🔄 Переформулировать вопрос",
-            "📋 Выбрать из категорий",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "services-faq-rephrase", "label": "🔄 Переформулировать вопрос", "action": "send_text", "payload": { "text": "Переформулировать вопрос" } },
+            { "id": "services-faq-menu-pick", "label": "📋 Выбрать из категорий", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+            { "id": "services-faq-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "services-faq-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "complaint_category": {
         "message": "⚠️ Жалобы и проблемы\n\nОпишите вашу ситуацию, и я передам её оператору.\n\nУкажите по возможности:\n• Дату и время\n• Номер записи/брони (если есть)\n• Описание проблемы",
-        "options": [
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "complaint-operator-category", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "complaint-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "complaint_master": {
         "message": "💇 Жалоба на мастера\n\nУкажите:\n• Имя мастера\n• Дату и время записи\n• Описание проблемы\n\nИнформация будет передана оператору для рассмотрения.",
-        "options": [
-            "📞 Передать оператору",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "complaint-master-operator", "label": "📞 Передать оператору", "action": "request_operator", "payload": {} },
+            { "id": "complaint-master-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "complaint_service": {
         "message": "🏢 Жалоба на сервис\n\nОпишите проблему:\n• Долгое ожидание\n• Невнимательный персонал\n• Ошибка в брони/оплате\n• Другое\n\nИнформация будет передана оператору.",
-        "options": [
-            "📞 Передать оператору",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "complaint-service-operator", "label": "📞 Передать оператору", "action": "request_operator", "payload": {} },
+            { "id": "complaint-service-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "complaint_premises": {
         "message": "🏠 Жалоба на помещение\n\nЧто случилось?\n• Грязно/неубрано\n• Не работает оборудование\n• Шумно/неудобно\n• Проблемы с климатом\n• Другое\n\nИнформация будет передана администратору.",
-        "options": [
-            "📞 Вызвать администратора",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "complaint-premises-operator", "label": "📞 Вызвать администратора", "action": "request_operator", "payload": {} },
+            { "id": "complaint-premises-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "complaint_info_collected": {
         "message": "✅ Информация принята\n\n🔹 Ваше сообщение передано оператору\n🔹 История диалога и тема обращения сохранены\n\nОжидайте ответа специалиста в этом же чате.",
-        "options": [
-            "📞 Связаться прямо сейчас",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "complaint-now", "label": "📞 Связаться прямо сейчас", "action": "request_operator", "payload": {} },
+            { "id": "complaint-menu-collected", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "other_category": {
         "message": "💬 Другое\n\nЗадайте ваш вопрос, и я постараюсь помочь или предложу подходящую категорию.",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "other-menu-category", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "other_not_classified": {
         "message": "⚠️ Не удалось определить категорию вопроса.\n\nЧто хотите сделать?",
-        "options": [
-            "🔄 Переформулировать вопрос",
-            "📋 Выбрать категорию вручную",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "other-rephrase", "label": "🔄 Переформулировать вопрос", "action": "send_text", "payload": { "text": "Переформулировать вопрос" } },
+            { "id": "other-menu-manual", "label": "📋 Выбрать категорию вручную", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+            { "id": "other-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "other-menu-not-classified", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "other_clarification": {
         "message": "❓ Уточните, пожалуйста, о чём именно вы хотите узнать?\n\nНапример:\n• \"как записаться\"\n• \"проблема с оплатой\"\n• \"вернуть деньги\"\n• \"правила отмены\"\n• \"адрес и часы работы\"",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "other-menu-clarification", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "contact_info": {
         "message": "📞 Контактная информация\n\n📞 Телефон: +7 (XXX) XXX-XX-XX\n📧 Email: support@coworking.ru\n🌐 Сайт: www.coworking.ru\n\n🕒 Время работы: Ежедневно 9:00-21:00\n\n⏱️ Среднее время ответа: 5-10 минут",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "contact-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "escalation_to_operator": {
         "message": "📞 Перевод на оператора\n\nПередаю контекст вашей беседы оператору. Ожидайте соединения...\n\n⏱️ Среднее время ожидания: 2-5 минут",
-        "options": [
-            "❌ Отменить, остаться в боте"
+        "quick_replies": [
+            { "id": "escalation-cancel", "label": "❌ Отменить, остаться в боте", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "operator_handoff_requested": {
         "message": "📞 Подключаю оператора\n\nПередаю историю диалога и тему обращения. Ожидайте ответа специалиста в этом же чате.",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "handoff-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "provider_lookup_unavailable": {
         "message": "⚠️ Сейчас не удалось проверить данные во внешней системе.\n\nЯ передал контекст оператору. Специалист увидит историю диалога и поможет разобраться в этом же чате.",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "provider-unavailable-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "escalation_context_sent": {
         "message": "✅ Контекст отправлен оператору\n\n🔹 История беседы передана\n🔹 Ваш вопрос: {question}\n\nОжидайте ответа в течение 2-5 минут.",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "escalation-sent-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "clarify_request": {
         "message": "❓ Уточните ваш запрос\n\nМне нужно больше информации, чтобы помочь вам. Пожалуйста, уточните:",
-        "options": [
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "clarify-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
     "greeting": {
         "message": "Здравствуйте! 👋\n\nРад вас видеть! Чем могу помочь?",
-        "options": [
-            "📋 Выбрать категорию",
-            "💬 Задать вопрос"
+        "quick_replies": [
+            { "id": "greeting-menu", "label": "📋 Выбрать категорию", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } },
+            { "id": "greeting-question", "label": "💬 Задать вопрос", "action": "send_text", "payload": { "text": "Задать вопрос" } }
         ]
     },
     "goodbye": {
@@ -473,18 +473,18 @@
 
     "error_generic": {
         "message": "❌ Произошла ошибка\n\nК сожалению, что-то пошло не так. Попробуйте ещё раз или свяжитесь с оператором.",
-        "options": [
-            "🔄 Попробовать снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "error-retry", "label": "🔄 Попробовать снова", "action": "send_text", "payload": { "text": "Попробовать снова" } },
+            { "id": "error-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "error-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "error_data_missing": {
         "message": "⚠️ Данные не найдены\n\nНе удалось найти информацию по вашему запросу.\n\nПроверьте введённые данные или свяжитесь с оператором.",
-        "options": [
-            "🔄 Ввести данные снова",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "error-missing-retry", "label": "🔄 Ввести данные снова", "action": "send_text", "payload": { "text": "Ввести данные снова" } },
+            { "id": "error-missing-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "error-missing-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     }
 }

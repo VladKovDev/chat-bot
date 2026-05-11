@@ -152,6 +152,46 @@ func TestDecisionServiceQuickReplySendTextUsesPayloadText(t *testing.T) {
 	}
 }
 
+func TestDecisionServiceQuickReplySelectIntentUsesWorkspaceRulesIntent(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "ask_workspace_rules",
+				Category:       "workspace",
+				ResolutionType: "knowledge",
+				ResponseKey:    "workspace_rules",
+				Examples:       []string{"правила аренды"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.DecideQuickReply(
+		context.Background(),
+		session.Session{},
+		nil,
+		QuickReplySelection{
+			ID:     "workspace-rules",
+			Action: "select_intent",
+			Payload: map[string]any{
+				"intent": "ask_workspace_rules",
+			},
+		},
+		"правила аренды",
+	)
+	if err != nil {
+		t.Fatalf("decide quick reply: %v", err)
+	}
+
+	if result.Intent != "ask_workspace_rules" {
+		t.Fatalf("intent = %q, want ask_workspace_rules", result.Intent)
+	}
+}
+
 func TestDecisionServiceEscalatesAfterRepeatedLowConfidence(t *testing.T) {
 	t.Parallel()
 

@@ -27,7 +27,7 @@
       "response_key": "main_menu",
       "examples": ["вернуться в меню", "в меню", "главное меню", "назад в меню", "показать категории", "хочу в главное меню", "открыть меню", "давайте в меню"],
       "quick_replies": [
-        { "id": "menu-booking", "label": "Записи и бронирование", "action": "send_text", "payload": { "text": "Записи и бронирование" } },
+        { "id": "menu-booking", "label": "Записи и бронирование", "action": "select_intent", "payload": { "intent": "ask_booking_info", "text": "Записи и бронирование" } },
         { "id": "menu-operator", "label": "Связь с оператором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-001", "E2E-029"]
@@ -225,7 +225,7 @@
       "result_response_keys": ["payment_found", "payment_not_found"],
       "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "статус платежа PAY-404000", "найди платеж PAY-ERROR-503", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа"],
       "quick_replies": [
-        { "id": "payment-id", "label": "Ввести ID платежа", "action": "send_text", "payload": { "text": "Статус платежа" } },
+        { "id": "payment-id", "label": "Ввести ID платежа", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
         { "id": "payment-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-012", "E2E-015"]
@@ -264,7 +264,7 @@
       "knowledge_key": "payment.refund_rules",
       "examples": ["как вернуть деньги", "возврат оплаты", "какие правила возврата", "можно вернуть платеж", "как оформить возврат", "как работает возврат денег", "правила возврата средств", "когда можно вернуть оплату"],
       "quick_replies": [
-        { "id": "payment-status-from-refund", "label": "Проверить статус платежа", "action": "send_text", "payload": { "text": "Статус платежа" } },
+        { "id": "payment-status-from-refund", "label": "Проверить статус платежа", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
         { "id": "payment-refund-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-012", "E2E-015"]

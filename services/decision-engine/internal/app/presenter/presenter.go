@@ -130,7 +130,7 @@ func (c *ResponseConfig) legacyOptions() []string {
 	return options
 }
 
-func buildResponseQuickReplies(responseKey string, c *ResponseConfig) []response.QuickReply {
+func buildResponseQuickReplies(c *ResponseConfig) []response.QuickReply {
 	if len(c.QuickReplies) > 0 {
 		replies := make([]response.QuickReply, 0, len(c.QuickReplies))
 		for _, quickReply := range c.QuickReplies {
@@ -151,13 +151,13 @@ func buildResponseQuickReplies(responseKey string, c *ResponseConfig) []response
 
 	replies := make([]response.QuickReply, 0, len(c.Options))
 	for index, option := range c.Options {
-		replies = append(replies, legacyOptionQuickReply(responseKey, option, index))
+		replies = append(replies, legacyOptionQuickReply(option, index))
 	}
 
 	return replies
 }
 
-func legacyOptionQuickReply(responseKey, option string, order int) response.QuickReply {
+func legacyOptionQuickReply(option string, order int) response.QuickReply {
 	label := strings.TrimSpace(option)
 	payloadText := sanitizeLegacyOptionText(label)
 	if payloadText == "" {
@@ -170,7 +170,7 @@ func legacyOptionQuickReply(responseKey, option string, order int) response.Quic
 		Order: order,
 	}
 
-	intentKey := canonicalLegacyOptionKey(responseKey, payloadText)
+	intentKey := canonicalLegacyOptionKey(payloadText)
 	switch intentKey {
 	case "request_operator":
 		reply.Action = quickReplyActionOperator
@@ -179,40 +179,6 @@ func legacyOptionQuickReply(responseKey, option string, order int) response.Quic
 		reply.Payload = map[string]any{
 			"intent": "return_to_menu",
 			"text":   "главное меню",
-		}
-		case "ask_booking_info",
-		"ask_workspace_info",
-		"ask_workspace_prices",
-		"ask_workspace_rules",
-		"ask_workspace_status",
-		"ask_payment_status",
-		"payment_not_passed",
-		"payment_not_activated",
-		"ask_site_problem",
-		"login_not_working",
-		"code_not_received",
-		"ask_account_help",
-		"ask_account_status",
-		"account_code_not_received",
-		"forgot_password",
-		"ask_services_info",
-		"ask_prices",
-		"ask_rules",
-		"ask_location",
-		"ask_faq",
-		"ask_faq_booking",
-		"ask_faq_cancellation",
-		"ask_faq_workspace",
-		"show_contacts",
-		"report_complaint",
-		"ask_cancellation_rules",
-		"ask_reschedule_rules",
-		"ask_booking_status",
-		"general_question":
-		reply.Action = quickReplyActionSelectIntent
-		reply.Payload = map[string]any{
-			"intent": intentKey,
-			"text":   payloadText,
 		}
 	default:
 		reply.Action = quickReplyActionSend
@@ -232,7 +198,7 @@ func sanitizeLegacyOptionText(label string) string {
 	return strings.TrimSpace(trimmed)
 }
 
-func canonicalLegacyOptionKey(responseKey, text string) string {
+func canonicalLegacyOptionKey(text string) string {
 	switch normalizeLegacyOptionKey(text) {
 	case "связаться с оператором",
 		"связь с оператором",
@@ -246,164 +212,11 @@ func canonicalLegacyOptionKey(responseKey, text string) string {
 		return "request_operator"
 	case "вернуться в главное меню",
 		"вернуться в меню",
-		"вернуться в categories",
 		"выбрать категорию":
 		return "return_to_menu"
-	case "записи и бронирование":
-		return "ask_booking_info"
-	case "рабочие места":
-		return "ask_workspace_info"
-	case "оплата":
-		return "ask_payment_status"
-	case "проблемы с сайтом или входом":
-		return "ask_site_problem"
-	case "аккаунт":
-		return "ask_account_help"
-	case "услуги и правила":
-		return "ask_services_info"
-	case "услуги и цены":
-		return "ask_prices"
-	case "правила":
-		return "ask_rules"
-	case "адрес и часы работы":
-		return "ask_location"
-	case "faq":
-		return "ask_faq"
-	case "жалобы и проблемы":
-		return "report_complaint"
-	case "другое":
-		return "general_question"
 	default:
-		return canonicalLegacyOptionKeyByResponse(responseKey, text)
+		return ""
 	}
-}
-
-func canonicalLegacyOptionKeyByResponse(responseKey, text string) string {
-	key := normalizeLegacyOptionKey(text)
-
-	switch responseKey {
-	case "booking_found":
-		switch key {
-		case "правила отмены":
-			return "ask_cancellation_rules"
-		case "контакты":
-			return "show_contacts"
-		}
-	case "booking_not_found", "booking_request_identifier":
-		switch key {
-		case "ввести данные снова", "ввести номер записи", "проверить статус записи":
-			return "ask_booking_status"
-		}
-	case "booking_cancellation_rules":
-		if key == "правила переноса" {
-			return "ask_reschedule_rules"
-		}
-	case "booking_reschedule_rules":
-		if key == "правила отмены" {
-			return "ask_cancellation_rules"
-		}
-	case "payment_category", "payment_refund_rules":
-		switch key {
-		case "статус платежа", "проверить статус платежа":
-			return "ask_payment_status"
-		case "оплата не прошла":
-			return "payment_not_passed"
-		case "деньги списались услуга не активирована":
-			return "payment_not_activated"
-		}
-	case "payment_not_found", "payment_request_id":
-		switch key {
-		case "ввести данные снова", "ввести id платежа":
-			return "ask_payment_status"
-		}
-	case "payment_debited_not_activated":
-		if key == "подождать и проверить снова" {
-			return "ask_payment_status"
-		}
-	case "tech_issue_category":
-		switch key {
-		case "сайт не работает":
-			return "ask_site_problem"
-		case "не могу войти":
-			return "login_not_working"
-		case "не приходит код":
-			return "code_not_received"
-		}
-	case "tech_login_problem":
-		switch key {
-		case "забыл пароль":
-			return "forgot_password"
-		case "ошибка неверный логин пароль":
-			return "login_not_working"
-		}
-	case "tech_code_not_received":
-		if key == "запросить код повторно" {
-			return "code_not_received"
-		}
-	case "account_category":
-		switch key {
-		case "не приходит код подтверждения":
-			return "account_code_not_received"
-		case "забыл пароль":
-			return "forgot_password"
-		}
-	case "account_found":
-		if key == "изменить пароль" {
-			return "forgot_password"
-		}
-	case "account_not_found":
-		if key == "ввести данные снова" {
-			return "ask_account_status"
-		}
-	case "account_code_not_received":
-		if key == "запросить код повторно" {
-			return "account_code_not_received"
-		}
-	case "services_category", "services_rules":
-		switch key {
-		case "услуги и цены":
-			return "ask_prices"
-		case "правила":
-			return "ask_rules"
-		case "адрес и часы работы":
-			return "ask_location"
-		case "faq":
-			return "ask_faq"
-		}
-	case "services_faq":
-		switch key {
-		case "как записаться":
-			return "ask_faq_booking"
-		case "как отменить":
-			return "ask_faq_cancellation"
-		case "аренда места":
-			return "ask_faq_workspace"
-		case "задать свой вопрос":
-			return "general_question"
-		}
-	case "services_faq_booking", "services_faq_cancellation", "services_faq_workspace":
-		if key == "вернуться в faq" {
-			return "ask_faq"
-		}
-	case "services_faq_not_found", "other_not_classified":
-		switch key {
-		case "выбрать из категорий", "выбрать категорию вручную":
-			return "return_to_menu"
-		}
-	case "greeting":
-		switch key {
-		case "выбрать категорию":
-			return "return_to_menu"
-		case "задать вопрос":
-			return "general_question"
-		}
-	case "escalation_to_operator":
-		if key == "отменить остаться в боте" {
-			return "return_to_menu"
-		}
-	}
-
-	return ""
 }
 
 func normalizeLegacyOptionKey(text string) string {
