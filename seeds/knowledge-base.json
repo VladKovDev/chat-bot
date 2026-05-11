@@ -141,6 +141,26 @@
       "updated_at": "2026-05-10T00:00:00Z"
     },
     {
+      "id": "kb-account-password-reset",
+      "key": "account.password_reset",
+      "category": "account",
+      "title": "Восстановление пароля",
+      "content": "Восстановление пароля описано как детерминированный self-service сценарий с fallback на оператора, если стандартный поток не помогает.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-account-code-not-received",
+      "key": "account.code_not_received",
+      "category": "account",
+      "title": "Код подтверждения для аккаунта не приходит",
+      "content": "Проблемы с кодом подтверждения аккаунта покрываются отдельным knowledge сценарием с проверкой почты, повторной отправкой и эскалацией.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
       "id": "kb-services-info",
       "key": "services.info",
       "category": "services",
@@ -186,6 +206,46 @@
       "category": "services",
       "title": "FAQ",
       "content": "FAQ хранится в knowledge-base и покрывает типовые вопросы о записи, отмене и рабочем месте в детерминированном режиме.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-contacts",
+      "key": "services.contacts",
+      "category": "services",
+      "title": "Контакты",
+      "content": "Контактная информация сервиса хранится отдельно и используется как стабильный справочный сценарий без генеративных вариантов.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-faq-booking",
+      "key": "services.faq.booking",
+      "category": "services",
+      "title": "FAQ: как записаться",
+      "content": "Справка по записи объясняет базовый self-service поток и при необходимости переводит пользователя на запись через оператора.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-faq-cancellation",
+      "key": "services.faq.cancellation",
+      "category": "services",
+      "title": "FAQ: как отменить",
+      "content": "Справка по отмене резюмирует способы отмены, сроки и когда лучше обратиться к оператору вместо самостоятельного действия.",
+      "source": "brd_seed",
+      "version": "2026-05-10",
+      "updated_at": "2026-05-10T00:00:00Z"
+    },
+    {
+      "id": "kb-services-faq-workspace",
+      "key": "services.faq.workspace",
+      "category": "services",
+      "title": "FAQ: аренда места",
+      "content": "Справка по аренде рабочего места покрывает выбор формата, бронирование и связь с администратором для быстрого оформления.",
       "source": "brd_seed",
       "version": "2026-05-10",
       "updated_at": "2026-05-10T00:00:00Z"
