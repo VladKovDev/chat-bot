@@ -25,12 +25,7 @@ func (m *CatalogMatcher) Match(
 	if len(candidates) == 0 {
 		return MatchResult{}, nil
 	}
-
-	return MatchResult{
-		IntentKey:  candidates[0].IntentKey,
-		Confidence: candidates[0].Confidence,
-		Candidates: append([]Candidate(nil), candidates...),
-	}, nil
+	return rankCandidates(candidates), nil
 }
 
 func normalizeText(text string) string {
@@ -74,27 +69,44 @@ func tokenSet(text string) map[string]struct{} {
 	return set
 }
 
-func scoreExample(query string, queryTokens map[string]struct{}, example string) float64 {
+type lexicalScoreBreakdown struct {
+	Total           float64
+	TokenOverlap    float64
+	FuzzyToken      float64
+	Trigram         float64
+	SubstringBonus  float64
+	IdentifierBonus float64
+}
+
+func scoreExample(query string, queryTokens map[string]struct{}, queryRaw string, example string, exampleRaw string) lexicalScoreBreakdown {
 	if example == "" || query == "" {
-		return 0
+		return lexicalScoreBreakdown{}
 	}
 	if query == example {
-		return 1
+		return lexicalScoreBreakdown{Total: 1}
 	}
 
 	exampleTokens := tokenSet(example)
-	tokenScore := tokenOverlapScore(queryTokens, exampleTokens)
-	fuzzyTokenScore := fuzzyTokenScore(strings.Fields(query), strings.Fields(example))
-	trigramScore := trigramJaccard(query, example)
+	breakdown := lexicalScoreBreakdown{
+		TokenOverlap: tokenOverlapScore(queryTokens, exampleTokens),
+		FuzzyToken:   fuzzyTokenScore(strings.Fields(query), strings.Fields(example)),
+		Trigram:      trigramJaccard(query, example),
+	}
 
-	score := tokenScore*0.5 + fuzzyTokenScore*0.3 + trigramScore*0.2
+	score := breakdown.TokenOverlap*0.5 + breakdown.FuzzyToken*0.3 + breakdown.Trigram*0.2
 	if strings.Contains(query, example) || strings.Contains(example, query) {
-		score += 0.2
+		breakdown.SubstringBonus = 0.2
+		score += breakdown.SubstringBonus
+	}
+	if identifierType := lexicalIdentifierType(queryRaw); identifierType != "" && identifierType == lexicalIdentifierType(exampleRaw) {
+		breakdown.IdentifierBonus = 0.18
+		score += breakdown.IdentifierBonus
 	}
 	if score > 1 {
 		score = 1
 	}
-	return score
+	breakdown.Total = score
+	return breakdown
 }
 
 func lexicalIntentCandidates(text string, intents []apppresenter.IntentDefinition, limit int) []Candidate {
@@ -106,26 +118,33 @@ func lexicalIntentCandidates(text string, intents []apppresenter.IntentDefinitio
 
 	candidates := make([]Candidate, 0, len(intents))
 	for _, intentDefinition := range intents {
-		bestScore := 0.0
+		best := lexicalScoreBreakdown{}
 		bestExample := ""
 		for _, example := range intentDefinition.Examples {
 			normalizedExample := normalizeText(example)
-			score := scoreExample(normalizedQuery, queryTokens, normalizedExample)
-			if score > bestScore {
-				bestScore = score
+			score := scoreExample(normalizedQuery, queryTokens, text, normalizedExample, example)
+			if score.Total > best.Total {
+				best = score
 				bestExample = example
 			}
 		}
-		if bestScore == 0 {
+		if best.Total == 0 {
 			continue
 		}
 		candidates = append(candidates, Candidate{
 			IntentKey:  intentDefinition.Key,
-			Confidence: bestScore,
+			Confidence: best.Total,
 			Source:     CandidateSourceLexicalFuzzy,
 			Text:       bestExample,
 			Metadata: map[string]any{
 				"category": intentDefinition.Category,
+				"score_components": map[string]float64{
+					"token_overlap":    best.TokenOverlap,
+					"fuzzy_token":      best.FuzzyToken,
+					"trigram":          best.Trigram,
+					"substring_bonus":  best.SubstringBonus,
+					"identifier_bonus": best.IdentifierBonus,
+				},
 			},
 		})
 	}
@@ -245,4 +264,23 @@ func trigramSet(text string) map[string]struct{} {
 
 func normalizeConfidence(value float64) float64 {
 	return math.Max(0, math.Min(1, value))
+}
+
+func lexicalIdentifierType(text string) string {
+	switch {
+	case bookingIdentifierPattern.MatchString(text):
+		return "booking_number"
+	case workspaceIdentifierPattern.MatchString(text):
+		return "workspace_booking"
+	case paymentIdentifierPattern.MatchString(text):
+		return "payment_id"
+	case userIdentifierPattern.MatchString(text):
+		return "user_id"
+	case emailIdentifierPattern.MatchString(text):
+		return "email"
+	case phoneIdentifierPattern.MatchString(text):
+		return "phone"
+	default:
+		return ""
+	}
 }

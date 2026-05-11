@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	appdecision "github.com/VladKovDev/chat-bot/internal/app/decision"
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
 )
@@ -74,6 +75,35 @@ func TestValidateCatalogFailsOnMissingKnowledgeAndUnknownQuickReplyIntent(t *tes
 	}
 	if !strings.Contains(err.Error(), "quick reply references missing intent") {
 		t.Fatalf("expected missing quick reply intent error, got: %v", err)
+	}
+}
+
+func TestIntentExamplesHaveUniqueNormalizedTextWithinIntent(t *testing.T) {
+	t.Parallel()
+
+	catalog, err := apppresenter.LoadIntentCatalog(serviceRoot(t))
+	if err != nil {
+		t.Fatalf("load intent catalog: %v", err)
+	}
+
+	for _, intentDef := range catalog.Intents {
+		seen := make(map[string]string, len(intentDef.Examples))
+		for _, example := range intentDef.Examples {
+			normalized := appdecision.NormalizeForSeed(example)
+			if normalized == "" {
+				t.Fatalf("intent %s contains empty normalized example for %q", intentDef.Key, example)
+			}
+			if previous, exists := seen[normalized]; exists {
+				t.Fatalf(
+					"intent %s contains duplicate normalized example %q from %q and %q",
+					intentDef.Key,
+					normalized,
+					previous,
+					example,
+				)
+			}
+			seen[normalized] = example
+		}
 	}
 }
 

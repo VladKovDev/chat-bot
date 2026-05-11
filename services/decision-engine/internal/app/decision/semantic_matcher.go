@@ -3,7 +3,6 @@ package decision
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 
@@ -267,7 +266,11 @@ func mergeCandidates(semanticCandidates, lexicalCandidates []Candidate, limit in
 		}
 
 		combined := current
-		combined.Confidence = normalizeConfidence(math.Max(current.Confidence, lexical.Confidence) + 0.08)
+		combined.Confidence = normalizeConfidence(
+			current.Confidence*0.55 +
+				lexical.Confidence*0.35 +
+				hybridAgreementBoost(current.Confidence, lexical.Confidence),
+		)
 		if lexical.Confidence > current.Confidence {
 			combined.Source = lexical.Source
 			combined.Text = lexical.Text
@@ -276,6 +279,7 @@ func mergeCandidates(semanticCandidates, lexicalCandidates []Candidate, limit in
 			combined.Metadata = map[string]any{}
 		}
 		combined.Metadata["matched_sources"] = []string{current.Source, lexical.Source}
+		combined.Metadata["score_components"] = mergeScoreComponents(current, lexical)
 		merged[lexical.IntentKey] = combined
 	}
 
@@ -293,6 +297,38 @@ func mergeCandidates(semanticCandidates, lexicalCandidates []Candidate, limit in
 		candidates = candidates[:limit]
 	}
 	return candidates
+}
+
+func hybridAgreementBoost(semanticScore, lexicalScore float64) float64 {
+	if semanticScore >= 0.8 && lexicalScore >= 0.8 {
+		return 0.18
+	}
+	if semanticScore >= 0.65 && lexicalScore >= 0.65 {
+		return 0.12
+	}
+	if semanticScore >= 0.5 && lexicalScore >= 0.5 {
+		return 0.06
+	}
+	return 0
+}
+
+func mergeScoreComponents(semanticCandidate, lexicalCandidate Candidate) map[string]any {
+	components := map[string]any{
+		"semantic":        semanticCandidate.Confidence,
+		"lexical":         lexicalCandidate.Confidence,
+		"agreement_bonus": hybridAgreementBoost(semanticCandidate.Confidence, lexicalCandidate.Confidence),
+	}
+	if semanticCandidate.Metadata != nil {
+		if semanticParts, ok := semanticCandidate.Metadata["score_components"]; ok {
+			components["semantic_details"] = semanticParts
+		}
+	}
+	if lexicalCandidate.Metadata != nil {
+		if lexicalParts, ok := lexicalCandidate.Metadata["score_components"]; ok {
+			components["lexical_details"] = lexicalParts
+		}
+	}
+	return components
 }
 
 func rankCandidates(candidates []Candidate) MatchResult {

@@ -268,6 +268,12 @@ func TestSemanticMatcherMergesSemanticAndLexicalSignals(t *testing.T) {
 	if match.Confidence <= 0.74 {
 		t.Fatalf("confidence = %v, want merged score above pure semantic score", match.Confidence)
 	}
+	if got := match.Candidates[0].Metadata["matched_sources"]; got == nil {
+		t.Fatalf("matched_sources missing in merged metadata: %#v", match.Candidates[0].Metadata)
+	}
+	if got := match.Candidates[0].Metadata["score_components"]; got == nil {
+		t.Fatalf("score_components missing in merged metadata: %#v", match.Candidates[0].Metadata)
+	}
 }
 
 func TestSemanticMatcherExactCommandsBypassEmbeddingOutage(t *testing.T) {
@@ -377,5 +383,62 @@ func TestActualIntentCatalogMatchesPricingParaphrase(t *testing.T) {
 	}
 	if match.Confidence < DefaultMatchThreshold {
 		t.Fatalf("confidence = %.2f, want >= %.2f", match.Confidence, DefaultMatchThreshold)
+	}
+}
+
+func TestCatalogMatcherBoostsMatchingIdentifierTypeForStatusLookup(t *testing.T) {
+	t.Parallel()
+
+	match, err := NewCatalogMatcher().Match(context.Background(), "проверьте бронь WS-1001", []apppresenter.IntentDefinition{
+		{
+			Key:      "ask_workspace_status",
+			Category: "workspace",
+			Examples: []string{"найди бронь WS-1001"},
+		},
+		{
+			Key:      "ask_booking_status",
+			Category: "booking",
+			Examples: []string{"проверьте запись БРГ-482910"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+	if match.IntentKey != "ask_workspace_status" {
+		t.Fatalf("intent = %q, want ask_workspace_status", match.IntentKey)
+	}
+	components, ok := match.Candidates[0].Metadata["score_components"].(map[string]float64)
+	if !ok {
+		t.Fatalf("score_components type = %T, want map[string]float64", match.Candidates[0].Metadata["score_components"])
+	}
+	if components["identifier_bonus"] <= 0 {
+		t.Fatalf("identifier_bonus = %v, want positive boost", components["identifier_bonus"])
+	}
+}
+
+func TestSemanticMatcherDeterministicOrderingOnEqualConfidence(t *testing.T) {
+	t.Parallel()
+
+	matcher, err := NewSemanticIntentMatcher(
+		&fakeEmbedder{embedding: []float64{1, 0, 0}},
+		&fakeIntentSearch{rows: []IntentSearchResult{
+			{IntentKey: "z_intent", Weight: 1, Confidence: 0.9},
+			{IntentKey: "a_intent", Weight: 1, Confidence: 0.9},
+		}},
+		SemanticMatcherConfig{},
+	)
+	if err != nil {
+		t.Fatalf("new semantic matcher: %v", err)
+	}
+
+	match, err := matcher.Match(context.Background(), "одинаковый рейтинг", nil)
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+	if len(match.Candidates) != 2 {
+		t.Fatalf("candidates = %#v, want 2", match.Candidates)
+	}
+	if match.Candidates[0].IntentKey != "a_intent" || match.Candidates[1].IntentKey != "z_intent" {
+		t.Fatalf("deterministic ordering failed: %#v", match.Candidates)
 	}
 }

@@ -26,10 +26,10 @@ func TestSemanticGoldCorpusQualityBaseline(t *testing.T) {
 	}
 
 	assertBaseline(t, "total", summary.Total, 207)
-	assertBaseline(t, "top1", summary.Top1IntentCorrect, 91)
-	assertBaseline(t, "top3", summary.Top3ContainsExpected, 166)
-	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 199)
-	assertBaseline(t, "operator", summary.OperatorExpectationCorrect, 197)
+	assertBaseline(t, "top1", summary.Top1IntentCorrect, 152)
+	assertBaseline(t, "top3", summary.Top3ContainsExpected, 174)
+	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 201)
+	assertBaseline(t, "operator", summary.OperatorExpectationCorrect, 203)
 }
 
 func TestSemanticGoldCorpusFailureDiagnostics(t *testing.T) {
