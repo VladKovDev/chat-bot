@@ -174,6 +174,46 @@ func TestActualBookingInfoUsesSelectIntentForStatusLookup(t *testing.T) {
 	}
 }
 
+func TestActualWorkspaceInfoUsesSelectIntentForPrices(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	p, err := NewPresenter(configPath)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
+	resp, err := p.Present("workspace_info", state.StateWorkspace)
+	if err != nil {
+		t.Fatalf("present workspace_info: %v", err)
+	}
+
+	quickRepliesByID := make(map[string]QuickReplyConfig, len(resp.QuickReplies))
+	for _, quickReply := range resp.QuickReplies {
+		quickRepliesByID[quickReply.ID] = QuickReplyConfig{
+			ID:      quickReply.ID,
+			Label:   quickReply.Label,
+			Action:  quickReply.Action,
+			Payload: quickReply.Payload,
+			Order:   quickReply.Order,
+		}
+	}
+
+	pricesReply, ok := quickRepliesByID["workspace-prices-info"]
+	if !ok {
+		t.Fatalf("workspace-prices-info quick reply missing: %#v", resp.QuickReplies)
+	}
+	if pricesReply.Action != "select_intent" {
+		t.Fatalf("workspace-prices-info action = %q, want select_intent", pricesReply.Action)
+	}
+	if got := pricesReply.Payload["intent"]; got != "ask_workspace_prices" {
+		t.Fatalf("workspace-prices-info payload.intent = %#v, want ask_workspace_prices", got)
+	}
+}
+
 func TestValidateCatalogFailsOnMissingResponseAndUnknownAction(t *testing.T) {
 	t.Parallel()
 

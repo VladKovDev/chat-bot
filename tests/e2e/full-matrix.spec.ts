@@ -217,6 +217,26 @@ test('E2E-009 workspace prices returns workspace price intent', async ({ request
   await expectDecision(session.session_id, 'ask_workspace_prices', 'workspace_types_prices');
 });
 
+test('E2E-009b workspace info quick reply routes to prices without clarify fallback', async ({ request }) => {
+  const clientID = client('009b');
+  const session = await startSession(request, clientID);
+
+  const mainMenu = await sendMessage(request, session.session_id, clientID, 'главное меню');
+  const workspaceMenuReply = mainMenu.quick_replies?.find((reply) => reply.id === 'menu-workspace');
+  expect(workspaceMenuReply).toBeTruthy();
+
+  const workspaceInfo = await sendQuickReply(request, session.session_id, clientID, workspaceMenuReply as QuickReply);
+  const pricesReply = workspaceInfo.quick_replies?.find((reply) => reply.id === 'workspace-prices-info');
+  expect(pricesReply).toBeTruthy();
+
+  const workspacePrices = await sendQuickReply(request, session.session_id, clientID, pricesReply as QuickReply);
+  expect(workspacePrices.text).toContain('Типы рабочих мест и цены');
+  expect(workspacePrices.text).toContain('Горячее место');
+
+  await expectDecision(session.session_id, 'ask_workspace_prices', 'workspace_types_prices');
+  await expectNoAction(session.session_id);
+});
+
 test('E2E-010 workspace booking found logs find_workspace_booking', async ({ request }) => {
   const { session, response } = await apiFlow(request, '010', 'найди бронь WS-1001');
 

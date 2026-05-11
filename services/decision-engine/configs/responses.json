@@ -85,66 +85,66 @@
 
     "workspace_category": {
         "message": "🖥️ Рабочие места\n\nЯ могу рассказать о типах рабочих мест, ценах и правилах аренды.\n\nЧто вас интересует?",
-        "options": [
-            "ℹ️ Типы и цены",
-            "❓ Правила аренды",
-            "🔍 Статус брони",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "workspace-prices", "label": "ℹ️ Типы и цены", "action": "select_intent", "payload": { "intent": "ask_workspace_prices", "text": "Типы и цены" } },
+            { "id": "workspace-rules", "label": "❓ Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } },
+            { "id": "workspace-status", "label": "🔍 Статус брони", "action": "select_intent", "payload": { "intent": "ask_workspace_status", "text": "Статус брони" } },
+            { "id": "workspace-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_info": {
         "message": "🖥️ О рабочих местах\n\nУ нас есть горячие места, фиксированные рабочие столы и небольшие офисы. В аренду обычно входят Wi-Fi, базовые расходники, зона ожидания и доступ к общей инфраструктуре.\n\nЕсли нужно подобрать формат под задачу, я могу показать цены, правила аренды или переключить вас на администратора.",
-        "options": [
-            "ℹ️ Типы и цены",
-            "❓ Правила аренды",
-            "📞 Связаться с администратором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "workspace-prices-info", "label": "ℹ️ Типы и цены", "action": "select_intent", "payload": { "intent": "ask_workspace_prices", "text": "Типы и цены" } },
+            { "id": "workspace-rules-info", "label": "❓ Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } },
+            { "id": "workspace-operator-info", "label": "📞 Связаться с администратором", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-info", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_types_prices": {
         "message": "🖥️ Типы рабочих мест и цены\n\n• 🪑 Горячее место - 200₽/час\n• 💺 Фиксированное место - 400₽/час\n• 🚪 Офис на 1-3 человека - 1500₽/час\n• 🚪 Офис на 4-8 человек - 3000₽/час\n\nУсловия: включает Wi-Fi, кофе, печенье, доступ к переговорной.\n\nЧто хотите уточнить?",
-        "options": [
-            "❓ Правила аренды",
-            "📞 Связаться для бронирования",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-rules-prices", "label": "❓ Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } },
+            { "id": "workspace-operator-prices", "label": "📞 Связаться для бронирования", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-prices", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_rental_rules": {
         "message": "📋 Правила аренды рабочих мест\n\n• Бронь действительна 15 минут\n• Неиспользованная бронь не возвращается\n• Продление возможно, если место свободно\n• Курение только в отведённых местах\n• Соблюдайте тишину\n\nПри нарушении правил возможен штраф или удаление.",
-        "options": [
-            "ℹ️ Типы и цены",
-            "📞 Связаться с администратором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-prices-rules", "label": "ℹ️ Типы и цены", "action": "select_intent", "payload": { "intent": "ask_workspace_prices", "text": "Типы и цены" } },
+            { "id": "workspace-operator-rules", "label": "📞 Связаться с администратором", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-rules", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_request_booking_number": {
         "message": "Для получения информации о брони введите номер брони:",
-        "options": [
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-menu-request", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_booking_found": {
         "message": "✅ Бронь найдена:\n\n🔹 Номер: #{booking_number}\n🔹 Тип места: {workspace_type}\n🔹 Дата: {date}\n🔹 Время: {time}\n🔹 Длительность: {duration} ч.\n🔹 Статус: {status}\n\nЧто хотите узнать?",
-        "options": [
-            "❓ Правила аренды",
-            "📞 Связаться с администратором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-rules-found", "label": "❓ Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } },
+            { "id": "workspace-operator-found", "label": "📞 Связаться с администратором", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-found", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_booking_not_found": {
         "message": "❌ Бронь не найдена\n\nПроверьте введённые данные или свяжитесь с администратором.",
-        "options": [
-            "🔄 Ввести данные снова",
-            "📞 Связаться с администратором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-retry-not-found", "label": "🔄 Ввести данные снова", "action": "select_intent", "payload": { "intent": "ask_workspace_status", "text": "Статус брони" } },
+            { "id": "workspace-operator-not-found", "label": "📞 Связаться с администратором", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-not-found", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "workspace_unavailable": {
         "message": "⚠️ Сейчас подходящее место недоступно\n\nПроверьте другую дату или тип рабочего места. Если нужен быстрый подбор альтернативы, я могу передать запрос администратору.",
-        "options": [
-            "ℹ️ Типы и цены",
-            "📞 Связаться с администратором",
-            "↩️ Вернуться в меню"
+        "quick_replies": [
+            { "id": "workspace-prices-unavailable", "label": "ℹ️ Типы и цены", "action": "select_intent", "payload": { "intent": "ask_workspace_prices", "text": "Типы и цены" } },
+            { "id": "workspace-operator-unavailable", "label": "📞 Связаться с администратором", "action": "request_operator", "payload": {} },
+            { "id": "workspace-menu-unavailable", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
 
