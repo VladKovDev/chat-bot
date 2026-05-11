@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Bot</title>
+    <title>Чат-бот</title>
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
     <div class="app-shell">
-        <nav class="surface-switch" aria-label="Application view">
-            <button type="button" class="surface-tab active" data-view="chat">Chat</button>
-            <button type="button" class="surface-tab" data-view="operator">Operator</button>
+        <nav class="surface-switch" aria-label="Режим">
+            <button type="button" class="surface-tab active" data-view="chat">Чат</button>
+            <button type="button" class="surface-tab" data-view="operator">Оператор</button>
         </nav>
 
     <div class="container chat-surface" id="chatSurface">
         <div class="header">
-            <h1>Technical Support Chat</h1>
+            <h1>Поддержка</h1>
             <div class="connection-status" id="connectionStatus">
                 <span class="status-dot" id="statusDot"></span>
-                <span id="statusText">Connecting...</span>
+                <span id="statusText">Подключение...</span>
             </div>
         </div>
 
@@ -40,27 +40,27 @@
                     type="text"
                     id="messageInput"
                     class="message-input"
-                    placeholder="Type your message..."
+                    placeholder="Напишите сообщение"
                     autocomplete="off"
                     disabled
                 >
                 <button type="submit" class="send-button" id="sendButton" disabled>
-                    Send
+                    Отправить
                 </button>
             </form>
         </div>
     </div>
 
-    <section class="operator-surface hidden" id="operatorSurface" aria-label="Operator console">
+    <section class="operator-surface hidden" id="operatorSurface" aria-label="Панель оператора">
         <header class="operator-header">
             <div>
-                <h1>Operator Console</h1>
-                <p id="operatorStatusText">Select a demo operator</p>
+                <h1>Оператор</h1>
+                <p id="operatorStatusText">Выберите оператора</p>
             </div>
             <label class="operator-login">
-                <span>Operator</span>
+                <span>Оператор</span>
                 <select id="operatorSelect">
-                    <option value="">Choose operator</option>
+                    <option value="">Выберите</option>
                     <option value="OP-001">OP-001 - Марина Смирнова</option>
                     <option value="OP-002">OP-002 - Алексей Котов</option>
                     <option value="OP-003">OP-003 - Ирина Волкова</option>
@@ -69,11 +69,11 @@
         </header>
 
         <div class="operator-layout">
-            <aside class="queue-panel" aria-label="Handoff queue">
+            <aside class="queue-panel" aria-label="Очередь">
                 <div class="queue-filters" id="queueFilters">
-                    <button type="button" class="filter-button active" data-status="waiting">Waiting</button>
-                    <button type="button" class="filter-button" data-status="accepted">Accepted</button>
-                    <button type="button" class="filter-button" data-status="closed">Closed</button>
+                    <button type="button" class="filter-button active" data-status="waiting">Новые</button>
+                    <button type="button" class="filter-button" data-status="accepted">В работе</button>
+                    <button type="button" class="filter-button" data-status="closed">Закрыты</button>
                 </div>
                 <div class="queue-list" id="operatorQueue"></div>
             </aside>
@@ -81,33 +81,33 @@
             <main class="session-panel">
                 <div class="session-toolbar">
                     <div>
-                        <h2 id="operatorSessionTitle">No session selected</h2>
-                        <p id="operatorSessionMeta">Queue item details will appear here</p>
+                        <h2 id="operatorSessionTitle">Ничего не выбрано</h2>
+                        <p id="operatorSessionMeta">Выберите диалог</p>
                     </div>
                     <div class="session-actions">
-                        <button type="button" id="acceptHandoffButton" disabled>Accept</button>
-                        <button type="button" id="closeHandoffButton" disabled>Close</button>
+                        <button type="button" id="acceptHandoffButton" disabled>Взять</button>
+                        <button type="button" id="closeHandoffButton" disabled>Закрыть</button>
                     </div>
                 </div>
 
                 <div class="operator-content">
-                    <section class="operator-history" id="operatorHistory" aria-label="Session history"></section>
-                    <aside class="context-panel" aria-label="Session context">
+                    <section class="operator-history" id="operatorHistory" aria-label="История"></section>
+                    <aside class="context-panel" aria-label="Контекст">
                         <dl>
                             <div>
-                                <dt>Topic</dt>
+                                <dt>Тема</dt>
                                 <dd id="contextTopic">-</dd>
                             </div>
                             <div>
-                                <dt>Intent</dt>
+                                <dt>Запрос</dt>
                                 <dd id="contextIntent">-</dd>
                             </div>
                             <div>
-                                <dt>Confidence</dt>
+                                <dt>Вероятность</dt>
                                 <dd id="contextConfidence">-</dd>
                             </div>
                             <div>
-                                <dt>Fallbacks</dt>
+                                <dt>Сбои</dt>
                                 <dd id="contextFallbacks">0</dd>
                             </div>
                         </dl>
@@ -116,8 +116,8 @@
                 </div>
 
                 <form id="operatorReplyForm" class="operator-reply">
-                    <input type="text" id="operatorReplyInput" placeholder="Reply as operator" autocomplete="off" disabled>
-                    <button type="submit" id="operatorReplyButton" disabled>Send</button>
+                    <input type="text" id="operatorReplyInput" placeholder="Ответ оператора" autocomplete="off" disabled>
+                    <button type="submit" id="operatorReplyButton" disabled>Отправить</button>
                 </form>
             </main>
         </div>

@@ -44,16 +44,16 @@ function updateConnectionStatus(status) {
 
     switch (status) {
         case 'connected':
-            statusText.textContent = 'Connected';
+            statusText.textContent = 'Онлайн';
             break;
         case 'disconnected':
-            statusText.textContent = 'Disconnected';
+            statusText.textContent = 'Отключено';
             break;
         case 'error':
-            statusText.textContent = 'Connection Error';
+            statusText.textContent = 'Ошибка';
             break;
         default:
-            statusText.textContent = 'Connecting...';
+            statusText.textContent = 'Подключение...';
     }
 }
 
@@ -105,7 +105,7 @@ function sendMessage() {
     }));
 
     if (!sent) {
-        displayErrorMessage('Failed to send message');
+        displayErrorMessage('Не удалось отправить');
         return;
     }
 
@@ -142,7 +142,7 @@ function displaySystemMessage(text) {
 }
 
 function displayErrorMessage(text) {
-    appendMessage('error-message', `❌ ${text}`);
+    appendMessage('error-message', `Ошибка: ${text}`);
 }
 
 function appendMessage(className, text) {
@@ -218,7 +218,7 @@ messagesContainer.addEventListener('click', (event) => {
     }));
 
     if (!sent) {
-        displayErrorMessage('Failed to send message');
+        displayErrorMessage('Не удалось отправить');
         return;
     }
 

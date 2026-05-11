@@ -96,7 +96,7 @@ test('operator console renders dynamic queue, context, and history values as tex
 
     const queueButton = document.elements.operatorQueue.children[0];
     assert.equal(queueButton.children[0].textContent, maliciousPreview);
-    assert.equal(queueButton.children[1].textContent, `waiting - ${maliciousIntent}`);
+    assert.equal(queueButton.children[1].textContent, `Новые - ${maliciousIntent}`);
     assert.equal(queueButton.children[2].textContent, 'session-1');
     assert.equal(countDescendantsByTag(document.elements.operatorQueue, 'IMG'), 0);
 

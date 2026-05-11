@@ -36,8 +36,8 @@
         operatorSelect.addEventListener('change', () => {
             state.operatorId = operatorSelect.value;
             document.getElementById('operatorStatusText').textContent = state.operatorId
-                ? `Logged in as ${state.operatorId}`
-                : 'Select a demo operator';
+                ? `Вы: ${state.operatorId}`
+                : 'Выберите оператора';
             renderSelectedSession();
         });
 
@@ -79,7 +79,7 @@
         clearElement(queue);
 
         if (state.queue.length === 0) {
-            queue.appendChild(createQueueEmptyState('No sessions', 'This filter has no handoffs.'));
+            queue.appendChild(createQueueEmptyState('Пусто', 'По этому фильтру пусто'));
             return;
         }
 
@@ -88,7 +88,7 @@
             button.type = 'button';
             button.className = `queue-item${state.selected && state.selected.handoff_id === item.handoff_id ? ' active' : ''}`;
             button.appendChild(createTextElement('strong', '', item.preview || item.reason || item.session_id));
-            button.appendChild(createTextElement('span', '', `${item.status || state.status} - ${item.last_intent || 'no intent'}`));
+            button.appendChild(createTextElement('span', '', `${localizeStatus(item.status || state.status)} - ${item.last_intent || 'нет'}`));
             button.appendChild(createTextElement('span', '', item.session_id));
             button.addEventListener('click', () => selectQueueItem(item));
             queue.appendChild(button);
@@ -98,7 +98,7 @@
     function renderQueueError(message) {
         const queue = document.getElementById('operatorQueue');
         clearElement(queue);
-        queue.appendChild(createQueueEmptyState('Queue unavailable', message));
+        queue.appendChild(createQueueEmptyState('Очередь недоступна', message));
     }
 
     function selectQueueItem(item) {
@@ -112,11 +112,11 @@
     function renderSelectedSession() {
         const item = state.selected;
         document.getElementById('operatorSessionTitle').textContent = item
-            ? `Session ${shortId(item.session_id)}`
-            : 'No session selected';
+            ? `Диалог ${shortId(item.session_id)}`
+            : 'Ничего не выбрано';
         document.getElementById('operatorSessionMeta').textContent = item
-            ? `${item.reason || 'handoff'} - ${item.status || state.status}`
-            : 'Queue item details will appear here';
+            ? `${item.reason || 'Диалог'} - ${localizeStatus(item.status || state.status)}`
+            : 'Выберите диалог';
 
         document.getElementById('contextTopic').textContent = item && item.active_topic ? item.active_topic : '-';
         document.getElementById('contextIntent').textContent = item && item.last_intent ? item.last_intent : '-';
@@ -134,14 +134,14 @@
         const list = document.getElementById('actionSummaries');
         clearElement(list);
         if (!Array.isArray(items) || items.length === 0) {
-            list.appendChild(createTextElement('div', 'action-summary', 'No action summaries'));
+            list.appendChild(createTextElement('div', 'action-summary', 'Действий нет'));
             return;
         }
         items.forEach((item) => {
             const summary = document.createElement('div');
             summary.className = 'action-summary';
-            summary.appendChild(createTextElement('strong', '', item.action_type || 'action'));
-            summary.appendChild(createTextElement('div', '', item.status || 'unknown'));
+            summary.appendChild(createTextElement('strong', '', item.action_type || 'Шаг'));
+            summary.appendChild(createTextElement('div', '', item.status || 'неизв.'));
             if (item.summary) {
                 summary.appendChild(createTextElement('div', '', item.summary));
             }
@@ -166,13 +166,13 @@
         const history = document.getElementById('operatorHistory');
         clearElement(history);
         if (!Array.isArray(items) || items.length === 0) {
-            history.appendChild(createHistoryMessage('history', 'History', 'No messages yet'));
+            history.appendChild(createHistoryMessage('history', 'История', 'Сообщений нет'));
             return;
         }
         items.forEach((item) => {
             history.appendChild(createHistoryMessage(
                 item.sender_type || 'bot',
-                `${item.sender_type || 'message'} - ${formatTime(item.timestamp)}`,
+                `${localizeSender(item.sender_type)} - ${formatTime(item.timestamp)}`,
                 item.text || '',
             ));
         });
@@ -182,7 +182,7 @@
     function renderHistoryError(message) {
         const history = document.getElementById('operatorHistory');
         clearElement(history);
-        history.appendChild(createHistoryMessage('error', 'Error', message));
+        history.appendChild(createHistoryMessage('error', 'Ошибка', message));
     }
 
     function startHistoryPolling() {
@@ -275,6 +275,34 @@
 
     function formatConfidence(value) {
         return typeof value === 'number' ? `${Math.round(value * 100)}%` : '-';
+    }
+
+    function localizeStatus(value) {
+        switch (value) {
+            case 'waiting':
+                return 'Новые';
+            case 'accepted':
+                return 'В работе';
+            case 'closed':
+                return 'Закрыты';
+            default:
+                return value || '-';
+        }
+    }
+
+    function localizeSender(value) {
+        switch (value) {
+            case 'user':
+                return 'Клиент';
+            case 'bot':
+                return 'Бот';
+            case 'operator':
+                return 'Оператор';
+            case 'system':
+                return 'Система';
+            default:
+                return value || 'Сообщение';
+        }
     }
 
     function formatTime(value) {
