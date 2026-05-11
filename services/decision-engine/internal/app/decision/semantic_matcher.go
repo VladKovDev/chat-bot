@@ -13,6 +13,7 @@ const (
 	CandidateSourceIntentExample = "intent_example"
 	CandidateSourceExactCommand  = "exact_command"
 	CandidateSourceLexicalFuzzy  = "lexical_fuzzy"
+	CandidateSourceKnowledgeChunk = "knowledge_chunk"
 	CandidateSourceFallback      = "fallback"
 )
 
