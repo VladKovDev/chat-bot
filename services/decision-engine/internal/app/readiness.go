@@ -33,6 +33,7 @@ func NewReadinessProvider(db readinessDB, nlpConfig infranlp.EmbedderConfig) han
 			"database":        checkDatabase(ctx, db),
 			"migrations":      checkMigrations(ctx, db),
 			"nlp":             checkNLP(ctx, client, nlpBaseURL, nlpConfig.ExpectedDimension),
+			"semantic_config": checkSemanticCatalogConfig(ctx, db, nlpConfig.ExpectedDimension),
 			"operator_tables": checkOperatorTables(ctx, db),
 			"pgvector":        checkPgvector(ctx, db),
 			"seed_data":       checkSeedData(ctx, db),
@@ -141,6 +142,27 @@ WHERE extname = 'vector'`).Scan(&extVersion)
 		return notReady(fmt.Sprintf("pgvector extension unavailable: %v", err))
 	}
 	return ready(fmt.Sprintf("pgvector extension installed: %s", extVersion))
+}
+
+func checkSemanticCatalogConfig(ctx context.Context, db readinessDB, expectedDimension int) handler.ReadinessItem {
+	if db == nil {
+		return notReady("database pool is not initialized")
+	}
+
+	var stored string
+	err := db.QueryRow(ctx, `
+SELECT value
+FROM semantic_catalog_settings
+WHERE key = 'embedding_dimension'`).Scan(&stored)
+	if err != nil {
+		return notReady(fmt.Sprintf("semantic catalog dimension unavailable: %v", err))
+	}
+
+	if expectedDimension > 0 && strings.TrimSpace(stored) != fmt.Sprintf("%d", expectedDimension) {
+		return notReady(fmt.Sprintf("semantic catalog dimension %s is not expected %d", strings.TrimSpace(stored), expectedDimension))
+	}
+
+	return ready(fmt.Sprintf("semantic catalog dimension=%s", strings.TrimSpace(stored)))
 }
 
 func checkOperatorTables(ctx context.Context, db readinessDB) handler.ReadinessItem {

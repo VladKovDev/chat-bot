@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	infranlp "github.com/VladKovDev/chat-bot/internal/infrastructure/nlp"
 	"github.com/jackc/pgx/v5"
 )
@@ -25,7 +26,7 @@ func TestReadinessProviderReportsReadyWhenRuntimeDependenciesAreBootstrapped(t *
 	provider := NewReadinessProvider(fakeReadinessDB{}, infranlp.EmbedderConfig{
 		BaseURL:           nlp.URL,
 		Timeout:           time.Second,
-		ExpectedDimension: 384,
+		ExpectedDimension: appseed.SemanticEmbeddingDimension,
 	})
 
 	resp := provider(context.Background())
@@ -52,7 +53,7 @@ func TestReadinessProviderFailsWhenSeedsAreMissing(t *testing.T) {
 	provider := NewReadinessProvider(db, infranlp.EmbedderConfig{
 		BaseURL:           nlp.URL,
 		Timeout:           time.Second,
-		ExpectedDimension: 384,
+		ExpectedDimension: appseed.SemanticEmbeddingDimension,
 	})
 
 	resp := provider(context.Background())
@@ -80,7 +81,7 @@ func TestReadinessProviderFailsWhenOperatorTablesAreMissing(t *testing.T) {
 	provider := NewReadinessProvider(db, infranlp.EmbedderConfig{
 		BaseURL:           nlp.URL,
 		Timeout:           time.Second,
-		ExpectedDimension: 384,
+		ExpectedDimension: appseed.SemanticEmbeddingDimension,
 	})
 
 	resp := provider(context.Background())
@@ -100,6 +101,7 @@ type fakeReadinessDB struct {
 	migration            int64
 	vector               string
 	operatorQueueMissing bool
+	semanticDimension    string
 	operators            int
 	intents              int
 	examples             int
@@ -122,6 +124,9 @@ func (f fakeReadinessDB) QueryRow(_ context.Context, query string, _ ...any) pgx
 	if f.vector == "" {
 		f.vector = "0.8.0"
 	}
+	if f.semanticDimension == "" {
+		f.semanticDimension = "384"
+	}
 	if f.operators == 0 {
 		f.operators = 2
 	}
@@ -141,6 +146,8 @@ func (f fakeReadinessDB) QueryRow(_ context.Context, query string, _ ...any) pgx
 		return fakeRow{values: []any{f.migration}}
 	case strings.Contains(query, "pg_extension"):
 		return fakeRow{values: []any{f.vector}}
+	case strings.Contains(query, "FROM semantic_catalog_settings"):
+		return fakeRow{values: []any{f.semanticDimension}}
 	case strings.Contains(query, "to_regclass('public.operators')"):
 		return fakeRow{values: []any{true, !f.operatorQueueMissing, true, true}}
 	case strings.Contains(query, "COUNT(*) FROM operators"):

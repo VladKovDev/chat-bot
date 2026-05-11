@@ -8,7 +8,7 @@ Real Qwen3 embeddings are opt-in:
 pip install -e ".[qwen]"
 EMBEDDING_MODE=qwen3 \
 EMBEDDING_MODEL_ID=Qwen/Qwen3-Embedding-0.6B \
-EMBEDDING_DIMENSION=1024 \
+EMBEDDING_DIMENSION=384 \
 EMBEDDING_DEVICE=cpu \
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```

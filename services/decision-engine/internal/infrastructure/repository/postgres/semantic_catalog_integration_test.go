@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
+	appseed "github.com/VladKovDev/chat-bot/internal/app/seed"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -28,7 +30,7 @@ func TestSemanticCatalogRepositorySearchIntentExamplesWithPgvector(t *testing.T)
 	}
 	defer pool.Close()
 
-	repo := NewSemanticCatalogRepository(pool)
+	repo := NewSemanticCatalogRepositoryWithDimension(pool, appseed.SemanticEmbeddingDimension)
 	keys := []string{"test_semantic_payment", "test_semantic_booking"}
 	for _, key := range keys {
 		if _, err := pool.Exec(ctx, `DELETE FROM intents WHERE key = $1`, key); err != nil {
@@ -64,14 +66,14 @@ func TestSemanticCatalogRepositorySearchIntentExamplesWithPgvector(t *testing.T)
 		t.Fatalf("seed booking intent: %v", err)
 	}
 
-	if err := repo.SeedIntentExample(ctx, paymentID, "test_semantic_payment", "проверь оплату", basisVector(0)); err != nil {
+	if err := repo.SeedIntentExample(ctx, paymentID, "test_semantic_payment", "проверь оплату", basisVector(0, appseed.SemanticEmbeddingDimension)); err != nil {
 		t.Fatalf("seed payment example: %v", err)
 	}
-	if err := repo.SeedIntentExample(ctx, bookingID, "test_semantic_booking", "проверь запись", basisVector(1)); err != nil {
+	if err := repo.SeedIntentExample(ctx, bookingID, "test_semantic_booking", "проверь запись", basisVector(1, appseed.SemanticEmbeddingDimension)); err != nil {
 		t.Fatalf("seed booking example: %v", err)
 	}
 
-	rows, err := repo.SearchIntentExamples(ctx, basisVector(0), "ru", 2)
+	rows, err := repo.SearchIntentExamples(ctx, basisVector(0, appseed.SemanticEmbeddingDimension), "ru", 2)
 	if err != nil {
 		t.Fatalf("search intent examples: %v", err)
 	}
@@ -89,8 +91,29 @@ func TestSemanticCatalogRepositorySearchIntentExamplesWithPgvector(t *testing.T)
 	}
 }
 
-func basisVector(index int) []float64 {
-	values := make([]float64, 384)
+func TestSemanticCatalogRepositoryRejectsEmbeddingDimensionMismatch(t *testing.T) {
+	t.Parallel()
+
+	repo := NewSemanticCatalogRepositoryWithDimension(nil, appseed.SemanticEmbeddingDimension)
+	err := repo.SeedKnowledgeChunk(context.Background(), [16]byte{}, 0, "body", basisVector(0, appseed.SemanticEmbeddingDimension-1))
+	if err == nil {
+		t.Fatal("expected dimension mismatch error")
+	}
+	if !strings.Contains(err.Error(), "embedding dimension") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = repo.SearchIntentExamples(context.Background(), basisVector(0, appseed.SemanticEmbeddingDimension-1), "ru", 1)
+	if err == nil {
+		t.Fatal("expected search dimension mismatch error")
+	}
+	if !strings.Contains(err.Error(), "embedding dimension") {
+		t.Fatalf("unexpected search error: %v", err)
+	}
+}
+
+func basisVector(index int, dimension int) []float64 {
+	values := make([]float64, dimension)
 	values[index] = 1
 	return values
 }

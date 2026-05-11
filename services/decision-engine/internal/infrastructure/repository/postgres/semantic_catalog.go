@@ -18,11 +18,19 @@ import (
 )
 
 type SemanticCatalogRepository struct {
-	querier *sqlc.Queries
+	querier           *sqlc.Queries
+	expectedDimension int
 }
 
 func NewSemanticCatalogRepository(db sqlc.DBTX) *SemanticCatalogRepository {
-	return &SemanticCatalogRepository{querier: sqlc.New(db)}
+	return NewSemanticCatalogRepositoryWithDimension(db, appseed.SemanticEmbeddingDimension)
+}
+
+func NewSemanticCatalogRepositoryWithDimension(db sqlc.DBTX, expectedDimension int) *SemanticCatalogRepository {
+	return &SemanticCatalogRepository{
+		querier:           sqlc.New(db),
+		expectedDimension: expectedDimension,
+	}
 }
 
 func (r *SemanticCatalogRepository) SearchIntentExamples(
@@ -33,6 +41,9 @@ func (r *SemanticCatalogRepository) SearchIntentExamples(
 ) ([]appdecision.IntentSearchResult, error) {
 	if limit <= 0 {
 		limit = 3
+	}
+	if err := validateEmbeddingDimension(embedding, r.expectedDimension); err != nil {
+		return nil, err
 	}
 	rows, err := r.querier.SearchIntentExamples(ctx, sqlc.SearchIntentExamplesParams{
 		Embedding:   vectorLiteral(embedding),
@@ -99,6 +110,9 @@ func (r *SemanticCatalogRepository) SeedIntentExample(
 	text string,
 	embedding []float64,
 ) error {
+	if err := validateEmbeddingDimension(embedding, r.expectedDimension); err != nil {
+		return fmt.Errorf("validate intent example embedding %s: %w", intentKey, err)
+	}
 	metadata, err := json.Marshal(map[string]any{
 		"seed":       "intents.json",
 		"intent_key": intentKey,
@@ -156,6 +170,9 @@ func (r *SemanticCatalogRepository) SeedKnowledgeChunk(
 	body string,
 	embedding []float64,
 ) error {
+	if err := validateEmbeddingDimension(embedding, r.expectedDimension); err != nil {
+		return fmt.Errorf("validate knowledge chunk embedding: %w", err)
+	}
 	metadata, err := json.Marshal(map[string]any{
 		"seed": "knowledge-base.json",
 	})
@@ -270,6 +287,16 @@ func vectorLiteral(values []float64) string {
 	}
 	builder.WriteByte(']')
 	return builder.String()
+}
+
+func validateEmbeddingDimension(values []float64, expectedDimension int) error {
+	if len(values) == 0 {
+		return fmt.Errorf("embedding is empty")
+	}
+	if expectedDimension > 0 && len(values) != expectedDimension {
+		return fmt.Errorf("embedding dimension = %d, want %d", len(values), expectedDimension)
+	}
+	return nil
 }
 
 func fallbackPolicyForIntent(intent apppresenter.IntentDefinition) string {

@@ -29,6 +29,8 @@ services:
   nlp-service:
     build:
       context: ./services/nlp-service
+    environment:
+      EMBEDDING_DIMENSION: 384
     ports:
       - "${NLP_PORT:-8082}:8080"
     healthcheck:

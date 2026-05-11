@@ -12,6 +12,7 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 
 	sql := strings.Join([]string{
 		readMigrationForTest(t, "20260510210000_brd_pgvector_catalog.sql"),
+		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
 		readQueryForTest(t, "brd_catalog.sql"),
 	}, "\n")
 
@@ -27,6 +28,8 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 		"CREATE TABLE IF NOT EXISTS intents",
 		"CREATE TABLE IF NOT EXISTS intent_examples",
 		"embedding vector(384) NOT NULL",
+		"CREATE TABLE IF NOT EXISTS semantic_catalog_settings",
+		"VALUES ('embedding_dimension', '384')",
 		"CREATE INDEX IF NOT EXISTS idx_intent_examples_embedding_hnsw",
 		"USING hnsw (embedding vector_cosine_ops)",
 		"CREATE TABLE IF NOT EXISTS knowledge_articles",
@@ -57,6 +60,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		readMigrationForTest(t, "20260510170000_decision_logs.sql"),
 		readMigrationForTest(t, "20260510193000_operator_queue.sql"),
 		readMigrationForTest(t, "20260510210000_brd_pgvector_catalog.sql"),
+		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
 		readQueryForTest(t, "sessions.sql"),
 	}, "\n")
 
@@ -71,6 +75,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		"CREATE TABLE IF NOT EXISTS message_events",
 		"CREATE TABLE IF NOT EXISTS intents",
 		"CREATE TABLE IF NOT EXISTS intent_examples",
+		"CREATE TABLE IF NOT EXISTS semantic_catalog_settings",
 		"CREATE TABLE IF NOT EXISTS knowledge_articles",
 		"CREATE TABLE IF NOT EXISTS knowledge_chunks",
 		"CREATE TABLE IF NOT EXISTS quick_replies",
