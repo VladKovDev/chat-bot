@@ -237,6 +237,25 @@ test('E2E-009b workspace info quick reply routes to prices without clarify fallb
   await expectNoAction(session.session_id);
 });
 
+test('E2E-009c workspace freeform prices stays in workspace topic and opens prices', async ({ request }) => {
+  const clientID = client('009c');
+  const session = await startSession(request, clientID);
+
+  const mainMenu = await sendMessage(request, session.session_id, clientID, 'главное меню');
+  const workspaceMenuReply = mainMenu.quick_replies?.find((reply) => reply.id === 'menu-workspace');
+  expect(workspaceMenuReply).toBeTruthy();
+
+  await sendQuickReply(request, session.session_id, clientID, workspaceMenuReply as QuickReply);
+  const workspacePrices = await sendMessage(request, session.session_id, clientID, 'какие актуальные цены');
+
+  expect(workspacePrices.text).toContain('Типы рабочих мест и цены');
+  expect(workspacePrices.text).toContain('Горячее место');
+
+  await expectDecision(session.session_id, 'ask_workspace_prices', 'workspace_types_prices');
+  const snapshot = await sessionSnapshot(session.session_id);
+  expect(snapshot.active_topic).toBe('workspace');
+});
+
 test('E2E-010 workspace booking found logs find_workspace_booking', async ({ request }) => {
   const { session, response } = await apiFlow(request, '010', 'найди бронь WS-1001');
 

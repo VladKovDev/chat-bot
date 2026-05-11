@@ -146,6 +146,58 @@ func TestSemanticMatcherMarksLowConfidenceAndAmbiguousMatches(t *testing.T) {
 	}
 }
 
+func TestSemanticMatcherFiltersSemanticCandidatesToAllowedIntents(t *testing.T) {
+	t.Parallel()
+
+	embedder := &fakeEmbedder{embedding: []float64{1, 0, 0}}
+	search := &fakeIntentSearch{rows: []IntentSearchResult{
+		{
+			IntentID:       "intent-services",
+			IntentKey:      "ask_services_info",
+			Category:       "services",
+			ResponseKey:    "services_prices",
+			Text:           "какие услуги доступны",
+			NormalizedText: "какие услуги доступны",
+			Locale:         "ru",
+			Weight:         1,
+			Confidence:     0.91,
+		},
+		{
+			IntentID:       "intent-workspace",
+			IntentKey:      "ask_workspace_prices",
+			Category:       "workspace",
+			ResponseKey:    "workspace_types_prices",
+			Text:           "цены на коворкинг",
+			NormalizedText: "цены на коворкинг",
+			Locale:         "ru",
+			Weight:         1,
+			Confidence:     0.74,
+		},
+	}}
+	matcher, err := NewSemanticIntentMatcher(embedder, search, SemanticMatcherConfig{TopK: 3})
+	if err != nil {
+		t.Fatalf("new semantic matcher: %v", err)
+	}
+
+	match, err := matcher.Match(context.Background(), "какие актуальные цены", []apppresenter.IntentDefinition{
+		{
+			Key:      "ask_workspace_prices",
+			Category: "workspace",
+			Examples: []string{"цены на коворкинг"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("match: %v", err)
+	}
+
+	if match.IntentKey != "ask_workspace_prices" {
+		t.Fatalf("match = %#v, want ask_workspace_prices", match)
+	}
+	if len(match.Candidates) != 1 {
+		t.Fatalf("candidates = %#v, want filtered single workspace candidate", match.Candidates)
+	}
+}
+
 func TestSemanticMatcherExactCommandsBypassEmbeddingOutage(t *testing.T) {
 	t.Parallel()
 

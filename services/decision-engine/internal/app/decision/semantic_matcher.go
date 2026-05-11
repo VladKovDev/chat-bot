@@ -106,7 +106,8 @@ func (m *SemanticIntentMatcher) Match(
 		return MatchResult{}, fmt.Errorf("search intent examples: %w", err)
 	}
 
-	candidates := uniqueIntentCandidates(rows, m.topK)
+	allowed := allowedIntentKeys(intents)
+	candidates := uniqueIntentCandidates(rows, allowed, m.topK)
 	if len(candidates) == 0 {
 		return MatchResult{
 			LowConfidence:  true,
@@ -160,7 +161,7 @@ func exactCommandMatch(text string, intents []apppresenter.IntentDefinition) Mat
 	return MatchResult{}
 }
 
-func uniqueIntentCandidates(rows []IntentSearchResult, limit int) []Candidate {
+func uniqueIntentCandidates(rows []IntentSearchResult, allowed map[string]struct{}, limit int) []Candidate {
 	if limit <= 0 || len(rows) == 0 {
 		return nil
 	}
@@ -169,6 +170,11 @@ func uniqueIntentCandidates(rows []IntentSearchResult, limit int) []Candidate {
 	for _, row := range rows {
 		if strings.TrimSpace(row.IntentKey) == "" {
 			continue
+		}
+		if len(allowed) > 0 {
+			if _, ok := allowed[row.IntentKey]; !ok {
+				continue
+			}
 		}
 		confidence := row.Confidence
 		if row.Weight > 0 {
@@ -214,4 +220,18 @@ func uniqueIntentCandidates(rows []IntentSearchResult, limit int) []Candidate {
 		candidates = candidates[:limit]
 	}
 	return candidates
+}
+
+func allowedIntentKeys(intents []apppresenter.IntentDefinition) map[string]struct{} {
+	if len(intents) == 0 {
+		return nil
+	}
+	allowed := make(map[string]struct{}, len(intents))
+	for _, intentDefinition := range intents {
+		if strings.TrimSpace(intentDefinition.Key) == "" {
+			continue
+		}
+		allowed[intentDefinition.Key] = struct{}{}
+	}
+	return allowed
 }

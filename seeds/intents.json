@@ -131,8 +131,8 @@
       "knowledge_key": "workspace.info",
       "examples": ["какие есть рабочие места", "что за коворкинг", "какие варианты рабочих мест", "расскажите про рабочие места", "какие места можно арендовать", "что входит в аренду места", "какие типы мест доступны", "хочу узнать про коворкинг"],
       "quick_replies": [
-        { "id": "workspace-prices", "label": "Типы и цены", "action": "send_text", "payload": { "text": "Типы и цены рабочих мест" } },
-        { "id": "workspace-rules", "label": "Правила аренды", "action": "send_text", "payload": { "text": "Правила аренды" } }
+        { "id": "workspace-prices", "label": "Типы и цены", "action": "select_intent", "payload": { "intent": "ask_workspace_prices", "text": "Типы и цены" } },
+        { "id": "workspace-rules", "label": "Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } }
       ],
       "e2e_coverage": ["E2E-009"]
     },
@@ -142,9 +142,9 @@
       "resolution_type": "knowledge",
       "response_key": "workspace_types_prices",
       "knowledge_key": "workspace.prices",
-      "examples": ["сколько стоит место", "цена аренды", "сколько стоит рабочее место", "цены на коворкинг", "стоимость горячего места", "какая цена офиса", "тарифы на рабочие места", "сколько стоит аренда места"],
+      "examples": ["сколько стоит место", "цена аренды", "сколько стоит рабочее место", "цены на коворкинг", "стоимость горячего места", "какая цена офиса", "тарифы на рабочие места", "сколько стоит аренда места", "какие актуальные цены", "какие цены на рабочие места", "актуальные цены на места", "какой сейчас прайс на места"],
       "quick_replies": [
-        { "id": "workspace-rules-from-prices", "label": "Правила аренды", "action": "send_text", "payload": { "text": "Правила аренды" } },
+        { "id": "workspace-rules-from-prices", "label": "Правила аренды", "action": "select_intent", "payload": { "intent": "ask_workspace_rules", "text": "Правила аренды" } },
         { "id": "workspace-operator", "label": "Связаться с администратором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-009"]

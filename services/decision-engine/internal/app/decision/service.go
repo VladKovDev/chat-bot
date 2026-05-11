@@ -110,6 +110,12 @@ func (s *Service) Decide(
 		return Result{}, fmt.Errorf("match intent: %w", err)
 	}
 
+	if scoped, ok, scopedErr := s.topicScopedMatch(ctx, sess, text, match); scopedErr != nil {
+		return Result{}, fmt.Errorf("match scoped intent: %w", scopedErr)
+	} else if ok {
+		match = scoped
+	}
+
 	confidence := match.Confidence
 	if match.IntentKey == "" {
 		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
@@ -128,6 +134,53 @@ func (s *Service) Decide(
 	}
 
 	return resultForIntent(sess, intentDefinition, text, confidencePtr(confidence), match.Candidates), nil
+}
+
+func (s *Service) topicScopedMatch(
+	ctx context.Context,
+	sess session.Session,
+	text string,
+	global MatchResult,
+) (MatchResult, bool, error) {
+	activeTopic := strings.TrimSpace(sess.ActiveTopic)
+	if activeTopic == "" {
+		return MatchResult{}, false, nil
+	}
+	if !s.isLowConfidence(global) && topCandidateCategory(global) == activeTopic {
+		return MatchResult{}, false, nil
+	}
+
+	scopedIntents := s.intentsForTopic(activeTopic)
+	if len(scopedIntents) == 0 {
+		return MatchResult{}, false, nil
+	}
+
+	scoped, err := s.matcher.Match(ctx, text, scopedIntents)
+	if err != nil {
+		return MatchResult{}, false, err
+	}
+	if scoped.IntentKey == "" {
+		return MatchResult{}, false, nil
+	}
+	if topCandidateCategory(scoped) != "" && topCandidateCategory(scoped) != activeTopic {
+		return MatchResult{}, false, nil
+	}
+	if !s.isLowConfidence(scoped) || topCandidateCategory(scoped) == activeTopic {
+		return scoped, true, nil
+	}
+
+	return MatchResult{}, false, nil
+}
+
+func (s *Service) intentsForTopic(topic string) []apppresenter.IntentDefinition {
+	scoped := make([]apppresenter.IntentDefinition, 0)
+	for _, intentDefinition := range s.intents {
+		switch intentDefinition.Category {
+		case topic, "system", "operator":
+			scoped = append(scoped, intentDefinition)
+		}
+	}
+	return scoped
 }
 
 func (s *Service) DecideQuickReply(
