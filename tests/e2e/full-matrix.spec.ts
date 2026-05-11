@@ -351,12 +351,15 @@ test('E2E-024 @smoke operator UI opens queue and accepts waiting handoff', async
   const { session } = await apiFlow(request, '024', 'оператор');
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Operator' }).click();
+  await page.getByRole('button', { name: 'Оператор' }).click();
   await page.locator('#operatorSelect').selectOption('OP-001');
   await expect(page.locator('#operatorQueue')).toContainText(session.session_id);
   await page.locator('.queue-item').filter({ hasText: session.session_id }).click();
+  await expect(page.locator('#operatorReplyInput')).toHaveAttribute('placeholder', 'Нажмите "Взять", чтобы ответить');
   await page.locator('#acceptHandoffButton').click();
-  await expect(page.locator('#operatorSessionMeta')).toContainText('accepted');
+  await expect(page.locator('#operatorSessionMeta')).toContainText('В работе');
+  await expect(page.locator('#operatorReplyInput')).toBeEnabled();
+  await expect(page.locator('#operatorReplyInput')).toHaveAttribute('placeholder', 'Ответ оператора');
 
   const queue = await one<{ status: string; assigned_operator_id: string }>(
     'SELECT status, assigned_operator_id FROM operator_queue WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1',

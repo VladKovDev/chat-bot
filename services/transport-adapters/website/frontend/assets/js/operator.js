@@ -15,6 +15,7 @@
 
         bindSurfaceSwitch();
         bindOperatorControls();
+        renderSelectedSession();
         refreshQueue();
     }
 
@@ -36,7 +37,7 @@
         operatorSelect.addEventListener('change', () => {
             state.operatorId = operatorSelect.value;
             document.getElementById('operatorStatusText').textContent = state.operatorId
-                ? `Вы: ${state.operatorId}`
+                ? `Вы вошли как ${state.operatorId}`
                 : 'Выберите оператора';
             renderSelectedSession();
         });
@@ -79,7 +80,7 @@
         clearElement(queue);
 
         if (state.queue.length === 0) {
-            queue.appendChild(createQueueEmptyState('Пусто', 'По этому фильтру пусто'));
+            queue.appendChild(createQueueEmptyState('Нет диалогов', 'По этому фильтру обращений нет.'));
             return;
         }
 
@@ -87,8 +88,8 @@
             const button = document.createElement('button');
             button.type = 'button';
             button.className = `queue-item${state.selected && state.selected.handoff_id === item.handoff_id ? ' active' : ''}`;
-            button.appendChild(createTextElement('strong', '', item.preview || item.reason || item.session_id));
-            button.appendChild(createTextElement('span', '', `${localizeStatus(item.status || state.status)} - ${item.last_intent || 'нет'}`));
+            button.appendChild(createTextElement('strong', '', queueHeadline(item)));
+            button.appendChild(createTextElement('span', '', queueSubline(item)));
             button.appendChild(createTextElement('span', '', item.session_id));
             button.addEventListener('click', () => selectQueueItem(item));
             queue.appendChild(button);
@@ -111,23 +112,26 @@
 
     function renderSelectedSession() {
         const item = state.selected;
+        const replyInput = document.getElementById('operatorReplyInput');
+        const replyEnabled = canReply(state);
         document.getElementById('operatorSessionTitle').textContent = item
             ? `Диалог ${shortId(item.session_id)}`
             : 'Ничего не выбрано';
         document.getElementById('operatorSessionMeta').textContent = item
-            ? `${item.reason || 'Диалог'} - ${localizeStatus(item.status || state.status)}`
+            ? `${localizeReason(item.reason) || 'Диалог'} - ${localizeStatusDetail(item.status || state.status)}`
             : 'Выберите диалог';
 
         document.getElementById('contextTopic').textContent = item && item.active_topic ? item.active_topic : '-';
-        document.getElementById('contextIntent').textContent = item && item.last_intent ? item.last_intent : '-';
+        document.getElementById('contextIntent').textContent = item && item.last_intent ? localizeIntent(item.last_intent) : '-';
         document.getElementById('contextConfidence').textContent = formatConfidence(item && item.confidence);
         document.getElementById('contextFallbacks').textContent = String((item && item.fallback_count) || 0);
         renderActionSummaries((item && item.action_summaries) || []);
 
         document.getElementById('acceptHandoffButton').disabled = !canAccept(state);
         document.getElementById('closeHandoffButton').disabled = !canClose(state);
-        document.getElementById('operatorReplyInput').disabled = !canReply(state);
-        document.getElementById('operatorReplyButton').disabled = !canReply(state);
+        replyInput.disabled = !replyEnabled;
+        replyInput.placeholder = replyPlaceholder(state);
+        document.getElementById('operatorReplyButton').disabled = !replyEnabled;
     }
 
     function renderActionSummaries(items) {
@@ -273,8 +277,39 @@
         return Boolean(current.operatorId && current.selected && current.selected.status === 'accepted');
     }
 
+    function replyPlaceholder(current) {
+        if (!current.operatorId) {
+            return 'Сначала выберите оператора';
+        }
+        if (!current.selected) {
+            return 'Сначала выберите диалог';
+        }
+        if (current.selected.status === 'waiting') {
+            return 'Нажмите "Взять", чтобы ответить';
+        }
+        if (current.selected.status === 'closed') {
+            return 'Диалог закрыт';
+        }
+        return 'Ответ оператора';
+    }
+
     function formatConfidence(value) {
         return typeof value === 'number' ? `${Math.round(value * 100)}%` : '-';
+    }
+
+    function queueHeadline(item) {
+        if (item && item.preview) {
+            return item.preview;
+        }
+        if (item && item.session_id) {
+            return `Диалог ${shortId(item.session_id)}`;
+        }
+        return 'Диалог';
+    }
+
+    function queueSubline(item) {
+        const detail = localizeIntent(item && item.last_intent) || localizeReason(item && item.reason) || 'Без уточнения';
+        return `${detail} - ${localizeStatusDetail((item && item.status) || state.status)}`;
     }
 
     function localizeStatus(value) {
@@ -287,6 +322,63 @@
                 return 'Закрыты';
             default:
                 return value || '-';
+        }
+    }
+
+    function localizeStatusDetail(value) {
+        switch (value) {
+            case 'waiting':
+                return 'Ожидает';
+            case 'accepted':
+                return 'В работе';
+            case 'closed':
+                return 'Закрыт';
+            default:
+                return localizeStatus(value);
+        }
+    }
+
+    function localizeReason(value) {
+        switch (value) {
+            case 'low_confidence_repeated':
+                return 'Повторно не удалось распознать запрос';
+            case 'manual_request':
+                return 'Запрос оператора';
+            case 'business_error':
+                return 'Ошибка внешней системы';
+            case 'complaint':
+                return 'Жалоба';
+            default:
+                return value || '';
+        }
+    }
+
+    function localizeIntent(value) {
+        switch (value) {
+            case 'request_operator':
+                return 'Запрос оператора';
+            case 'return_to_menu':
+                return 'Возврат в главное меню';
+            case 'ask_account_help':
+                return 'Вопрос по аккаунту';
+            case 'ask_prices':
+                return 'Вопрос по ценам';
+            case 'ask_services_info':
+                return 'Вопрос по услугам';
+            case 'ask_payment_status':
+                return 'Вопрос по оплате';
+            case 'ask_booking_info':
+                return 'Вопрос по записи';
+            case 'ask_workspace_info':
+                return 'Вопрос по рабочим местам';
+            case 'ask_site_problem':
+                return 'Проблема со входом или сайтом';
+            case 'report_complaint':
+                return 'Жалоба';
+            case 'general_question':
+                return 'Общий вопрос';
+            default:
+                return value || '';
         }
     }
 
@@ -364,7 +456,12 @@
         canAccept,
         canClose,
         canReply,
+        replyPlaceholder,
         formatConfidence,
+        localizeIntent,
+        localizeReason,
+        localizeStatus,
+        localizeStatusDetail,
         shortId,
     };
 

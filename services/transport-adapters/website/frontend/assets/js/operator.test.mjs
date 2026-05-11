@@ -31,6 +31,30 @@ test('operator console formats handoff context values', () => {
     assert.equal(api.formatConfidence(0.734), '73%');
     assert.equal(api.formatConfidence(null), '-');
     assert.equal(api.shortId('11111111-2222-3333-4444-555555555555'), '11111111');
+    assert.equal(api.localizeReason('low_confidence_repeated'), 'Повторно не удалось распознать запрос');
+    assert.equal(api.localizeIntent('request_operator'), 'Запрос оператора');
+    assert.equal(api.localizeStatusDetail('waiting'), 'Ожидает');
+});
+
+test('operator console explains why reply is blocked', () => {
+    const api = loadOperatorAPI();
+
+    assert.equal(api.replyPlaceholder({
+        operatorId: '',
+        selected: null,
+    }), 'Сначала выберите оператора');
+    assert.equal(api.replyPlaceholder({
+        operatorId: 'OP-001',
+        selected: null,
+    }), 'Сначала выберите диалог');
+    assert.equal(api.replyPlaceholder({
+        operatorId: 'OP-001',
+        selected: { status: 'waiting' },
+    }), 'Нажмите "Взять", чтобы ответить');
+    assert.equal(api.replyPlaceholder({
+        operatorId: 'OP-001',
+        selected: { status: 'accepted' },
+    }), 'Ответ оператора');
 });
 
 test('operator console renders dynamic queue, context, and history values as text', async () => {
@@ -61,7 +85,7 @@ test('operator console renders dynamic queue, context, and history values as tex
                         handoff_id: 'handoff-1',
                         session_id: 'session-1',
                         status: 'waiting',
-                        reason: '<script>reason()</script>',
+                        reason: 'low_confidence_repeated',
                         preview: maliciousPreview,
                         last_intent: maliciousIntent,
                         active_topic: '<iframe srcdoc="<script>globalThis.__xss = true</script>"></iframe>',
@@ -96,13 +120,15 @@ test('operator console renders dynamic queue, context, and history values as tex
 
     const queueButton = document.elements.operatorQueue.children[0];
     assert.equal(queueButton.children[0].textContent, maliciousPreview);
-    assert.equal(queueButton.children[1].textContent, `Новые - ${maliciousIntent}`);
+    assert.equal(queueButton.children[1].textContent, `${maliciousIntent} - Ожидает`);
     assert.equal(queueButton.children[2].textContent, 'session-1');
     assert.equal(countDescendantsByTag(document.elements.operatorQueue, 'IMG'), 0);
 
     queueButton.dispatchEvent({ type: 'click', target: queueButton });
     await flushAsync();
 
+    assert.equal(document.elements.operatorSessionTitle.textContent, 'Диалог session-');
+    assert.equal(document.elements.operatorSessionMeta.textContent, 'Повторно не удалось распознать запрос - Ожидает');
     assert.equal(document.elements.contextTopic.textContent, '<iframe srcdoc="<script>globalThis.__xss = true</script>"></iframe>');
     assert.equal(document.elements.contextIntent.textContent, maliciousIntent);
     assert.equal(document.elements.actionSummaries.children[0].children[0].textContent, '<img src=x onerror="globalThis.__xss = true">');
@@ -114,6 +140,90 @@ test('operator console renders dynamic queue, context, and history values as tex
         '/api/operator/queue?status=waiting',
         '/api/operator/sessions/session-1/messages',
     ]);
+});
+
+test('operator console renders fully localized empty states', async () => {
+    const document = createOperatorDocument();
+    const sandbox = {
+        console,
+        Date,
+        Error,
+        JSON,
+        Math,
+        Number,
+        String,
+        encodeURIComponent,
+        setInterval() {
+            return 1;
+        },
+        clearInterval() {},
+        async fetch(path) {
+            if (path.startsWith('/api/operator/queue?')) {
+                return createJSONResponse({ items: [] });
+            }
+            throw new Error(`unexpected fetch path: ${path}`);
+        },
+        document,
+        window: {},
+    };
+    sandbox.globalThis = sandbox;
+
+    vm.runInNewContext(scriptSource, sandbox, { filename: scriptPath });
+    await flushAsync();
+
+    assert.equal(document.elements.operatorQueue.children[0].children[0].textContent, 'Нет диалогов');
+    assert.equal(document.elements.operatorQueue.children[0].children[1].textContent, 'По этому фильтру обращений нет.');
+    assert.equal(document.elements.operatorSessionTitle.textContent, 'Ничего не выбрано');
+    assert.equal(document.elements.operatorSessionMeta.textContent, 'Выберите диалог');
+});
+
+test('operator console localizes operator login and queue fallback labels', async () => {
+    const document = createOperatorDocument();
+    const sandbox = {
+        console,
+        Date,
+        Error,
+        JSON,
+        Math,
+        Number,
+        String,
+        encodeURIComponent,
+        setInterval() {
+            return 1;
+        },
+        clearInterval() {},
+        async fetch(path) {
+            if (path.startsWith('/api/operator/queue?')) {
+                return createJSONResponse({
+                    items: [{
+                        handoff_id: 'handoff-2',
+                        session_id: '2200c185-1111-2222-3333-444444444444',
+                        status: 'waiting',
+                        reason: 'low_confidence_repeated',
+                        preview: '',
+                        last_intent: 'request_operator',
+                        active_topic: null,
+                        confidence: null,
+                        fallback_count: 0,
+                        action_summaries: [],
+                    }],
+                });
+            }
+            throw new Error(`unexpected fetch path: ${path}`);
+        },
+        document,
+        window: {},
+    };
+    sandbox.globalThis = sandbox;
+
+    vm.runInNewContext(scriptSource, sandbox, { filename: scriptPath });
+    document.elements.operatorSelect.value = 'OP-001';
+    document.elements.operatorSelect.dispatchEvent({ type: 'change', target: document.elements.operatorSelect });
+    await flushAsync();
+
+    assert.equal(document.elements.operatorStatusText.textContent, 'Вы вошли как OP-001');
+    assert.equal(document.elements.operatorQueue.children[0].children[0].textContent, 'Диалог 2200c185');
+    assert.equal(document.elements.operatorQueue.children[0].children[1].textContent, 'Запрос оператора - Ожидает');
 });
 
 test('operator console frontend source does not use dynamic HTML sinks or inline handlers', () => {

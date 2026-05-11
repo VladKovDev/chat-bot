@@ -269,6 +269,18 @@ func (s *Service) isLowConfidence(match MatchResult) bool {
 }
 
 func (s *Service) lowConfidenceResult(sess session.Session, confidence float64, candidates []Candidate) Result {
+	if sess.Mode == session.ModeStandard && strings.TrimSpace(sess.ActiveTopic) == "" {
+		return Result{
+			Intent:        "unknown",
+			State:         state.StateWaitingForCategory,
+			ResponseKey:   "start",
+			Confidence:    confidencePtr(confidence),
+			Candidates:    append([]Candidate(nil), candidates...),
+			LowConfidence: false,
+			Event:         session.EventMessageReceived,
+		}
+	}
+
 	result := Result{
 		Intent:        "unknown",
 		State:         state.StateWaitingClarification,

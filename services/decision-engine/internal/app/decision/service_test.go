@@ -242,6 +242,91 @@ func TestDecisionServiceFirstLowConfidenceAsksClarification(t *testing.T) {
 	}
 }
 
+func TestDecisionServiceLowConfidenceAtRootRecoversToStartMenu(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "unknown",
+				Category:       "fallback",
+				ResolutionType: "fallback",
+				ResponseKey:    "clarify_request",
+				Examples:       []string{"не знаю"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.22,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{Mode: session.ModeStandard},
+		nil,
+		"привте",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.ResponseKey != "start" {
+		t.Fatalf("response_key = %q, want start", result.ResponseKey)
+	}
+	if result.State != state.StateWaitingForCategory {
+		t.Fatalf("state = %q, want waiting_for_category", result.State)
+	}
+	if result.LowConfidence {
+		t.Fatalf("LowConfidence = true, want false for root recovery")
+	}
+}
+
+func TestDecisionServiceLowConfidenceWithActiveTopicStillClarifies(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "unknown",
+				Category:       "fallback",
+				ResolutionType: "fallback",
+				ResponseKey:    "clarify_request",
+				Examples:       []string{"не знаю"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.22,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{Mode: session.ModeStandard, ActiveTopic: "booking"},
+		nil,
+		"непонятно",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.ResponseKey != "clarify_request" {
+		t.Fatalf("response_key = %q, want clarify_request", result.ResponseKey)
+	}
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true for in-topic clarification")
+	}
+}
+
 func TestDecisionServicePromotesContextualLowConfidenceWithinActiveTopic(t *testing.T) {
 	t.Parallel()
 
