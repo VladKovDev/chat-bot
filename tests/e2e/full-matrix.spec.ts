@@ -170,6 +170,26 @@ test('E2E-006 @smoke booking found renders provider values and action evidence',
   await expectActionEvidence(session.session_id, 'find_booking', 'found');
 });
 
+test('E2E-006b booking info quick reply routes to identifier prompt without clarify fallback', async ({ request }) => {
+  const clientID = client('006b');
+  const session = await startSession(request, clientID);
+
+  const mainMenu = await sendMessage(request, session.session_id, clientID, 'главное меню');
+  const bookingMenuReply = mainMenu.quick_replies?.find((reply) => reply.id === 'menu-booking');
+  expect(bookingMenuReply).toBeTruthy();
+
+  const bookingInfo = await sendQuickReply(request, session.session_id, clientID, bookingMenuReply as QuickReply);
+  const statusReply = bookingInfo.quick_replies?.find((reply) => reply.id === 'booking-status-check');
+  expect(statusReply).toBeTruthy();
+
+  const bookingStatus = await sendQuickReply(request, session.session_id, clientID, statusReply as QuickReply);
+  expect(bookingStatus.text).toContain('Для поиска информации о записи');
+  expect(bookingStatus.text).toContain('Номер записи');
+
+  await expectDecision(session.session_id, 'ask_booking_status', 'booking_request_identifier');
+  await expectNoAction(session.session_id);
+});
+
 test('E2E-007 booking not found returns controlled response and operator retry replies', async ({ request }) => {
   const { session, response } = await apiFlow(request, '007', 'проверьте запись BRG-404000');
 

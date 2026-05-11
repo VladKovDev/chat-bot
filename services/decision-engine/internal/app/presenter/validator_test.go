@@ -134,6 +134,46 @@ func TestActualStartMenuUsesIntentQuickRepliesForCategories(t *testing.T) {
 	}
 }
 
+func TestActualBookingInfoUsesSelectIntentForStatusLookup(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	p, err := NewPresenter(configPath)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
+	resp, err := p.Present("booking_info", state.StateBooking)
+	if err != nil {
+		t.Fatalf("present booking_info: %v", err)
+	}
+
+	quickRepliesByID := make(map[string]QuickReplyConfig, len(resp.QuickReplies))
+	for _, quickReply := range resp.QuickReplies {
+		quickRepliesByID[quickReply.ID] = QuickReplyConfig{
+			ID:      quickReply.ID,
+			Label:   quickReply.Label,
+			Action:  quickReply.Action,
+			Payload: quickReply.Payload,
+			Order:   quickReply.Order,
+		}
+	}
+
+	statusReply, ok := quickRepliesByID["booking-status-check"]
+	if !ok {
+		t.Fatalf("booking-status-check quick reply missing: %#v", resp.QuickReplies)
+	}
+	if statusReply.Action != "select_intent" {
+		t.Fatalf("booking-status-check action = %q, want select_intent", statusReply.Action)
+	}
+	if got := statusReply.Payload["intent"]; got != "ask_booking_status" {
+		t.Fatalf("booking-status-check payload.intent = %#v, want ask_booking_status", got)
+	}
+}
+
 func TestValidateCatalogFailsOnMissingResponseAndUnknownAction(t *testing.T) {
 	t.Parallel()
 

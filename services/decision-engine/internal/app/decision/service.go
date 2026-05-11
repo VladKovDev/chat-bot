@@ -17,6 +17,7 @@ import (
 const (
 	DefaultMatchThreshold   = 0.78
 	DefaultAmbiguityDelta   = 0.08
+	ContextMatchThreshold   = 0.70
 	defaultLowConfidence    = "low_confidence"
 	defaultAmbiguousMatch   = "ambiguous_match"
 	defaultNoSemanticIntent = "no_semantic_intent"
@@ -110,12 +111,19 @@ func (s *Service) Decide(
 	}
 
 	confidence := match.Confidence
-	if match.IntentKey == "" || s.isLowConfidence(match) {
+	if match.IntentKey == "" {
 		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
 	}
 
 	intentDefinition, ok := s.intentsByKey[match.IntentKey]
 	if !ok {
+		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
+	}
+
+	if s.isLowConfidence(match) {
+		if promoted, ok := s.promoteContextualLowConfidence(sess, match, intentDefinition, text); ok {
+			return promoted, nil
+		}
 		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
 	}
 
@@ -338,6 +346,43 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func (s *Service) promoteContextualLowConfidence(
+	sess session.Session,
+	match MatchResult,
+	intentDefinition apppresenter.IntentDefinition,
+	text string,
+) (Result, bool) {
+	if match.FallbackReason != defaultLowConfidence {
+		return Result{}, false
+	}
+	if strings.TrimSpace(sess.ActiveTopic) == "" {
+		return Result{}, false
+	}
+	if match.Confidence < ContextMatchThreshold {
+		return Result{}, false
+	}
+	if topCandidateCategory(match) != strings.TrimSpace(sess.ActiveTopic) {
+		return Result{}, false
+	}
+
+	return resultForIntent(sess, intentDefinition, text, confidencePtr(match.Confidence), match.Candidates), true
+}
+
+func topCandidateCategory(match MatchResult) string {
+	if len(match.Candidates) == 0 {
+		return ""
+	}
+	raw, ok := match.Candidates[0].Metadata["category"]
+	if !ok {
+		return ""
+	}
+	category, ok := raw.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(category)
 }
 
 var (

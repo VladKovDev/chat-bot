@@ -242,6 +242,113 @@ func TestDecisionServiceFirstLowConfidenceAsksClarification(t *testing.T) {
 	}
 }
 
+func TestDecisionServicePromotesContextualLowConfidenceWithinActiveTopic(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_booking_status",
+				Category:            "booking",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "booking_request_identifier",
+				FallbackResponseKey: "booking_request_identifier",
+				Action:              "find_booking",
+				Examples:            []string{"статус записи"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "ask_booking_status",
+		Confidence:     0.7335497736930847,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+		Candidates: []Candidate{
+			{
+				IntentKey:  "ask_booking_status",
+				Confidence: 0.7335497736930847,
+				Metadata: map[string]any{
+					"category": "booking",
+				},
+			},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{ActiveTopic: "booking"},
+		nil,
+		"Проверить статус записи",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.Intent != "ask_booking_status" {
+		t.Fatalf("intent = %q, want ask_booking_status", result.Intent)
+	}
+	if result.ResponseKey != "booking_request_identifier" {
+		t.Fatalf("response_key = %q, want booking_request_identifier", result.ResponseKey)
+	}
+	if result.State != state.StateWaitingForIdentifier {
+		t.Fatalf("state = %q, want waiting_for_identifier", result.State)
+	}
+}
+
+func TestDecisionServiceDoesNotPromoteContextualLowConfidenceAcrossDifferentTopic(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_booking_status",
+				Category:            "booking",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "booking_request_identifier",
+				FallbackResponseKey: "booking_request_identifier",
+				Action:              "find_booking",
+				Examples:            []string{"статус записи"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "ask_booking_status",
+		Confidence:     0.7335497736930847,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+		Candidates: []Candidate{
+			{
+				IntentKey:  "ask_booking_status",
+				Confidence: 0.7335497736930847,
+				Metadata: map[string]any{
+					"category": "booking",
+				},
+			},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{ActiveTopic: "payment"},
+		nil,
+		"Проверить статус записи",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.Intent != "unknown" {
+		t.Fatalf("intent = %q, want unknown", result.Intent)
+	}
+	if result.ResponseKey != "clarify_request" {
+		t.Fatalf("response_key = %q, want clarify_request", result.ResponseKey)
+	}
+}
+
 func TestDecisionServiceAppliesSemanticThresholdAndAmbiguityPolicy(t *testing.T) {
 	t.Parallel()
 

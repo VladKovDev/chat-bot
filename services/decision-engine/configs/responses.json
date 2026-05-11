@@ -30,20 +30,20 @@
 
     "booking_category": {
         "message": "📅 Записи и бронирование\n\nЯ могу помочь вам с вопросами о записях и бронированиях.\n\nЧто вас интересует?",
-        "options": [
-            "ℹ️ Информация о записи",
-            "❓ Правила отмены и переноса",
-            "🔍 Статус записи",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "booking-info", "label": "ℹ️ Информация о записи", "action": "select_intent", "payload": { "intent": "ask_booking_info", "text": "Информация о записи" } },
+            { "id": "booking-rules", "label": "❓ Правила отмены и переноса", "action": "select_intent", "payload": { "intent": "ask_cancellation_rules", "text": "Правила отмены и переноса" } },
+            { "id": "booking-status", "label": "🔍 Статус записи", "action": "select_intent", "payload": { "intent": "ask_booking_status", "text": "Статус записи" } },
+            { "id": "booking-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_info": {
         "message": "📅 Как работает запись\n\nВы можете записаться через сайт, выбрать услугу, мастера и удобное время. После подтверждения запись появится в вашем аккаунте, а напоминание придёт заранее.\n\nЕсли нужна помощь с выбором времени или услуги, можно сразу обратиться к оператору.",
-        "options": [
-            "🔍 Проверить статус записи",
-            "❓ Правила отмены и переноса",
-            "📞 Связаться с оператором",
-            "↩️ Вернуться в главное меню"
+        "quick_replies": [
+            { "id": "booking-status-check", "label": "🔍 Проверить статус записи", "action": "select_intent", "payload": { "intent": "ask_booking_status", "text": "Проверить статус записи" } },
+            { "id": "booking-rules-check", "label": "❓ Правила отмены и переноса", "action": "select_intent", "payload": { "intent": "ask_cancellation_rules", "text": "Правила отмены и переноса" } },
+            { "id": "booking-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "booking-menu-back", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_request_identifier": {
