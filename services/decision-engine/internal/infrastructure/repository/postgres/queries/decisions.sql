@@ -7,6 +7,8 @@ INSERT INTO decision_logs (
     "response_key",
     "confidence",
     "low_confidence",
+    "fallback_reason",
+    "threshold",
     "candidates"
 )
 VALUES (
@@ -17,6 +19,8 @@ VALUES (
     sqlc.arg(response_key)::VARCHAR(80),
     sqlc.narg(confidence)::DOUBLE PRECISION,
     sqlc.arg(low_confidence)::BOOLEAN,
+    sqlc.narg(fallback_reason)::TEXT,
+    sqlc.narg(threshold)::DOUBLE PRECISION,
     sqlc.arg(candidates)::JSONB
 )
 RETURNING *;

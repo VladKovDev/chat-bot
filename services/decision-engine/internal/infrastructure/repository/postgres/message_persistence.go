@@ -99,14 +99,16 @@ func (tx *messageTx) LogDecision(ctx context.Context, entry worker.DecisionLog) 
 	}
 
 	dbLog, err := tx.queries.LogDecision(ctx, sqlc.LogDecisionParams{
-		SessionID:     uuidToPgUUID(entry.SessionID),
-		MessageID:     uuidToPgUUID(entry.MessageID),
-		Intent:        entry.Intent,
-		State:         string(entry.State),
-		ResponseKey:   entry.ResponseKey,
-		Confidence:    entry.Confidence,
-		LowConfidence: entry.LowConfidence,
-		Candidates:    candidates,
+		SessionID:      uuidToPgUUID(entry.SessionID),
+		MessageID:      uuidToPgUUID(entry.MessageID),
+		Intent:         entry.Intent,
+		State:          string(entry.State),
+		ResponseKey:    entry.ResponseKey,
+		Confidence:     entry.Confidence,
+		LowConfidence:  entry.LowConfidence,
+		FallbackReason: entry.FallbackReason,
+		Threshold:      entry.Threshold,
+		Candidates:     candidates,
 	})
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -121,6 +123,9 @@ func (tx *messageTx) LogDecision(ctx context.Context, entry worker.DecisionLog) 
 		source := candidate.Source
 		if source == "" {
 			source = "intent_example"
+		}
+		if !allowedCandidateSource(source) {
+			return fmt.Errorf("unsupported decision candidate source: %s", source)
 		}
 		metadata, err := json.Marshal(map[string]any{
 			"text":     candidate.Text,
@@ -145,6 +150,15 @@ func (tx *messageTx) LogDecision(ctx context.Context, entry worker.DecisionLog) 
 		}
 	}
 	return nil
+}
+
+func allowedCandidateSource(source string) bool {
+	switch source {
+	case "intent_example", "knowledge_chunk", "exact_command", "fallback", "lexical_fuzzy":
+		return true
+	default:
+		return false
+	}
 }
 
 func (tx *messageTx) LogAction(ctx context.Context, entry action.Log) error {

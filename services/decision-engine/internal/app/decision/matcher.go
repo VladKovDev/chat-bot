@@ -12,6 +12,57 @@ import (
 
 type CatalogMatcher struct{}
 
+var normalizedTokenAliases = map[string]string{
+	"account":     "аккаунт",
+	"appointment": "запись",
+	"booking":     "запись",
+	"but":         "",
+	"call":        "",
+	"cancel":      "отмена",
+	"code":        "код",
+	"complaint":   "жалоба",
+	"contact":     "контакты",
+	"contacts":    "контакты",
+	"down":        "не работает",
+	"failed":      "не прошла",
+	"faq":         "faq",
+	"forgot":      "забыл",
+	"general":     "общий",
+	"help":        "помощь",
+	"hours":       "часы",
+	"inactive":    "не активировалась",
+	"info":        "информация",
+	"is":          "",
+	"list":        "список",
+	"location":    "адрес",
+	"login":       "логин",
+	"master":      "мастер",
+	"missing":     "не приходит",
+	"my":          "",
+	"operator":    "оператор",
+	"paid":        "оплата прошла",
+	"password":    "пароль",
+	"payment":     "платеж",
+	"please":      "",
+	"premises":    "помещение",
+	"price":       "цена",
+	"prices":      "цены",
+	"problem":     "проблема",
+	"question":    "вопрос",
+	"random":      "",
+	"refund":      "возврат",
+	"rent":        "аренда",
+	"rules":       "правила",
+	"service":     "услуга",
+	"services":    "услуги",
+	"site":        "сайт",
+	"sms":         "смс",
+	"status":      "статус",
+	"text":        "текст",
+	"unclear":     "непонятно",
+	"workspace":   "коворкинг",
+}
+
 func NewCatalogMatcher() *CatalogMatcher {
 	return &CatalogMatcher{}
 }
@@ -46,11 +97,35 @@ func normalizeText(text string) string {
 		}
 	}
 
-	return strings.TrimSpace(builder.String())
+	normalized := strings.TrimSpace(builder.String())
+	if normalized == "" {
+		return ""
+	}
+	return canonicalizeSupportTokens(normalized)
 }
 
 func NormalizeForSeed(text string) string {
 	return normalizeText(text)
+}
+
+func canonicalizeSupportTokens(text string) string {
+	tokens := strings.Fields(text)
+	if len(tokens) == 0 {
+		return ""
+	}
+
+	normalized := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if alias, ok := normalizedTokenAliases[token]; ok {
+			if alias == "" {
+				continue
+			}
+			normalized = append(normalized, strings.Fields(alias)...)
+			continue
+		}
+		normalized = append(normalized, token)
+	}
+	return strings.Join(normalized, " ")
 }
 
 func tokenSet(text string) map[string]struct{} {

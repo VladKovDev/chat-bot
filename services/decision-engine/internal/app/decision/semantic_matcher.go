@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	CandidateSourceIntentExample = "intent_example"
-	CandidateSourceExactCommand  = "exact_command"
-	CandidateSourceLexicalFuzzy  = "lexical_fuzzy"
+	CandidateSourceIntentExample  = "intent_example"
+	CandidateSourceExactCommand   = "exact_command"
+	CandidateSourceLexicalFuzzy   = "lexical_fuzzy"
 	CandidateSourceKnowledgeChunk = "knowledge_chunk"
-	CandidateSourceFallback      = "fallback"
+	CandidateSourceContextualRule = "contextual_rule"
+	CandidateSourceFallback       = "fallback"
 )
 
 type Embedder interface {
@@ -90,7 +91,16 @@ func (m *SemanticIntentMatcher) Match(
 	embedding, err := m.embedder.Embed(ctx, text)
 	if err != nil {
 		if len(lexicalCandidates) > 0 {
-			return rankCandidates(lexicalCandidates), nil
+			match := rankCandidates(lexicalCandidates)
+			match.LowConfidence = true
+			match.FallbackReason = "embedding_unavailable"
+			for index := range match.Candidates {
+				if match.Candidates[index].Metadata == nil {
+					match.Candidates[index].Metadata = map[string]any{}
+				}
+				match.Candidates[index].Metadata["reason"] = "embedding_unavailable"
+			}
+			return match, nil
 		}
 		return MatchResult{
 			LowConfidence:  true,

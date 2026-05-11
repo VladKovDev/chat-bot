@@ -61,6 +61,7 @@ type Result struct {
 	Confidence              *float64
 	Candidates              []Candidate
 	LowConfidence           bool
+	FallbackReason          string
 	Event                   session.Event
 	UseActionResponseSelect bool
 }
@@ -69,6 +70,7 @@ type Service struct {
 	intentsByKey map[string]apppresenter.IntentDefinition
 	intents      []apppresenter.IntentDefinition
 	matcher      Matcher
+	knowledge    KnowledgeSearcher
 	logger       logger.Logger
 }
 
@@ -99,12 +101,20 @@ func NewService(
 	}, nil
 }
 
+func (s *Service) SetKnowledgeSearcher(searcher KnowledgeSearcher) {
+	s.knowledge = searcher
+}
+
 func (s *Service) Decide(
 	ctx context.Context,
 	sess session.Session,
 	_ []message.Message,
 	text string,
 ) (Result, error) {
+	if contextual, ok := s.resolveIdentifierFollowUp(sess, text); ok {
+		return contextual, nil
+	}
+
 	match, err := s.matcher.Match(ctx, text, s.intents)
 	if err != nil {
 		return Result{}, fmt.Errorf("match intent: %w", err)
@@ -116,24 +126,35 @@ func (s *Service) Decide(
 		match = scoped
 	}
 
+	if contextual, ok := s.resolveContextualFollowUp(sess, text, match); ok {
+		return contextual, nil
+	}
+
 	confidence := match.Confidence
 	if match.IntentKey == "" {
-		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
+		return s.lowConfidenceResult(sess, confidence, match.Candidates, match.FallbackReason), nil
 	}
 
 	intentDefinition, ok := s.intentsByKey[match.IntentKey]
 	if !ok {
-		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
+		return s.lowConfidenceResult(sess, confidence, match.Candidates, match.FallbackReason), nil
 	}
 
 	if s.isLowConfidence(match) {
 		if promoted, ok := s.promoteContextualLowConfidence(sess, match, intentDefinition, text); ok {
 			return promoted, nil
 		}
-		return s.lowConfidenceResult(sess, confidence, match.Candidates), nil
+		return s.lowConfidenceResult(sess, confidence, match.Candidates, match.FallbackReason), nil
 	}
 
-	return resultForIntent(sess, intentDefinition, text, confidencePtr(confidence), match.Candidates), nil
+	candidates := append([]Candidate(nil), match.Candidates...)
+	if enriched, err := s.retrieveKnowledgeCandidate(ctx, text, intentDefinition); err != nil {
+		return Result{}, fmt.Errorf("retrieve knowledge candidate: %w", err)
+	} else if enriched != nil {
+		candidates = append(candidates, *enriched)
+	}
+
+	return resultForIntent(sess, intentDefinition, text, confidencePtr(confidence), candidates), nil
 }
 
 func (s *Service) topicScopedMatch(
@@ -172,6 +193,31 @@ func (s *Service) topicScopedMatch(
 	return MatchResult{}, false, nil
 }
 
+func (s *Service) resolveIdentifierFollowUp(sess session.Session, text string) (Result, bool) {
+	intentDefinition, ok := s.pendingBusinessLookupIntent(sess)
+	if !ok {
+		return Result{}, false
+	}
+
+	identifier, _ := extractIdentifier(text, intentDefinition.Action)
+	if identifier == "" {
+		return Result{}, false
+	}
+
+	return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), true
+}
+
+func (s *Service) retrieveKnowledgeCandidate(
+	ctx context.Context,
+	text string,
+	intentDefinition apppresenter.IntentDefinition,
+) (*Candidate, error) {
+	if s.knowledge == nil {
+		return nil, nil
+	}
+	return s.knowledge.Retrieve(ctx, text, intentDefinition)
+}
+
 func (s *Service) intentsForTopic(topic string) []apppresenter.IntentDefinition {
 	scoped := make([]apppresenter.IntentDefinition, 0)
 	for _, intentDefinition := range s.intents {
@@ -198,7 +244,7 @@ func (s *Service) DecideQuickReply(
 		}
 		intentDefinition, ok := s.intentsByKey[intentKey]
 		if !ok {
-			return s.lowConfidenceResult(sess, 0, nil), nil
+			return s.lowConfidenceResult(sess, 0, nil, defaultLowConfidence), nil
 		}
 		return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), nil
 	case "request_operator":
@@ -305,6 +351,45 @@ func quickReplyPayloadString(payload map[string]any, key string) string {
 	return strings.TrimSpace(text)
 }
 
+func (s *Service) resolveContextualFollowUp(sess session.Session, text string, match MatchResult) (Result, bool) {
+	if !s.isLowConfidence(match) {
+		return Result{}, false
+	}
+
+	normalized := normalizeText(text)
+	if normalized == "" {
+		return Result{}, false
+	}
+
+	if isNegativeFollowUp(normalized) {
+		if result, ok := s.resultForIntentKey(sess, "return_to_menu", text, 1); ok {
+			return result, true
+		}
+	}
+
+	if isAffirmativeFollowUp(normalized) {
+		if intentDefinition, ok := s.pendingBusinessLookupIntent(sess); ok {
+			return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), true
+		}
+	}
+
+	activeTopic := strings.TrimSpace(sess.ActiveTopic)
+	if activeTopic == "" || !isShortContextualFollowUp(normalized) {
+		return Result{}, false
+	}
+
+	intentKey := contextualIntentForTopic(activeTopic, normalized)
+	if intentKey == "" {
+		return Result{}, false
+	}
+
+	result, ok := s.resultForIntentKey(sess, intentKey, text, ContextMatchThreshold)
+	if !ok {
+		return Result{}, false
+	}
+	return result, true
+}
+
 func (s *Service) isLowConfidence(match MatchResult) bool {
 	if match.IntentKey == "" {
 		return true
@@ -321,37 +406,33 @@ func (s *Service) isLowConfidence(match MatchResult) bool {
 	return match.Candidates[0].Confidence-match.Candidates[1].Confidence < DefaultAmbiguityDelta
 }
 
-func (s *Service) lowConfidenceResult(sess session.Session, confidence float64, candidates []Candidate) Result {
-	if sess.Mode == session.ModeStandard && strings.TrimSpace(sess.ActiveTopic) == "" {
+func (s *Service) lowConfidenceResult(sess session.Session, confidence float64, candidates []Candidate, fallbackReason string) Result {
+	if sess.FallbackCount >= 1 {
 		return Result{
-			Intent:        "unknown",
-			State:         state.StateWaitingForCategory,
-			ResponseKey:   "start",
-			Confidence:    confidencePtr(confidence),
-			Candidates:    append([]Candidate(nil), candidates...),
-			LowConfidence: false,
-			Event:         session.EventMessageReceived,
+			Intent:         "unknown",
+			State:          state.StateEscalatedToOperator,
+			ResponseKey:    "operator_handoff_requested",
+			Confidence:     confidencePtr(confidence),
+			Candidates:     append([]Candidate(nil), candidates...),
+			LowConfidence:  true,
+			FallbackReason: "low_confidence_repeated",
+			Event:          session.EventRequestOperator,
+			Actions:        []string{action.ActionEscalateToOperator},
+			ActionContext: map[string]any{
+				"handoff_reason": "low_confidence_repeated",
+			},
 		}
 	}
 
 	result := Result{
-		Intent:        "unknown",
-		State:         state.StateWaitingClarification,
-		ResponseKey:   "clarify_request",
-		Confidence:    confidencePtr(confidence),
-		Candidates:    append([]Candidate(nil), candidates...),
-		LowConfidence: true,
-		Event:         session.EventMessageReceived,
-	}
-
-	if sess.FallbackCount >= 1 {
-		result.State = state.StateEscalatedToOperator
-		result.ResponseKey = "operator_handoff_requested"
-		result.Event = session.EventRequestOperator
-		result.Actions = []string{action.ActionEscalateToOperator}
-		result.ActionContext = map[string]any{
-			"handoff_reason": "low_confidence_repeated",
-		}
+		Intent:         "unknown",
+		State:          state.StateWaitingClarification,
+		ResponseKey:    "clarify_request",
+		Confidence:     confidencePtr(confidence),
+		Candidates:     append([]Candidate(nil), candidates...),
+		LowConfidence:  true,
+		FallbackReason: firstNonEmpty(fallbackReason, defaultLowConfidence),
+		Event:          session.EventMessageReceived,
 	}
 
 	return result
@@ -433,6 +514,129 @@ func (s *Service) promoteContextualLowConfidence(
 	}
 
 	return resultForIntent(sess, intentDefinition, text, confidencePtr(match.Confidence), match.Candidates), true
+}
+
+func (s *Service) pendingBusinessLookupIntent(sess session.Session) (apppresenter.IntentDefinition, bool) {
+	if sess.State != state.StateWaitingForIdentifier {
+		return apppresenter.IntentDefinition{}, false
+	}
+
+	lastIntent := strings.TrimSpace(sess.LastIntent)
+	if lastIntent == "" {
+		return apppresenter.IntentDefinition{}, false
+	}
+
+	intentDefinition, ok := s.intentsByKey[lastIntent]
+	if !ok || intentDefinition.ResolutionType != "business_lookup" {
+		return apppresenter.IntentDefinition{}, false
+	}
+
+	return intentDefinition, true
+}
+
+func (s *Service) resultForIntentKey(
+	sess session.Session,
+	intentKey string,
+	text string,
+	confidence float64,
+) (Result, bool) {
+	intentDefinition, ok := s.intentsByKey[intentKey]
+	if !ok {
+		return Result{}, false
+	}
+	candidates := []Candidate{
+		{
+			IntentKey:  intentKey,
+			Confidence: confidence,
+			Source:     CandidateSourceContextualRule,
+			Text:       text,
+			Metadata: map[string]any{
+				"category": intentDefinition.Category,
+				"reason":   "contextual_topic_rule",
+			},
+		},
+	}
+	return resultForIntent(sess, intentDefinition, text, confidencePtr(confidence), candidates), true
+}
+
+type contextualIntentRule struct {
+	intentKey string
+	signals   []string
+}
+
+var contextualTopicRules = map[string][]contextualIntentRule{
+	"booking": {
+		{intentKey: "ask_booking_status", signals: []string{"статус", "что с записью", "моя запись", "бронь"}},
+		{intentKey: "ask_cancellation_rules", signals: []string{"отмен", "не приду"}},
+		{intentKey: "ask_reschedule_rules", signals: []string{"перенос", "перенести", "другое время"}},
+		{intentKey: "ask_booking_info", signals: []string{"как запис", "запись"}},
+	},
+	"workspace": {
+		{intentKey: "ask_workspace_status", signals: []string{"статус", "бронь", "место забронировано"}},
+		{intentKey: "ask_workspace_prices", signals: []string{"сколько стоит", "цена", "прайс", "стоимость", "тариф"}},
+		{intentKey: "ask_workspace_rules", signals: []string{"правила", "условия", "можно", "нельзя"}},
+		{intentKey: "ask_workspace_info", signals: []string{"коворкинг", "рабочие места", "места"}},
+	},
+	"payment": {
+		{intentKey: "ask_payment_status", signals: []string{"статус", "платеж", "оплат"}},
+		{intentKey: "ask_refund_rules", signals: []string{"возврат", "вернуть"}},
+	},
+	"account": {
+		{intentKey: "ask_account_status", signals: []string{"статус", "аккаунт", "профиль"}},
+		{intentKey: "account_code_not_received", signals: []string{"код", "подтверждение"}},
+		{intentKey: "forgot_password", signals: []string{"пароль", "доступ"}},
+		{intentKey: "ask_account_help", signals: []string{"помощь", "кабинет"}},
+	},
+	"services": {
+		{intentKey: "ask_prices", signals: []string{"сколько стоит", "цена", "прайс", "стоимость"}},
+		{intentKey: "ask_rules", signals: []string{"правила", "условия"}},
+		{intentKey: "ask_location", signals: []string{"адрес", "график", "часы", "где"}},
+		{intentKey: "ask_faq", signals: []string{"faq", "частые вопросы"}},
+		{intentKey: "show_contacts", signals: []string{"контакты", "телефон", "почта"}},
+	},
+	"tech_issue": {
+		{intentKey: "ask_site_problem", signals: []string{"сайт", "страница"}},
+		{intentKey: "login_not_working", signals: []string{"логин", "войти", "авториза"}},
+		{intentKey: "code_not_received", signals: []string{"код", "смс"}},
+	},
+	"complaint": {
+		{intentKey: "report_complaint", signals: []string{"жалоб", "оператор", "специалист"}},
+	},
+}
+
+func contextualIntentForTopic(topic, normalized string) string {
+	rules := contextualTopicRules[topic]
+	for _, rule := range rules {
+		for _, signal := range rule.signals {
+			if strings.Contains(normalized, signal) {
+				return rule.intentKey
+			}
+		}
+	}
+	return ""
+}
+
+func isShortContextualFollowUp(normalized string) bool {
+	tokens := strings.Fields(normalized)
+	return len(tokens) > 0 && len(tokens) <= 5
+}
+
+func isAffirmativeFollowUp(normalized string) bool {
+	switch normalized {
+	case "да", "ага", "угу", "ок", "хорошо":
+		return true
+	default:
+		return false
+	}
+}
+
+func isNegativeFollowUp(normalized string) bool {
+	switch normalized {
+	case "нет", "неа", "не хочу", "не нужно":
+		return true
+	default:
+		return false
+	}
 }
 
 func topCandidateCategory(match MatchResult) string {

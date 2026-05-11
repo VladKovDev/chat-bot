@@ -496,7 +496,9 @@ test('E2E-030 @smoke malicious text renders as text and does not execute script'
 
   await expect(page.locator('.message.user-message .message-text').last()).toHaveText(payload);
   expect(await page.evaluate(() => (window as Window & { __xssFired?: boolean }).__xssFired)).toBe(false);
-  expect((await messages(sessionID)).some((item) => item.sender_type === 'user' && item.text === payload)).toBeTruthy();
+  await expect
+    .poll(async () => (await messages(sessionID)).some((item) => item.sender_type === 'user' && item.text === payload))
+    .toBeTruthy();
 });
 
 test('E2E-031 @smoke WebSocket rejects disallowed Origin without raw user data', async () => {

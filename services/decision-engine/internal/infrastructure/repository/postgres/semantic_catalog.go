@@ -71,6 +71,40 @@ func (r *SemanticCatalogRepository) SearchIntentExamples(
 	return results, nil
 }
 
+func (r *SemanticCatalogRepository) SearchKnowledgeChunks(
+	ctx context.Context,
+	embedding []float64,
+	limit int,
+) ([]appdecision.KnowledgeSearchResult, error) {
+	if limit <= 0 {
+		limit = 3
+	}
+	if err := validateEmbeddingDimension(embedding, r.expectedDimension); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.querier.SearchKnowledgeChunks(ctx, sqlc.SearchKnowledgeChunksParams{
+		Embedding:   vectorLiteral(embedding),
+		ResultLimit: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]appdecision.KnowledgeSearchResult, 0, len(rows))
+	for _, row := range rows {
+		results = append(results, appdecision.KnowledgeSearchResult{
+			ArticleKey: row.ArticleKey,
+			Category:   row.Category,
+			Title:      row.Title,
+			ChunkIndex: int(row.ChunkIndex),
+			Body:       row.Body,
+			Confidence: row.Confidence,
+		})
+	}
+	return results, nil
+}
+
 func (r *SemanticCatalogRepository) SeedIntent(
 	ctx context.Context,
 	intent apppresenter.IntentDefinition,

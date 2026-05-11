@@ -224,8 +224,14 @@ func TestSemanticMatcherEmbeddingOutageFallsBackToLexicalCandidates(t *testing.T
 	if match.IntentKey != "ask_workspace_prices" {
 		t.Fatalf("match = %#v, want ask_workspace_prices", match)
 	}
+	if !match.LowConfidence || match.FallbackReason != "embedding_unavailable" {
+		t.Fatalf("match = %#v, want embedding_unavailable low-confidence lexical fallback", match)
+	}
 	if len(match.Candidates) == 0 || match.Candidates[0].Source != CandidateSourceLexicalFuzzy {
 		t.Fatalf("candidates = %#v, want lexical_fuzzy fallback", match.Candidates)
+	}
+	if got := match.Candidates[0].Metadata["reason"]; got != "embedding_unavailable" {
+		t.Fatalf("candidate reason = %#v, want embedding_unavailable", got)
 	}
 }
 
@@ -440,5 +446,72 @@ func TestSemanticMatcherDeterministicOrderingOnEqualConfidence(t *testing.T) {
 	}
 	if match.Candidates[0].IntentKey != "a_intent" || match.Candidates[1].IntentKey != "z_intent" {
 		t.Fatalf("deterministic ordering failed: %#v", match.Candidates)
+	}
+}
+
+func TestNormalizeTextCanonicalizesCommonSupportEnglish(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		raw  string
+		want string
+	}{
+		{raw: "payment status please", want: "платеж статус"},
+		{raw: "site is down", want: "сайт не работает"},
+		{raw: "forgot password", want: "забыл пароль"},
+		{raw: "contact info", want: "контакты информация"},
+		{raw: "faq workspace rent", want: "faq коворкинг аренда"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.raw, func(t *testing.T) {
+			t.Parallel()
+
+			if got := normalizeText(tt.raw); got != tt.want {
+				t.Fatalf("normalizeText(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCatalogMatcherMatchesCanonicalizedEnglishSupportQueries(t *testing.T) {
+	t.Parallel()
+
+	intents := []apppresenter.IntentDefinition{
+		{Key: "payment_not_passed", Category: "payment", Examples: []string{"оплата не прошла"}},
+		{Key: "forgot_password", Category: "account", Examples: []string{"забыл пароль"}},
+		{Key: "show_contacts", Category: "services", Examples: []string{"контактная информация"}},
+		{Key: "ask_location", Category: "services", Examples: []string{"адрес и часы работы"}},
+		{Key: "report_complaint", Category: "complaint", Examples: []string{"жалоба"}},
+	}
+
+	tests := []struct {
+		query      string
+		wantIntent string
+	}{
+		{query: "payment failed", wantIntent: "payment_not_passed"},
+		{query: "forgot password", wantIntent: "forgot_password"},
+		{query: "contact info", wantIntent: "show_contacts"},
+		{query: "location and hours", wantIntent: "ask_location"},
+		{query: "complaint", wantIntent: "report_complaint"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.query, func(t *testing.T) {
+			t.Parallel()
+
+			match, err := NewCatalogMatcher().Match(context.Background(), tt.query, intents)
+			if err != nil {
+				t.Fatalf("match: %v", err)
+			}
+			if match.IntentKey != tt.wantIntent {
+				t.Fatalf("query %q intent = %q, want %q", tt.query, match.IntentKey, tt.wantIntent)
+			}
+			if match.Confidence <= 0 {
+				t.Fatalf("query %q confidence = %.2f, want positive score", tt.query, match.Confidence)
+			}
+		})
 	}
 }

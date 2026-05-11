@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS decision_candidates (
     confidence DOUBLE PRECISION NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
     rank INT NOT NULL CHECK (rank > 0),
     source VARCHAR(32) NOT NULL DEFAULT 'intent_example'
-        CHECK (source IN ('intent_example', 'knowledge_chunk', 'exact_command', 'fallback')),
+        CHECK (source IN ('intent_example', 'knowledge_chunk', 'exact_command', 'fallback', 'lexical_fuzzy')),
     metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     UNIQUE (decision_log_id, rank)

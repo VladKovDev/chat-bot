@@ -26,7 +26,6 @@ func NewValidator(responses map[string]*ResponseConfig, logger logger.Logger) *V
 
 var (
 	placeholderPattern = regexp.MustCompile(`#?\{([a-zA-Z0-9_]+)\}`)
-	cyrillicPattern    = regexp.MustCompile(`[А-Яа-яЁё]`)
 )
 
 var expectedPlaceholdersByResponse = map[string][]string{
@@ -271,9 +270,6 @@ func (v *Validator) validateIntentDefinition(intentDefinition IntentDefinition) 
 		if strings.TrimSpace(example) == "" {
 			errors = append(errors, fmt.Sprintf("intent %s contains an empty example", intentDefinition.Key))
 			continue
-		}
-		if !cyrillicPattern.MatchString(example) {
-			errors = append(errors, fmt.Sprintf("intent %s contains a non-Russian example: %s", intentDefinition.Key, example))
 		}
 	}
 

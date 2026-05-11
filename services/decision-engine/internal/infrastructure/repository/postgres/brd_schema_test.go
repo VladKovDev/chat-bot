@@ -13,6 +13,7 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 	sql := strings.Join([]string{
 		readMigrationForTest(t, "20260510210000_brd_pgvector_catalog.sql"),
 		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
+		readMigrationForTest(t, "20260511120000_decision_candidate_source_alignment.sql"),
 		readQueryForTest(t, "brd_catalog.sql"),
 	}, "\n")
 
@@ -37,6 +38,7 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 		"CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding_hnsw",
 		"CREATE TABLE IF NOT EXISTS quick_replies",
 		"CREATE TABLE IF NOT EXISTS decision_candidates",
+		"'lexical_fuzzy'",
 		"CREATE TABLE IF NOT EXISTS demo_accounts",
 		"CREATE TABLE IF NOT EXISTS demo_bookings",
 		"CREATE TABLE IF NOT EXISTS demo_workspace_bookings",
@@ -61,6 +63,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		readMigrationForTest(t, "20260510193000_operator_queue.sql"),
 		readMigrationForTest(t, "20260510210000_brd_pgvector_catalog.sql"),
 		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
+		readMigrationForTest(t, "20260511120000_decision_candidate_source_alignment.sql"),
 		readQueryForTest(t, "sessions.sql"),
 	}, "\n")
 

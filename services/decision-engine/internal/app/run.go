@@ -183,6 +183,15 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize decision service: %w", err)
 	}
+	knowledgeRetriever, err := appdecision.NewKnowledgeRetriever(
+		embedder,
+		semanticCatalogRepo,
+		appdecision.KnowledgeRetrieverConfig{TopK: 3},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize knowledge retriever: %w", err)
+	}
+	decisionService.SetKnowledgeSearcher(knowledgeRetriever)
 
 	operatorService := appoperator.NewService(operatorRepo, sessionRepo)
 

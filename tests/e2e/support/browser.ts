@@ -2,7 +2,7 @@ import { expect, Page } from '@playwright/test';
 
 export async function openChat(page: Page) {
   await page.goto('/');
-  await expect(page.locator('#statusText')).toHaveText('Connected');
+  await expect(page.locator('#statusText')).toHaveText(/Connected|Онлайн/);
   await page.waitForFunction(() => Boolean((window as Window & { currentSessionId?: string }).currentSessionId));
   return page.evaluate(() => (window as Window & { currentSessionId: string }).currentSessionId);
 }

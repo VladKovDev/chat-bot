@@ -91,6 +91,19 @@ func TestSemanticCatalogRepositorySearchIntentExamplesWithPgvector(t *testing.T)
 	}
 }
 
+func TestSemanticCatalogRepositorySearchKnowledgeChunksRejectsDimensionMismatch(t *testing.T) {
+	t.Parallel()
+
+	repo := NewSemanticCatalogRepositoryWithDimension(nil, appseed.SemanticEmbeddingDimension)
+	_, err := repo.SearchKnowledgeChunks(context.Background(), basisVector(0, appseed.SemanticEmbeddingDimension-1), 1)
+	if err == nil {
+		t.Fatal("expected dimension mismatch error")
+	}
+	if !strings.Contains(err.Error(), "embedding dimension") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestSemanticCatalogRepositoryRejectsEmbeddingDimensionMismatch(t *testing.T) {
 	t.Parallel()
 

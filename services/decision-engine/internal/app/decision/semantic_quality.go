@@ -154,7 +154,16 @@ func EvaluateSemanticCorpus(ctx context.Context, cfg SemanticEvaluationConfig) (
 	if err != nil {
 		return SemanticEvaluationReport{}, err
 	}
-	service, err := NewService(catalog, NewCatalogMatcher(), logger.Noop())
+	embedder := newDeterministicHashEmbedder(corpusHarnessEmbeddingDimension, "semantic-gate")
+	searchRepo, err := newInMemoryIntentSearchRepository(ctx, embedder, catalog.Intents)
+	if err != nil {
+		return SemanticEvaluationReport{}, err
+	}
+	matcher, err := NewSemanticIntentMatcher(embedder, searchRepo, SemanticMatcherConfig{TopK: 3, Locale: "ru"})
+	if err != nil {
+		return SemanticEvaluationReport{}, err
+	}
+	service, err := NewService(catalog, matcher, logger.Noop())
 	if err != nil {
 		return SemanticEvaluationReport{}, err
 	}
@@ -265,6 +274,9 @@ func candidateContainsIntent(candidates []Candidate, intentKey string) bool {
 }
 
 func isClarifyDecision(result Result) bool {
+	if isOperatorDecision(result) {
+		return false
+	}
 	return result.LowConfidence || result.ResponseKey == "clarify_request" || result.State == state.StateWaitingClarification
 }
 

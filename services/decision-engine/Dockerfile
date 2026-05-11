@@ -12,6 +12,7 @@ COPY go.mod go.sum ./
 
 # Download Go modules
 RUN go mod download
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.26.0
 
 # Copy the rest of the application
 COPY ./ ./
@@ -22,7 +23,6 @@ COPY ./ ./
 
 # Build the application
 RUN CGO_ENABLED=0 go build -o ./chat-bot-start ./cmd/app/main.go
-RUN go install github.com/pressly/goose/v3/cmd/goose@v3.26.0
 
 FROM base AS runner
 WORKDIR /app

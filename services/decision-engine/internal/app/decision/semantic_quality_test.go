@@ -4,7 +4,31 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+
+	"github.com/VladKovDev/chat-bot/internal/domain/session"
+	"github.com/VladKovDev/chat-bot/internal/domain/state"
 )
+
+var minimumSemanticQualityRates = map[string]float64{
+	"top1_intent_accuracy":          0.95,
+	"top3_contains_expected":        0.95,
+	"clarify_expectation_accuracy":  0.95,
+	"operator_expectation_accuracy": 0.99,
+}
+
+var minimumSemanticCategoryTop1Rates = map[string]float64{
+	"account":    0.80,
+	"booking":    0.90,
+	"complaint":  0.90,
+	"fallback":   0.70,
+	"operator":   0.80,
+	"other":      0.80,
+	"payment":    0.90,
+	"services":   0.90,
+	"system":     0.90,
+	"tech_issue": 0.80,
+	"workspace":  0.90,
+}
 
 func TestSemanticGoldCorpusQualityBaseline(t *testing.T) {
 	t.Parallel()
@@ -26,10 +50,10 @@ func TestSemanticGoldCorpusQualityBaseline(t *testing.T) {
 	}
 
 	assertBaseline(t, "total", summary.Total, 207)
-	assertBaseline(t, "top1", summary.Top1IntentCorrect, 152)
-	assertBaseline(t, "top3", summary.Top3ContainsExpected, 174)
-	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 201)
-	assertBaseline(t, "operator", summary.OperatorExpectationCorrect, 203)
+	assertBaseline(t, "top1", summary.Top1IntentCorrect, 204)
+	assertBaseline(t, "top3", summary.Top3ContainsExpected, 204)
+	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 204)
+	assertBaseline(t, "operator", summary.OperatorExpectationCorrect, 207)
 }
 
 func TestSemanticGoldCorpusFailureDiagnostics(t *testing.T) {
@@ -51,6 +75,54 @@ func TestSemanticGoldCorpusFailureDiagnostics(t *testing.T) {
 	}
 	if failure.ExpectedIntent == "" && !failure.ExpectedClarify && !failure.ExpectedOperator {
 		t.Fatalf("failure diagnostic missing expectation: %#v", failure)
+	}
+}
+
+func TestSemanticGoldCorpusMeetsReleaseThresholds(t *testing.T) {
+	t.Parallel()
+
+	report, err := EvaluateSemanticCorpus(context.Background(), SemanticEvaluationConfig{
+		CorpusPath:  filepath.Join("testdata", "semantic_gold_corpus.json"),
+		CatalogPath: filepath.Join("..", "..", "..", ".."),
+	})
+	if err != nil {
+		t.Fatalf("evaluate semantic corpus: %v", err)
+	}
+
+	rates := report.Summary.Rates()
+	for key, minimum := range minimumSemanticQualityRates {
+		got := rates[key]
+		if got < minimum {
+			t.Fatalf("%s = %.4f, want >= %.4f", key, got, minimum)
+		}
+	}
+
+	for category, minimum := range minimumSemanticCategoryTop1Rates {
+		metrics, ok := report.Summary.ByCategory[category]
+		if !ok {
+			t.Fatalf("missing category metrics for %s", category)
+		}
+		got := float64(metrics.Top1IntentCorrect) / float64(metrics.Total)
+		if got < minimum {
+			t.Fatalf("%s top1 = %.4f, want >= %.4f", category, got, minimum)
+		}
+	}
+}
+
+func TestIsClarifyDecisionDoesNotTreatOperatorHandoffAsClarification(t *testing.T) {
+	t.Parallel()
+
+	result := Result{
+		Intent:         "unknown",
+		State:          state.StateEscalatedToOperator,
+		ResponseKey:    "operator_handoff_requested",
+		LowConfidence:  true,
+		Event:          session.EventRequestOperator,
+		FallbackReason: "low_confidence_repeated",
+	}
+
+	if isClarifyDecision(result) {
+		t.Fatalf("operator handoff should not count as clarify: %#v", result)
 	}
 }
 

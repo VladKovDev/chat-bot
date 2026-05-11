@@ -1,6 +1,30 @@
 # Test Pyramid And Core Gate
 
-`chat-bot-523.21` establishes a deterministic local core gate for the BRD implementation path. It is a smoke/core gate, not the full E2E matrix.
+`chat-bot-523.21` establishes a deterministic local core gate for the BRD implementation path. `chat-bot-uqa.9` also has a dedicated quick semantic gate now. Neither command is the full E2E matrix.
+
+## Semantic Gate
+
+Run from the repository root:
+
+```bash
+make semantic-gate
+```
+
+Equivalent direct command:
+
+```bash
+./scripts/semantic-gate.sh
+```
+
+The gate is non-interactive and does not start long-lived services. It runs:
+
+1. targeted decision-engine semantic tests for matcher behavior, catalog matcher heuristics, semantic threshold policy, and semantic corpus baseline
+2. static semantic catalog schema/dimension guard tests in the Postgres repository package
+3. `cd services/decision-engine && go run ./cmd/semantic-gate`
+
+This is the focused quick semantic proof. It exercises semantic matcher,
+catalog, and corpus coverage without implying Docker, browser, or full-runtime
+proof.
 
 ## Core Gate
 
@@ -26,6 +50,10 @@ The gate is non-interactive and does not start long-lived services. It runs:
 6. `cd services/transport-adapters/website/backend && go test -count=1 ./...`
 7. `node --test services/transport-adapters/website/frontend/assets/js/*.test.mjs`
 
+This is the current broad deterministic quick gate. It stays wider than
+`make semantic-gate` and covers cross-service/unit/contract/integration checks
+outside the focused semantic surface.
+
 ## Layers
 
 | Layer | Current coverage | Core gate |
@@ -35,7 +63,24 @@ The gate is non-interactive and does not start long-lived services. It runs:
 | Integration | `/api/v1/messages` handler with deterministic fake semantic matcher, website backend HTTP/WS adapters against `httptest`, worker persistence orchestration with fake transaction boundary | included |
 | Migration/bootstrap | static migration and sqlc query coverage for pgcrypto/vector, BRD catalog, DB bootstrap tables, operator queue, indexes, FK, session versioning | included as static tests |
 | Security regressions | public error masking, WebSocket Origin allowlist, DOM text rendering/no `innerHTML`, legacy LLM runtime absence | included |
-| Full E2E | E2E-001 through E2E-038 over DB/NLP/decision/website/operator/mock providers | excluded from `check-core`; run with `make e2e-smoke` or `make e2e-full` |
+| Full E2E | E2E-001 through E2E-039 over DB/NLP/decision/website/operator/mock providers; 44 Playwright cases because several IDs have suffixed variants | excluded from `check-core`; run with `make e2e-smoke` or `make e2e-full` |
+
+## Proof Modes
+
+- `make semantic-gate`: deterministic semantic proof. No Docker, no long-lived
+  services, no browser runtime, and no live pgvector/NLP process.
+- `make check-core`: deterministic/mock-only/static proof. No Docker, no
+  long-lived services, no browser runtime.
+- `scripts/smoke-compose.sh`: live local compose smoke. It boots the root
+  runtime and proves readiness/bootstrap over local Postgres, decision-engine,
+  website, NLP, and mock external services.
+- `make e2e-smoke`: live local runtime proof for the 13 `@smoke` Playwright
+  cases selected by `npm run test:e2e:smoke`.
+- `make e2e-full`: live local runtime proof for all 44 Playwright cases in
+  `tests/e2e/full-matrix.spec.ts`, spanning E2E-001 through E2E-039.
+- None of the default commands above are real-Qwen or live third-party proof:
+  the default demo/test profile still uses deterministic fake embeddings and
+  fixture-backed mock external providers.
 
 ## BRD Surface Map
 
@@ -53,7 +98,9 @@ The gate is non-interactive and does not start long-lived services. It runs:
 
 ## Optional Live DB Gate
 
-Live pgvector migration remains outside `make check-core` because it requires Docker/PostgreSQL and a disposable database. Use it as the DB smoke gate when the environment is available:
+Live pgvector migration and real DB query proof remain outside `make semantic-gate`
+and `make check-core` because they require Docker/PostgreSQL and a disposable
+database. Use it as the DB smoke gate when the environment is available:
 
 ```bash
 cd services/decision-engine
@@ -89,6 +136,9 @@ npm run test:e2e:full
 ```
 
 The E2E matrix is implemented in `tests/e2e/full-matrix.spec.ts` and contains
-E2E-001 through E2E-038. Reports and failure artifacts are written to
-`tests/e2e/test-results/e2e-html/`, `tests/e2e/test-results/e2e-results.json`,
-and `tests/e2e/test-results/e2e-artifacts/`.
+E2E-001 through E2E-039. The file currently expands to 44 Playwright cases
+because several IDs have suffixed variants, and `npm run test:e2e:smoke`
+selects the 13 cases tagged `@smoke`. Reports and failure artifacts are written
+to `tests/e2e/test-results/e2e-html/`,
+`tests/e2e/test-results/e2e-results.json`, and
+`tests/e2e/test-results/e2e-artifacts/`.

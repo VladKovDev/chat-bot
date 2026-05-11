@@ -25,14 +25,16 @@ type MessageTransaction interface {
 }
 
 type DecisionLog struct {
-	ID            uuid.UUID
-	SessionID     uuid.UUID
-	MessageID     uuid.UUID
-	Intent        string
-	State         state.State
-	ResponseKey   string
-	Confidence    *float64
-	LowConfidence bool
-	Candidates    []appdecision.Candidate
-	CreatedAt     time.Time
+	ID             uuid.UUID
+	SessionID      uuid.UUID
+	MessageID      uuid.UUID
+	Intent         string
+	State          state.State
+	ResponseKey    string
+	Confidence     *float64
+	LowConfidence  bool
+	FallbackReason string
+	Threshold      *float64
+	Candidates     []appdecision.Candidate
+	CreatedAt      time.Time
 }

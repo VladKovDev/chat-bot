@@ -64,6 +64,19 @@ the NLP service into pgvector-backed catalog tables.
 
 ## Quality Gates
 
+Run the focused semantic gate from the repository root when you need quick
+semantic matcher/catalog/corpus proof without Docker or the full runtime:
+
+```bash
+make semantic-gate
+```
+
+Equivalent direct command:
+
+```bash
+./scripts/semantic-gate.sh
+```
+
 Run the core deterministic gate from the repository root:
 
 ```bash
@@ -76,9 +89,22 @@ Equivalent direct command:
 ./scripts/check-core.sh
 ```
 
-The core gate runs `git diff --check`, validates JSON/YAML, rejects active
-legacy LLM runtime references, and runs the Go, Python, and Node unit/contract
-suites. It does not start long-lived services.
+The current verification surfaces are:
+
+| Command | Proof mode | What it proves |
+| --- | --- | --- |
+| `make semantic-gate` / `./scripts/semantic-gate.sh` | deterministic semantic gate; no Docker/services | runs focused decision-engine semantic tests for matcher behavior, catalog matcher heuristics, semantic threshold policy, and static semantic catalog dimension/schema guards, then prints `go run ./cmd/semantic-gate` corpus metrics against `seeds/intents.json` and `internal/app/decision/testdata/semantic_gold_corpus.json`. |
+| `make check-core` / `./scripts/check-core.sh` | broader deterministic core gate; no Docker/services | runs `git diff --check`, JSON/YAML parse validation, legacy-runtime grep, and the Go/Python/Node unit+contract+integration suites. |
+| `scripts/smoke-compose.sh` | live local compose smoke | boots the root compose stack, waits for `GET /api/v1/ready`, and proves bootstrap/readiness for local Postgres, decision-engine, website, NLP, and mock external services. |
+| `make e2e-smoke` / `npm run test:e2e:smoke` | live local Playwright smoke | runs the `@smoke` subset of the matrix against an ephemeral compose stack. |
+| `make e2e-full` / `npm run test:e2e:full` | live local Playwright full matrix | runs the full Playwright matrix against an ephemeral compose stack. |
+
+Evidence boundaries matter here:
+
+- `semantic-gate` is the standalone quick semantic proof. It is deterministic and non-interactive, but it does not boot Postgres, NLP, website, or browser surfaces.
+- `check-core` is mock-only/static proof. It does not boot services or Docker.
+- `scripts/smoke-compose.sh`, `make e2e-smoke`, and `make e2e-full` are live-runtime proof for the local stack because they boot containers and hit real local HTTP/UI surfaces.
+- None of the commands above are real-Qwen or live third-party proof. The default runtime still uses deterministic fake hash embeddings and fixture-backed mock external providers.
 
 Smoke E2E:
 
@@ -94,9 +120,12 @@ make e2e-full
 npm run test:e2e:full
 ```
 
-The E2E suite lives under `tests/e2e` and currently defines E2E-001 through
-E2E-038 in `tests/e2e/full-matrix.spec.ts`. By default it uses its own compose
-project and ports:
+The E2E suite lives under `tests/e2e`. The current matrix spans E2E-001 through
+E2E-039 in `tests/e2e/full-matrix.spec.ts`, which expands to 44 Playwright
+cases because some IDs have suffixed variants such as `E2E-001b`,
+`E2E-001c`, `E2E-006b`, `E2E-009b`, and `E2E-009c`. The smoke command selects
+the 13 cases tagged `@smoke`. By default the suite uses its own compose project
+and ports:
 
 | Env | Default |
 | --- | --- |

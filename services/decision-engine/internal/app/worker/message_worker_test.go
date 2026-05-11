@@ -95,6 +95,9 @@ func TestHandleMessagePersistsSuccessfulFlowInSingleTransaction(t *testing.T) {
 	if len(logs[0].Candidates) != 2 {
 		t.Fatalf("candidate count = %d, want 2", len(logs[0].Candidates))
 	}
+	if logs[0].Threshold == nil || *logs[0].Threshold != appdecision.DefaultMatchThreshold {
+		t.Fatalf("threshold = %#v, want %v", logs[0].Threshold, appdecision.DefaultMatchThreshold)
+	}
 
 	actionLogs := persistence.actionLogs[resp.SessionID]
 	if len(actionLogs) != 1 {

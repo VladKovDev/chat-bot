@@ -20,6 +20,8 @@ INSERT INTO decision_logs (
     "response_key",
     "confidence",
     "low_confidence",
+    "fallback_reason",
+    "threshold",
     "candidates"
 )
 VALUES (
@@ -30,20 +32,24 @@ VALUES (
     $5::VARCHAR(80),
     $6::DOUBLE PRECISION,
     $7::BOOLEAN,
-    $8::JSONB
+    $8::TEXT,
+    $9::DOUBLE PRECISION,
+    $10::JSONB
 )
 RETURNING id, session_id, message_id, intent, state, response_key, confidence, low_confidence, candidates, created_at, fallback_reason, threshold
 `
 
 type LogDecisionParams struct {
-	SessionID     pgtype.UUID `json:"session_id"`
-	MessageID     pgtype.UUID `json:"message_id"`
-	Intent        string      `json:"intent"`
-	State         string      `json:"state"`
-	ResponseKey   string      `json:"response_key"`
-	Confidence    *float64    `json:"confidence"`
-	LowConfidence bool        `json:"low_confidence"`
-	Candidates    []byte      `json:"candidates"`
+	SessionID      pgtype.UUID `json:"session_id"`
+	MessageID      pgtype.UUID `json:"message_id"`
+	Intent         string      `json:"intent"`
+	State          string      `json:"state"`
+	ResponseKey    string      `json:"response_key"`
+	Confidence     *float64    `json:"confidence"`
+	LowConfidence  bool        `json:"low_confidence"`
+	FallbackReason string      `json:"fallback_reason"`
+	Threshold      *float64    `json:"threshold"`
+	Candidates     []byte      `json:"candidates"`
 }
 
 func (q *Queries) LogDecision(ctx context.Context, arg LogDecisionParams) (DecisionLog, error) {
@@ -55,6 +61,8 @@ func (q *Queries) LogDecision(ctx context.Context, arg LogDecisionParams) (Decis
 		arg.ResponseKey,
 		arg.Confidence,
 		arg.LowConfidence,
+		arg.FallbackReason,
+		arg.Threshold,
 		arg.Candidates,
 	)
 	var i DecisionLog

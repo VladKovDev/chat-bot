@@ -190,14 +190,16 @@ func (w *MessageWorker) HandleMessage(ctx context.Context, msg contracts.Incomin
 		}
 
 		if err := tx.LogDecision(txCtx, DecisionLog{
-			SessionID:     sess.ID,
-			MessageID:     createdMsg.ID,
-			Intent:        decisionResult.Intent,
-			State:         decisionResult.State,
-			ResponseKey:   responseKey,
-			Confidence:    decisionResult.Confidence,
-			LowConfidence: decisionResult.LowConfidence,
-			Candidates:    decisionResult.Candidates,
+			SessionID:      sess.ID,
+			MessageID:      createdMsg.ID,
+			Intent:         decisionResult.Intent,
+			State:          decisionResult.State,
+			ResponseKey:    responseKey,
+			Confidence:     decisionResult.Confidence,
+			LowConfidence:  decisionResult.LowConfidence,
+			FallbackReason: decisionResult.FallbackReason,
+			Threshold:      float64Ptr(appdecision.DefaultMatchThreshold),
+			Candidates:     decisionResult.Candidates,
 		}); err != nil {
 			w.logger.Error("failed to log decision",
 				w.logger.String("request_id", msg.RequestID),
@@ -555,6 +557,10 @@ func firstNonEmptyString(values ...string) string {
 
 func hasPrefix(value, prefix string) bool {
 	return len(value) >= len(prefix) && value[:len(prefix)] == prefix
+}
+
+func float64Ptr(value float64) *float64 {
+	return &value
 }
 
 func (w *MessageWorker) StartSession(ctx context.Context, identity session.Identity) (session.StartResult, error) {

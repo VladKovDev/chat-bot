@@ -15,8 +15,23 @@ type stubMatcher struct {
 	result MatchResult
 }
 
+type stubKnowledgeSearcher struct {
+	candidate *Candidate
+	err       error
+	calls     int
+}
+
 func (m stubMatcher) Match(_ context.Context, _ string, _ []apppresenter.IntentDefinition) (MatchResult, error) {
 	return m.result, nil
+}
+
+func (s *stubKnowledgeSearcher) Retrieve(
+	_ context.Context,
+	_ string,
+	_ apppresenter.IntentDefinition,
+) (*Candidate, error) {
+	s.calls++
+	return s.candidate, s.err
 }
 
 func TestDecisionServiceBusinessLookupUsesExtractedIdentifier(t *testing.T) {
@@ -282,7 +297,7 @@ func TestDecisionServiceFirstLowConfidenceAsksClarification(t *testing.T) {
 	}
 }
 
-func TestDecisionServiceLowConfidenceAtRootRecoversToStartMenu(t *testing.T) {
+func TestDecisionServiceLowConfidenceAtRootClarifies(t *testing.T) {
 	t.Parallel()
 
 	service, err := NewService(&apppresenter.IntentCatalog{
@@ -315,14 +330,164 @@ func TestDecisionServiceLowConfidenceAtRootRecoversToStartMenu(t *testing.T) {
 		t.Fatalf("decide: %v", err)
 	}
 
-	if result.ResponseKey != "start" {
-		t.Fatalf("response_key = %q, want start", result.ResponseKey)
+	if result.ResponseKey != "clarify_request" {
+		t.Fatalf("response_key = %q, want clarify_request", result.ResponseKey)
 	}
-	if result.State != state.StateWaitingForCategory {
-		t.Fatalf("state = %q, want waiting_for_category", result.State)
+	if result.State != state.StateWaitingClarification {
+		t.Fatalf("state = %q, want waiting_clarification", result.State)
 	}
-	if result.LowConfidence {
-		t.Fatalf("LowConfidence = true, want false for root recovery")
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true")
+	}
+}
+
+func TestDecisionServiceVeryLowConfidenceAtRootClarifies(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "unknown",
+				Category:       "fallback",
+				ResolutionType: "fallback",
+				ResponseKey:    "clarify_request",
+				Examples:       []string{"не знаю"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.18,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{Mode: session.ModeStandard},
+		nil,
+		"совсем непонятный вопрос",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.ResponseKey != "clarify_request" {
+		t.Fatalf("response_key = %q, want clarify_request", result.ResponseKey)
+	}
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true")
+	}
+}
+
+func TestDecisionServiceEmbeddingUnavailableAtRootKeepsClarifyFallback(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "unknown",
+				Category:       "fallback",
+				ResolutionType: "fallback",
+				ResponseKey:    "clarify_request",
+				Examples:       []string{"не знаю"},
+			},
+			{
+				Key:            "ask_prices",
+				Category:       "services",
+				ResolutionType: "knowledge",
+				ResponseKey:    "services_prices",
+				Examples:       []string{"цены на услуги"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "ask_prices",
+		Confidence:     0.88,
+		LowConfidence:  true,
+		FallbackReason: "embedding_unavailable",
+		Candidates: []Candidate{
+			{
+				IntentKey:  "ask_prices",
+				Confidence: 0.88,
+				Source:     CandidateSourceLexicalFuzzy,
+				Metadata: map[string]any{
+					"reason": "embedding_unavailable",
+				},
+			},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{Mode: session.ModeStandard},
+		nil,
+		"совершенно непонятная просьба про космический тариф",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.ResponseKey != "clarify_request" {
+		t.Fatalf("response_key = %q, want clarify_request when embedding is unavailable", result.ResponseKey)
+	}
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true when embedding is unavailable")
+	}
+	if result.FallbackReason != "embedding_unavailable" {
+		t.Fatalf("FallbackReason = %q, want embedding_unavailable", result.FallbackReason)
+	}
+	if len(result.Candidates) == 0 {
+		t.Fatalf("candidates = %#v, want lexical evidence preserved", result.Candidates)
+	}
+}
+
+func TestDecisionServiceContextualFollowUpCarriesCandidateEvidence(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "ask_payment_status",
+				Category:       "payment",
+				ResolutionType: "business_lookup",
+				ResponseKey:    "payment_request_id",
+				Action:         "find_payment",
+				Examples:       []string{"статус платежа"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.24,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(
+		context.Background(),
+		session.Session{Mode: session.ModeStandard, ActiveTopic: "payment"},
+		nil,
+		"а статус?",
+	)
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.Intent != "ask_payment_status" {
+		t.Fatalf("intent = %q, want ask_payment_status", result.Intent)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("candidates = %#v, want one contextual candidate", result.Candidates)
+	}
+	if result.Candidates[0].Source != CandidateSourceContextualRule {
+		t.Fatalf("candidate source = %q, want contextual_rule", result.Candidates[0].Source)
 	}
 }
 
@@ -559,5 +724,304 @@ func TestExtractIdentifierAcceptsSeedBookingAndWorkspaceIdentifiers(t *testing.T
 	workspaceIdentifier, workspaceType := extractIdentifier("Статус брони WS-1001", "find_workspace_booking")
 	if workspaceIdentifier != "WS-1001" || workspaceType != "workspace_booking" {
 		t.Fatalf("workspace identifier = %q (%q), want WS-1001 (workspace_booking)", workspaceIdentifier, workspaceType)
+	}
+}
+
+func TestDecisionServiceUsesIdentifierOnlyFollowUpForPendingBookingLookup(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_booking_status",
+				Category:            "booking",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "booking_request_identifier",
+				FallbackResponseKey: "booking_request_identifier",
+				Action:              "find_booking",
+				Examples:            []string{"статус записи"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		State:       state.StateWaitingForIdentifier,
+		ActiveTopic: "booking",
+		LastIntent:  "ask_booking_status",
+	}, nil, "BRG-482910")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_booking_status" {
+		t.Fatalf("intent = %q, want ask_booking_status", result.Intent)
+	}
+	if got := result.ActionContext["provided_identifier"]; got != "BRG-482910" {
+		t.Fatalf("provided_identifier = %#v, want BRG-482910", got)
+	}
+}
+
+func TestDecisionServiceUsesContextualWorkspacePriceFollowUp(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "ask_workspace_prices",
+				Category:       "workspace",
+				ResolutionType: "knowledge",
+				ResponseKey:    "workspace_types_prices",
+				Examples:       []string{"цены на коворкинг"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.12,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		ActiveTopic: "workspace",
+		State:       state.StateWorkspace,
+	}, nil, "а сколько стоит")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_workspace_prices" {
+		t.Fatalf("intent = %q, want ask_workspace_prices", result.Intent)
+	}
+	if result.ResponseKey != "workspace_types_prices" {
+		t.Fatalf("response_key = %q, want workspace_types_prices", result.ResponseKey)
+	}
+}
+
+func TestDecisionServiceUsesContextualPaymentStatusFollowUp(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_payment_status",
+				Category:            "payment",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "payment_request_id",
+				FallbackResponseKey: "payment_request_id",
+				Action:              "find_payment",
+				Examples:            []string{"статус платежа"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.2,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		ActiveTopic: "payment",
+		State:       state.StatePayment,
+	}, nil, "а статус")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_payment_status" {
+		t.Fatalf("intent = %q, want ask_payment_status", result.Intent)
+	}
+	if result.State != state.StateWaitingForIdentifier {
+		t.Fatalf("state = %q, want waiting_for_identifier", result.State)
+	}
+}
+
+func TestDecisionServiceNegativePendingFollowUpReturnsMenu(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "return_to_menu",
+				Category:       "system",
+				ResolutionType: "static_response",
+				ResponseKey:    "main_menu",
+				Examples:       []string{"главное меню"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.1,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		State:       state.StateWaitingForIdentifier,
+		ActiveTopic: "booking",
+		LastIntent:  "ask_booking_status",
+	}, nil, "нет")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "return_to_menu" {
+		t.Fatalf("intent = %q, want return_to_menu", result.Intent)
+	}
+	if result.ResponseKey != "main_menu" {
+		t.Fatalf("response_key = %q, want main_menu", result.ResponseKey)
+	}
+}
+
+func TestDecisionServiceAffirmativePendingFollowUpRepeatsLookupPrompt(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_payment_status",
+				Category:            "payment",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "payment_request_id",
+				FallbackResponseKey: "payment_request_id",
+				Action:              "find_payment",
+				Examples:            []string{"статус платежа"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.1,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		State:       state.StateWaitingForIdentifier,
+		ActiveTopic: "payment",
+		LastIntent:  "ask_payment_status",
+	}, nil, "да")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_payment_status" {
+		t.Fatalf("intent = %q, want ask_payment_status", result.Intent)
+	}
+	if result.State != state.StateWaitingForIdentifier {
+		t.Fatalf("state = %q, want waiting_for_identifier", result.State)
+	}
+}
+
+func TestDecisionServiceKeepsGlobalTopicSwitchWhenMatcherIsConfident(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "payment_not_passed",
+				Category:       "payment",
+				ResolutionType: "knowledge",
+				ResponseKey:    "payment_failed",
+				Examples:       []string{"оплата не прошла"},
+			},
+			{
+				Key:            "ask_workspace_prices",
+				Category:       "workspace",
+				ResolutionType: "knowledge",
+				ResponseKey:    "workspace_types_prices",
+				Examples:       []string{"цены на коворкинг"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:  "payment_not_passed",
+		Confidence: 0.91,
+		Candidates: []Candidate{
+			{IntentKey: "payment_not_passed", Confidence: 0.91, Metadata: map[string]any{"category": "payment"}},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		ActiveTopic: "workspace",
+		State:       state.StateWorkspace,
+	}, nil, "оплата не прошла")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "payment_not_passed" {
+		t.Fatalf("intent = %q, want payment_not_passed", result.Intent)
+	}
+	if result.Topic != "payment" {
+		t.Fatalf("topic = %q, want payment", result.Topic)
+	}
+}
+
+func TestDecisionServiceEnrichesKnowledgeIntentWithKnowledgeChunkCandidate(t *testing.T) {
+	t.Parallel()
+
+	searcher := &stubKnowledgeSearcher{
+		candidate: &Candidate{
+			IntentKey:  "ask_workspace_rules",
+			Confidence: 0.88,
+			Source:     CandidateSourceKnowledgeChunk,
+			Text:       "В коворкинге нельзя шуметь после 22:00",
+			Metadata: map[string]any{
+				"article_key": "workspace.rules",
+				"chunk_index": 0,
+			},
+		},
+	}
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "ask_workspace_rules",
+				Category:       "workspace",
+				ResolutionType: "knowledge",
+				ResponseKey:    "workspace_rental_rules",
+				KnowledgeKey:   "workspace.rules",
+				Examples:       []string{"правила аренды"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:  "ask_workspace_rules",
+		Confidence: 0.9,
+		Candidates: []Candidate{
+			{IntentKey: "ask_workspace_rules", Confidence: 0.9, Source: CandidateSourceIntentExample},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+	service.SetKnowledgeSearcher(searcher)
+
+	result, err := service.Decide(context.Background(), session.Session{}, nil, "можно шуметь в коворкинге")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_workspace_rules" {
+		t.Fatalf("intent = %q, want ask_workspace_rules", result.Intent)
+	}
+	if searcher.calls != 1 {
+		t.Fatalf("knowledge search calls = %d, want 1", searcher.calls)
+	}
+	if len(result.Candidates) != 2 {
+		t.Fatalf("candidates = %#v, want matcher candidate plus knowledge chunk", result.Candidates)
+	}
+	if result.Candidates[1].Source != CandidateSourceKnowledgeChunk {
+		t.Fatalf("knowledge source = %q, want knowledge_chunk", result.Candidates[1].Source)
+	}
+	if got := result.Candidates[1].Metadata["article_key"]; got != "workspace.rules" {
+		t.Fatalf("article_key = %#v, want workspace.rules", got)
 	}
 }
