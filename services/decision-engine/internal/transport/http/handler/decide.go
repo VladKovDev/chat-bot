@@ -704,28 +704,8 @@ func buildQuickReplies(configured []response.QuickReply, options []string) []Qui
 			return result
 		}
 	}
-
-	if len(options) == 0 {
-		return nil
-	}
-
-	result := make([]QuickReply, 0, len(options))
-	for index, option := range options {
-		label := strings.TrimSpace(option)
-		if label == "" {
-			continue
-		}
-		result = append(result, QuickReply{
-			ID:     slugifyQuickReplyID(label),
-			Label:  label,
-			Action: quickReplyActionSend,
-			Payload: map[string]any{
-				"text": label,
-			},
-			Order: index,
-		})
-	}
-	return result
+	_ = options
+	return nil
 }
 
 func normalizeQuickReplyMessage(eventType string, messageText string, quickReply *QuickReply) (*contracts.QuickReplySelection, error) {

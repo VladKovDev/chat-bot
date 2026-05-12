@@ -24,6 +24,7 @@ var normalizedTokenAliases = map[string]string{
 	"contact":     "контакты",
 	"contacts":    "контакты",
 	"down":        "не работает",
+	"disappeared": "пропала",
 	"failed":      "не прошла",
 	"faq":         "faq",
 	"forgot":      "забыл",

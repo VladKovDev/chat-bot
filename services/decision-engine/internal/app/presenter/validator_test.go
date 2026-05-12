@@ -43,7 +43,9 @@ func TestValidateFailsOnPlaceholderMismatch(t *testing.T) {
 	writeResponsesFile(t, tempDir, `{
   "booking_found": {
     "message": "Запись {service} {broken_placeholder}",
-    "options": ["Назад"]
+    "quick_replies": [
+      { "id": "menu", "label": "Назад", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+    ]
   }
 }`)
 
@@ -62,7 +64,7 @@ func TestValidateFailsOnPlaceholderMismatch(t *testing.T) {
 	}
 }
 
-func TestPresentNormalizesLegacyOptionsIntoTypedQuickReplies(t *testing.T) {
+func TestValidateFailsOnLegacyOptions(t *testing.T) {
 	t.Parallel()
 
 	tempDir := t.TempDir()
@@ -78,27 +80,41 @@ func TestPresentNormalizesLegacyOptionsIntoTypedQuickReplies(t *testing.T) {
 		t.Fatalf("new presenter: %v", err)
 	}
 
+	validator := NewValidator(p.GetAll(), logger.Noop())
+	err = validator.Validate()
+	if err == nil {
+		t.Fatal("expected legacy options validation error")
+	}
+	if !strings.Contains(err.Error(), "legacy options") {
+		t.Fatalf("unexpected validation error: %v", err)
+	}
+}
+
+func TestPresentDoesNotMaterializeLegacyOptionsIntoQuickReplies(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	writeResponsesFile(t, tempDir, `{
+  "main_menu": {
+    "message": "Меню",
+    "options": ["Связаться с оператором", "Вернуться в главное меню"]
+  }
+}`)
+
+	p, err := NewPresenter(tempDir)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
 	resp, err := p.Present("main_menu", state.StateWaitingForCategory)
 	if err != nil {
 		t.Fatalf("present: %v", err)
 	}
-	if len(resp.QuickReplies) != 3 {
-		t.Fatalf("quick replies = %#v, want 3 items", resp.QuickReplies)
+	if len(resp.QuickReplies) != 0 {
+		t.Fatalf("quick replies = %#v, want no implicit materialization from legacy options", resp.QuickReplies)
 	}
-	if resp.QuickReplies[0].Action != "request_operator" {
-		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[0].Action, "request_operator")
-	}
-	if resp.QuickReplies[1].Action != "select_intent" {
-		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[1].Action, "select_intent")
-	}
-	if got := resp.QuickReplies[1].Payload["intent"]; got != "return_to_menu" {
-		t.Fatalf("payload.intent = %#v, want return_to_menu", got)
-	}
-	if resp.QuickReplies[2].Action != "send_text" {
-		t.Fatalf("quick reply action = %q, want %q", resp.QuickReplies[2].Action, "send_text")
-	}
-	if got := resp.QuickReplies[2].Payload["text"]; got != "Не приходит код подтверждения" {
-		t.Fatalf("payload.text = %#v, want sanitized label", got)
+	if len(resp.Options) != 2 {
+		t.Fatalf("options = %#v, want original legacy labels preserved for compatibility", resp.Options)
 	}
 }
 
@@ -211,6 +227,81 @@ func TestActualWorkspaceInfoUsesSelectIntentForPrices(t *testing.T) {
 	}
 	if got := pricesReply.Payload["intent"]; got != "ask_workspace_prices" {
 		t.Fatalf("workspace-prices-info payload.intent = %#v, want ask_workspace_prices", got)
+	}
+}
+
+func TestActualPaymentAndTechRecoveryRepliesUseExplicitIntentActions(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	p, err := NewPresenter(configPath)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
+	tests := []struct {
+		responseKey string
+		replyID     string
+		wantIntent  string
+		wantState   state.State
+	}{
+		{
+			responseKey: "payment_debited_not_activated",
+			replyID:     "payment-activated-wait",
+			wantIntent:  "ask_payment_status",
+			wantState:   state.StatePayment,
+		},
+		{
+			responseKey: "payment_failed",
+			replyID:     "payment-failed-retry",
+			wantIntent:  "payment_not_passed",
+			wantState:   state.StatePayment,
+		},
+		{
+			responseKey: "tech_site_not_loading",
+			replyID:     "tech-site-fixes",
+			wantIntent:  "ask_site_problem",
+			wantState:   state.StateTechIssue,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.responseKey+"/"+tt.replyID, func(t *testing.T) {
+			t.Parallel()
+
+			resp, err := p.Present(tt.responseKey, tt.wantState)
+			if err != nil {
+				t.Fatalf("present %s: %v", tt.responseKey, err)
+			}
+
+			var found *QuickReplyConfig
+			for _, quickReply := range resp.QuickReplies {
+				if quickReply.ID != tt.replyID {
+					continue
+				}
+				found = &QuickReplyConfig{
+					ID:      quickReply.ID,
+					Label:   quickReply.Label,
+					Action:  quickReply.Action,
+					Payload: quickReply.Payload,
+					Order:   quickReply.Order,
+				}
+				break
+			}
+			if found == nil {
+				t.Fatalf("%s quick reply missing: %#v", tt.replyID, resp.QuickReplies)
+			}
+			if found.Action != "select_intent" {
+				t.Fatalf("%s action = %q, want select_intent", tt.replyID, found.Action)
+			}
+			if got := found.Payload["intent"]; got != tt.wantIntent {
+				t.Fatalf("%s payload.intent = %#v, want %s", tt.replyID, got, tt.wantIntent)
+			}
+		})
 	}
 }
 

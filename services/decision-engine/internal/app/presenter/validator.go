@@ -153,11 +153,8 @@ func (v *Validator) Validate() error {
 			errors = append(errors, fmt.Sprintf("empty message for response_key: %s", key))
 		}
 
-		// Options can be empty, but if provided, should not be empty strings
-		for i, opt := range resp.Options {
-			if opt == "" {
-				errors = append(errors, fmt.Sprintf("empty option at index %d for response_key: %s", i, key))
-			}
+		if len(resp.Options) > 0 {
+			errors = append(errors, fmt.Sprintf("response_key: %s still defines legacy options; use quick_replies instead", key))
 		}
 
 		for i, quickReply := range resp.QuickReplies {

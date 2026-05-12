@@ -50,7 +50,7 @@
       "resolution_type": "operator_handoff",
       "response_key": "operator_handoff_requested",
       "action": "escalate_to_operator",
-      "examples": ["оператор", "позовите человека", "хочу в поддержку", "соедините с оператором", "нужен живой человек", "переключите на специалиста", "мне нужен менеджер", "дайте оператора", "нужен живой специалист", "соедините с менеджером", "call operator please"],
+      "examples": ["оператор", "позовите человека", "хочу в поддержку", "соедините с оператором", "нужен живой человек", "переключите на специалиста", "мне нужен менеджер", "дайте оператора", "нужен живой специалист", "соедините с менеджером", "нужна помощь оператора"],
       "quick_replies": [
         { "id": "operator-now", "label": "Передать оператору", "action": "request_operator", "payload": {} },
         { "id": "operator-menu", "label": "Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
@@ -223,7 +223,7 @@
       "fallback_response_key": "payment_request_id",
       "action": "find_payment",
       "result_response_keys": ["payment_found", "payment_not_found"],
-      "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "статус платежа PAY-404000", "найди платеж PAY-ERROR-503", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа", "проверь оплату PAY-123456", "найдите оплату по номеру", "payment status", "payment status please"],
+      "examples": ["статус платежа", "проверь оплату", "найди платеж PAY-123456", "статус платежа PAY-404000", "найди платеж PAY-ERROR-503", "что с моим платежом", "какой статус оплаты", "посмотрите платеж по номеру", "проверьте оплату по заказу", "хочу узнать статус платежа", "проверь оплату PAY-123456", "найдите оплату по номеру", "payment status"],
       "quick_replies": [
         { "id": "payment-id", "label": "Ввести ID платежа", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
         { "id": "payment-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
@@ -238,7 +238,7 @@
       "knowledge_key": "payment.failed",
       "examples": ["оплата не прошла", "платеж отклонен", "не получилось оплатить", "банк отклонил платеж", "оплата упала с ошибкой", "не проходит карта", "платеж не завершился", "деньги не списались и оплата не прошла", "не получается оплатить картой", "платеж упал с ошибкой", "payment failed"],
       "quick_replies": [
-        { "id": "payment-retry", "label": "Попробовать снова", "action": "send_text", "payload": { "text": "Попробовать оплатить снова" } },
+        { "id": "payment-retry", "label": "Попробовать снова", "action": "select_intent", "payload": { "intent": "payment_not_passed", "text": "Оплата не прошла" } },
         { "id": "payment-failed-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-013"]
@@ -251,7 +251,7 @@
       "knowledge_key": "payment.debited_not_activated",
       "examples": ["деньги списались услуга не активировалась", "списали деньги но запись не появилась", "оплата прошла а услуга не работает", "списание было но активации нет", "деньги ушли а доступ не появился", "платеж списался но услуга не подключилась", "списали оплату и ничего не случилось", "услуга не активировалась после списания", "деньги списали а услуга не включилась", "доступ не появился после оплаты", "оплата прошла но записи нет", "платеж списался без активации", "paid but service inactive"],
       "quick_replies": [
-        { "id": "payment-wait", "label": "Подождать и проверить снова", "action": "send_text", "payload": { "text": "Подожду и проверю снова" } },
+        { "id": "payment-wait", "label": "Подождать и проверить снова", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
         { "id": "payment-not-activated-operator", "label": "Связаться с оператором", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-014", "E2E-023"]
@@ -277,7 +277,7 @@
       "knowledge_key": "tech.site_problem",
       "examples": ["сайт не работает", "страница не открывается", "не загружается сайт", "сайт завис", "не могу открыть сайт", "белый экран на сайте", "страница крутится и не открывается", "веб сайт недоступен", "страница не открываеться"],
       "quick_replies": [
-        { "id": "tech-try-fixes", "label": "Попробовать решения", "action": "send_text", "payload": { "text": "Попробую решения" } },
+        { "id": "tech-try-fixes", "label": "Попробовать решения", "action": "select_intent", "payload": { "intent": "ask_site_problem", "text": "Сайт не работает" } },
         { "id": "tech-site-operator", "label": "Перейти к оператору", "action": "request_operator", "payload": {} }
       ],
       "e2e_coverage": ["E2E-016"]
@@ -420,7 +420,7 @@
       "resolution_type": "knowledge",
       "response_key": "services_faq_booking",
       "knowledge_key": "services.faq.booking",
-      "examples": ["как записаться из faq", "как мне записаться через faq", "как оформить запись через faq", "как сделать запись из faq", "как забронировать услугу через faq", "faq запись", "как начать запись из faq", "что нужно чтобы записаться через faq", "что нужно чтобы оформить запись", "вопрос faq про запись", "как сделать запись на услугу", "faq booking"],
+      "examples": ["как записаться из faq", "как мне записаться через faq", "как оформить запись через faq", "как сделать запись из faq", "как забронировать услугу через faq", "faq запись", "как начать запись из faq", "что нужно чтобы записаться через faq", "что нужно чтобы оформить запись", "вопрос faq про запись", "как сделать запись на услугу"],
       "quick_replies": [
         { "id": "faq-booking-operator", "label": "Связаться для записи", "action": "request_operator", "payload": {} },
         { "id": "faq-booking-back", "label": "Вернуться в FAQ", "action": "select_intent", "payload": { "intent": "ask_faq", "text": "FAQ" } }

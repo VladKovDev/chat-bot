@@ -713,6 +713,116 @@ func TestDecisionServiceAppliesSemanticThresholdAndAmbiguityPolicy(t *testing.T)
 	}
 }
 
+func TestDecisionServiceClarifiesMixedWorkspaceAndServicesPriceQuery(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "ask_workspace_prices",
+				Category:       "workspace",
+				ResolutionType: "knowledge",
+				ResponseKey:    "workspace_types_prices",
+				Examples:       []string{"сколько стоит рабочее место"},
+			},
+			{
+				Key:            "ask_prices",
+				Category:       "services",
+				ResolutionType: "knowledge",
+				ResponseKey:    "services_prices",
+				Examples:       []string{"сколько стоят услуги"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:  "ask_workspace_prices",
+		Confidence: 0.9176202668015928,
+		Candidates: []Candidate{
+			{
+				IntentKey:  "ask_workspace_prices",
+				Confidence: 0.9176202668015928,
+				Source:     CandidateSourceIntentExample,
+				Metadata:   map[string]any{"category": "workspace"},
+			},
+			{
+				IntentKey:  "ask_prices",
+				Confidence: 0.4295671042499613,
+				Source:     CandidateSourceIntentExample,
+				Metadata:   map[string]any{"category": "services"},
+			},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{}, nil, "сколько стоит место и услуга")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.Intent != "unknown" || result.ResponseKey != "clarify_request" {
+		t.Fatalf("result = %#v, want clarify for mixed-domain price query", result)
+	}
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true")
+	}
+}
+
+func TestDecisionServiceClarifiesAmbiguousCodeQueryAcrossAccountAndTech(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "code_not_received",
+				Category:       "tech_issue",
+				ResolutionType: "knowledge",
+				ResponseKey:    "tech_code_not_received",
+				Examples:       []string{"не приходит код для входа"},
+			},
+			{
+				Key:            "account_code_not_received",
+				Category:       "account",
+				ResolutionType: "knowledge",
+				ResponseKey:    "account_code_not_received",
+				Examples:       []string{"не приходит код для аккаунта"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:  "code_not_received",
+		Confidence: 1,
+		Candidates: []Candidate{
+			{
+				IntentKey:  "code_not_received",
+				Confidence: 1,
+				Source:     CandidateSourceLexicalFuzzy,
+				Metadata:   map[string]any{"category": "tech_issue"},
+			},
+			{
+				IntentKey:  "account_code_not_received",
+				Confidence: 0.8962617737104826,
+				Source:     CandidateSourceLexicalFuzzy,
+				Metadata:   map[string]any{"category": "account"},
+			},
+		},
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{}, nil, "код не приходит")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if result.Intent != "unknown" || result.ResponseKey != "clarify_request" {
+		t.Fatalf("result = %#v, want clarify for ambiguous code query", result)
+	}
+	if !result.LowConfidence {
+		t.Fatalf("LowConfidence = false, want true")
+	}
+}
+
 func TestExtractIdentifierAcceptsSeedBookingAndWorkspaceIdentifiers(t *testing.T) {
 	t.Parallel()
 

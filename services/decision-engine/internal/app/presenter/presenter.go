@@ -4,18 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-	"unicode"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
 	"github.com/VladKovDev/chat-bot/pkg/logger"
-)
-
-const (
-	quickReplyActionSend         = "send_text"
-	quickReplyActionSelectIntent = "select_intent"
-	quickReplyActionOperator     = "request_operator"
 )
 
 type QuickReplyConfig struct {
@@ -131,96 +123,21 @@ func (c *ResponseConfig) legacyOptions() []string {
 }
 
 func buildResponseQuickReplies(c *ResponseConfig) []response.QuickReply {
-	if len(c.QuickReplies) > 0 {
-		replies := make([]response.QuickReply, 0, len(c.QuickReplies))
-		for _, quickReply := range c.QuickReplies {
-			replies = append(replies, response.QuickReply{
-				ID:      quickReply.ID,
-				Label:   quickReply.Label,
-				Action:  quickReply.Action,
-				Payload: clonePayload(quickReply.Payload),
-				Order:   quickReply.Order,
-			})
-		}
-		return replies
-	}
-
-	if len(c.Options) == 0 {
+	if len(c.QuickReplies) == 0 {
 		return nil
 	}
 
-	replies := make([]response.QuickReply, 0, len(c.Options))
-	for index, option := range c.Options {
-		replies = append(replies, legacyOptionQuickReply(option, index))
+	replies := make([]response.QuickReply, 0, len(c.QuickReplies))
+	for _, quickReply := range c.QuickReplies {
+		replies = append(replies, response.QuickReply{
+			ID:      quickReply.ID,
+			Label:   quickReply.Label,
+			Action:  quickReply.Action,
+			Payload: clonePayload(quickReply.Payload),
+			Order:   quickReply.Order,
+		})
 	}
-
 	return replies
-}
-
-func legacyOptionQuickReply(option string, order int) response.QuickReply {
-	label := strings.TrimSpace(option)
-	payloadText := sanitizeLegacyOptionText(label)
-	if payloadText == "" {
-		payloadText = label
-	}
-
-	reply := response.QuickReply{
-		ID:    slugifyQuickReplyID(payloadText),
-		Label: label,
-		Order: order,
-	}
-
-	intentKey := canonicalLegacyOptionKey(payloadText)
-	switch intentKey {
-	case "request_operator":
-		reply.Action = quickReplyActionOperator
-	case "return_to_menu":
-		reply.Action = quickReplyActionSelectIntent
-		reply.Payload = map[string]any{
-			"intent": "return_to_menu",
-			"text":   "главное меню",
-		}
-	default:
-		reply.Action = quickReplyActionSend
-		reply.Payload = map[string]any{
-			"text": payloadText,
-		}
-	}
-
-	return reply
-}
-
-func sanitizeLegacyOptionText(label string) string {
-	trimmed := strings.TrimSpace(label)
-	trimmed = strings.TrimLeftFunc(trimmed, func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-	return strings.TrimSpace(trimmed)
-}
-
-func canonicalLegacyOptionKey(text string) string {
-	switch normalizeLegacyOptionKey(text) {
-	case "связаться с оператором",
-		"связь с оператором",
-		"связаться для записи",
-		"связаться с администратором",
-		"связаться для бронирования",
-		"перейти к оператору",
-		"связаться прямо сейчас",
-		"передать оператору",
-		"вызвать администратора":
-		return "request_operator"
-	case "вернуться в главное меню",
-		"вернуться в меню",
-		"выбрать категорию":
-		return "return_to_menu"
-	default:
-		return ""
-	}
-}
-
-func normalizeLegacyOptionKey(text string) string {
-	return strings.ToLower(strings.TrimSpace(strings.ReplaceAll(text, "ё", "е")))
 }
 
 func clonePayload(payload map[string]any) map[string]any {
@@ -234,44 +151,4 @@ func clonePayload(payload map[string]any) map[string]any {
 	}
 
 	return cloned
-}
-
-func slugifyQuickReplyID(label string) string {
-	if label == "" {
-		return "quick-reply"
-	}
-
-	buf := make([]rune, 0, len(label))
-	lastDash := false
-
-	for _, r := range label {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
-			if r >= 'A' && r <= 'Z' {
-				r = r - 'A' + 'a'
-			}
-			buf = append(buf, r)
-			lastDash = false
-			continue
-		}
-
-		if lastDash {
-			continue
-		}
-
-		buf = append(buf, '-')
-		lastDash = true
-	}
-
-	id := string(buf)
-	for len(id) > 0 && id[0] == '-' {
-		id = id[1:]
-	}
-	for len(id) > 0 && id[len(id)-1] == '-' {
-		id = id[:len(id)-1]
-	}
-	if id == "" {
-		return "quick-reply"
-	}
-
-	return id
 }

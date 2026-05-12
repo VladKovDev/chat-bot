@@ -59,9 +59,10 @@ export async function latestDecision(sessionID: string) {
     response_key: string;
     confidence: number | null;
     low_confidence: boolean;
+    fallback_reason: string | null;
     candidates: unknown;
   }>(
-    `SELECT intent, response_key, confidence, low_confidence, candidates
+    `SELECT intent, response_key, confidence, low_confidence, fallback_reason, candidates
        FROM decision_logs
       WHERE session_id = $1
       ORDER BY created_at DESC

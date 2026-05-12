@@ -2,6 +2,8 @@ package decision
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -50,24 +52,46 @@ func TestSemanticGoldCorpusQualityBaseline(t *testing.T) {
 	}
 
 	assertBaseline(t, "total", summary.Total, 207)
-	assertBaseline(t, "top1", summary.Top1IntentCorrect, 204)
+	assertBaseline(t, "top1", summary.Top1IntentCorrect, 207)
 	assertBaseline(t, "top3", summary.Top3ContainsExpected, 204)
-	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 204)
+	assertBaseline(t, "clarify", summary.ClarifyExpectationCorrect, 207)
 	assertBaseline(t, "operator", summary.OperatorExpectationCorrect, 207)
 }
 
 func TestSemanticGoldCorpusFailureDiagnostics(t *testing.T) {
 	t.Parallel()
 
+	tempDir := t.TempDir()
+	corpusPath := filepath.Join(tempDir, "semantic_gold_corpus.json")
+	corpus := SemanticCorpus{
+		Version: 1,
+		Cases: []SemanticCorpusCase{
+			{
+				ID:             "forced.failure.001",
+				Text:           "совсем непонятный вопрос",
+				Category:       "fallback",
+				ExpectedIntent: "booking_not_found",
+				ExpectedTop3:   true,
+			},
+		},
+	}
+	data, err := json.Marshal(corpus)
+	if err != nil {
+		t.Fatalf("marshal synthetic corpus: %v", err)
+	}
+	if err := os.WriteFile(corpusPath, data, 0o644); err != nil {
+		t.Fatalf("write synthetic corpus: %v", err)
+	}
+
 	report, err := EvaluateSemanticCorpus(context.Background(), SemanticEvaluationConfig{
-		CorpusPath:  filepath.Join("testdata", "semantic_gold_corpus.json"),
+		CorpusPath:  corpusPath,
 		CatalogPath: filepath.Join("..", "..", "..", ".."),
 	})
 	if err != nil {
 		t.Fatalf("evaluate semantic corpus: %v", err)
 	}
-	if len(report.Summary.Failures) == 0 {
-		t.Fatalf("expected baseline to expose failure diagnostics before semantic tuning")
+	if len(report.Summary.Failures) != 1 {
+		t.Fatalf("failures = %#v, want one synthetic diagnostic entry", report.Summary.Failures)
 	}
 	failure := report.Summary.Failures[0]
 	if failure.ID == "" || failure.Text == "" || failure.Reason == "" {

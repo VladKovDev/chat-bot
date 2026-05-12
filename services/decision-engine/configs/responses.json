@@ -166,7 +166,7 @@
     "payment_found": {
         "message": "✅ Платёж найден:\n\n🔹 Номер: #{payment_id}\n🔹 Сумма: {amount}₽\n🔹 Дата: {date}\n🔹 Статус: {status}\n🔹 Назначение: {purpose}\n\nЧто хотите узнать?",
         "quick_replies": [
-            { "id": "payment-found-wait", "label": "⏳ Подождать обработки", "action": "send_text", "payload": { "text": "Подождать обработки" } },
+            { "id": "payment-found-wait", "label": "⏳ Подождать обработки", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
             { "id": "payment-found-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
             { "id": "payment-found-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
@@ -182,7 +182,7 @@
     "payment_failed": {
         "message": "❌ Оплата не прошла\n\nВозможные причины:\n• Недостаточно средств на карте\n• Превышен лимит операций\n• Ошибка в банковской системе\n• Неверные данные карты\n\nРешения:\n• Проверьте баланс карты\n• Попробуйте другую карту\n• Обратитесь в банк\n\nЧто хотите сделать?",
         "quick_replies": [
-            { "id": "payment-failed-retry", "label": "🔄 Попробовать снова", "action": "send_text", "payload": { "text": "Попробовать снова" } },
+            { "id": "payment-failed-retry", "label": "🔄 Попробовать снова", "action": "select_intent", "payload": { "intent": "payment_not_passed", "text": "Оплата не прошла" } },
             { "id": "payment-failed-operator-response", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
             { "id": "payment-failed-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
@@ -190,7 +190,7 @@
     "payment_debited_not_activated": {
         "message": "⚠️ Деньги списались, услуга не активирована\n\nЭто может означать, что платёж в обработке.\n\nРекомендуемые действия:\n• Подождите 5-10 минут - обработка может занять время\n• Проверьте почту - должно прийти подтверждение\n\nЕсли проблема сохраняется более 15 минут, свяжитесь с оператором.",
         "quick_replies": [
-            { "id": "payment-activated-wait", "label": "⏳ Подождать и проверить снова", "action": "send_text", "payload": { "text": "Подождать и проверить снова" } },
+            { "id": "payment-activated-wait", "label": "⏳ Подождать и проверить снова", "action": "select_intent", "payload": { "intent": "ask_payment_status", "text": "Статус платежа" } },
             { "id": "payment-activated-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
             { "id": "payment-activated-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
@@ -216,7 +216,7 @@
     "tech_site_not_loading": {
         "message": "🌐 Сайт не работает\n\nУточните, пожалуйста:\n• Какое устройство вы используете? (компьютер/телефон)\n• Какой браузер?\n• Какая ошибка отображается?\n\nБазовые решения:\n• Обновите страницу (F5)\n• Очистите кэш браузера\n• Попробуйте другой браузер\n\nЕсли проблема сохраняется, я передам её оператору.",
         "quick_replies": [
-            { "id": "tech-site-fixes", "label": "✅ Попробовать решения", "action": "send_text", "payload": { "text": "Попробую решения" } },
+            { "id": "tech-site-fixes", "label": "✅ Попробовать решения", "action": "select_intent", "payload": { "intent": "ask_site_problem", "text": "Сайт не работает" } },
             { "id": "tech-site-operator-response", "label": "📞 Перейти к оператору", "action": "request_operator", "payload": {} },
             { "id": "tech-site-menu", "label": "↩️ Вернуться в меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
@@ -467,8 +467,7 @@
         ]
     },
     "goodbye": {
-        "message": "👋 До свидания!\n\nБуду рад помочь в следующий раз. Если возникнут вопросы - обращайтесь в любое время!",
-        "options": []
+        "message": "👋 До свидания!\n\nБуду рад помочь в следующий раз. Если возникнут вопросы - обращайтесь в любое время!"
     },
 
     "error_generic": {

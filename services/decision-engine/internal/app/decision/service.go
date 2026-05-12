@@ -126,6 +126,8 @@ func (s *Service) Decide(
 		match = scoped
 	}
 
+	match = applyMixedDomainAmbiguityPolicy(text, match)
+
 	if contextual, ok := s.resolveContextualFollowUp(sess, text, match); ok {
 		return contextual, nil
 	}
@@ -494,6 +496,100 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+type mixedDomainAmbiguityRule struct {
+	categories             [2]string
+	domainSignals          map[string][]string
+	sharedSignals          []string
+	disambiguatingSignals  map[string][]string
+	minSecondaryConfidence float64
+}
+
+var mixedDomainAmbiguityRules = []mixedDomainAmbiguityRule{
+	{
+		categories: [2]string{"workspace", "services"},
+		domainSignals: map[string][]string{
+			"workspace": {"место", "места", "коворкинг", "стол", "офис"},
+			"services":  {"услуга", "услуги", "процедур", "стриж", "маник", "педик", "массаж", "макияж", "окраш"},
+		},
+	},
+	{
+		categories:    [2]string{"account", "tech_issue"},
+		sharedSignals: []string{"код"},
+		disambiguatingSignals: map[string][]string{
+			"account":    {"аккаунт", "профиль", "кабинет", "почт"},
+			"tech_issue": {"сайт", "логин", "войти", "авториза", "смс", "браузер", "телефон"},
+		},
+		minSecondaryConfidence: 0.85,
+	},
+}
+
+func applyMixedDomainAmbiguityPolicy(text string, match MatchResult) MatchResult {
+	if len(match.Candidates) < 2 {
+		return match
+	}
+
+	normalized := normalizeText(text)
+	if normalized == "" {
+		return match
+	}
+
+	primary := candidateCategory(match.Candidates[0])
+	secondary := candidateCategory(match.Candidates[1])
+	if primary == "" || secondary == "" || primary == secondary {
+		return match
+	}
+
+	for _, rule := range mixedDomainAmbiguityRules {
+		if !rule.matches(primary, secondary) {
+			continue
+		}
+		if !rule.triggers(normalized, primary, secondary, match.Candidates[1].Confidence) {
+			continue
+		}
+		match.LowConfidence = true
+		match.FallbackReason = firstNonEmpty(match.FallbackReason, defaultAmbiguousMatch)
+		return match
+	}
+
+	return match
+}
+
+func (r mixedDomainAmbiguityRule) matches(left, right string) bool {
+	return (r.categories[0] == left && r.categories[1] == right) ||
+		(r.categories[0] == right && r.categories[1] == left)
+}
+
+func (r mixedDomainAmbiguityRule) triggers(normalized, primary, secondary string, secondaryConfidence float64) bool {
+	if len(r.domainSignals) > 0 &&
+		containsAnySignal(normalized, r.domainSignals[primary]) &&
+		containsAnySignal(normalized, r.domainSignals[secondary]) {
+		return true
+	}
+
+	if r.minSecondaryConfidence > 0 && secondaryConfidence < r.minSecondaryConfidence {
+		return false
+	}
+	if len(r.sharedSignals) == 0 || !containsAnySignal(normalized, r.sharedSignals) {
+		return false
+	}
+	if containsAnySignal(normalized, r.disambiguatingSignals[primary]) {
+		return false
+	}
+	if containsAnySignal(normalized, r.disambiguatingSignals[secondary]) {
+		return false
+	}
+	return true
+}
+
+func containsAnySignal(normalized string, signals []string) bool {
+	for _, signal := range signals {
+		if strings.Contains(normalized, signal) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) promoteContextualLowConfidence(
 	sess session.Session,
 	match MatchResult,
@@ -643,7 +739,14 @@ func topCandidateCategory(match MatchResult) string {
 	if len(match.Candidates) == 0 {
 		return ""
 	}
-	raw, ok := match.Candidates[0].Metadata["category"]
+	return candidateCategory(match.Candidates[0])
+}
+
+func candidateCategory(candidate Candidate) string {
+	if candidate.Metadata == nil {
+		return ""
+	}
+	raw, ok := candidate.Metadata["category"]
 	if !ok {
 		return ""
 	}

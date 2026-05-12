@@ -565,6 +565,7 @@ test('E2E-033 @smoke NLP unavailable falls back under 3 seconds and records fall
     expect(duration).toBeLessThan(3_000);
     expect(response.text).toMatch(/Уточните|оператор/i);
     const decision = await latestDecision(session.session_id);
+    expect(decision.fallback_reason).toBe('embedding_unavailable');
     expect(JSON.stringify(decision.candidates)).toContain('embedding_unavailable');
   } finally {
     await restartServices('nlp-service');
