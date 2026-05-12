@@ -39,6 +39,16 @@
       "path": "/api/v1/domain/schema",
       "response": { "$ref": "#/$defs/domainSchemaResponse" }
     },
+    "admin_session_reset": {
+      "method": "POST",
+      "path": "/api/v1/admin/sessions/{session_id}/reset",
+      "headers": {
+        "X-Admin-Token": { "type": "string" }
+      },
+      "request": { "$ref": "#/$defs/sessionResetRequest" },
+      "response": { "$ref": "#/$defs/sessionResetResponse" },
+      "error": { "$ref": "#/$defs/errorEnvelope" }
+    },
     "operator_request": {
       "method": "POST",
       "path": "/api/v1/operator/queue/{session_id}/request",
@@ -253,6 +263,28 @@
           "type": "array",
           "items": { "$ref": "#/$defs/sessionMessageRecord" }
         }
+      },
+      "additionalProperties": false
+    },
+    "sessionResetRequest": {
+      "type": "object",
+      "properties": {
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "sessionResetResponse": {
+      "type": "object",
+      "required": ["session_id", "existed", "deleted", "audit_id", "timestamp"],
+      "properties": {
+        "session_id": { "$ref": "#/$defs/uuid" },
+        "existed": { "type": "boolean" },
+        "deleted": {
+          "type": "object",
+          "additionalProperties": { "type": "integer" }
+        },
+        "audit_id": { "$ref": "#/$defs/uuid" },
+        "timestamp": { "$ref": "#/$defs/timestamp" }
       },
       "additionalProperties": false
     },

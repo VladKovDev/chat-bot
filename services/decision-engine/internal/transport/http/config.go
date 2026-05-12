@@ -13,8 +13,9 @@ type Config struct {
 	MaxHeaderBytes  int           `mapstructure:"max_header_bytes"`
 
 	// Middleware configuration
-	Timeout      time.Duration `mapstructure:"timeout"`
-	BodyLimit    int64         `mapstructure:"body_limit"`
-	EnableLogs   bool          `mapstructure:"enable_logs"`
-	EnableRecovery bool        `mapstructure:"enable_recovery"`
+	Timeout         time.Duration `mapstructure:"timeout"`
+	BodyLimit       int64         `mapstructure:"body_limit"`
+	EnableLogs      bool          `mapstructure:"enable_logs"`
+	EnableRecovery  bool          `mapstructure:"enable_recovery"`
+	AdminResetToken string        `mapstructure:"admin_reset_token"`
 }

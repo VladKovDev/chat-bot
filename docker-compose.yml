@@ -52,6 +52,7 @@ services:
       DATABASE_NAME: ${POSTGRES_DB:-chat_bot}
       DATABASE_SSLMODE: disable
       HTTP_ADDRESS: ":8080"
+      ADMIN_RESET_TOKEN: ${ADMIN_RESET_TOKEN:-dev-reset-token}
       NLP_BASE_URL: http://nlp-service:8080
       NLP_TIMEOUT: 5s
       NLP_EXPECTED_DIMENSION: 384

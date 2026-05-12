@@ -43,6 +43,9 @@ func LoadConfig(v *viper.Viper) (http.Config, error) {
 	if v.IsSet("http.enable_recovery") {
 		cfg.EnableRecovery = v.GetBool("http.enable_recovery")
 	}
+	if v.IsSet("http.admin_reset_token") {
+		cfg.AdminResetToken = v.GetString("http.admin_reset_token")
+	}
 
 	if err := Validate(cfg); err != nil {
 		return http.Config{}, err
@@ -62,4 +65,5 @@ func bindEnv(v *viper.Viper) {
 	_ = v.BindEnv("http.body_limit", "HTTP_BODY_LIMIT")
 	_ = v.BindEnv("http.enable_logs", "HTTP_ENABLE_LOGS")
 	_ = v.BindEnv("http.enable_recovery", "HTTP_ENABLE_RECOVERY")
+	_ = v.BindEnv("http.admin_reset_token", "ADMIN_RESET_TOKEN")
 }

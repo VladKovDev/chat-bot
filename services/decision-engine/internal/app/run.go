@@ -8,6 +8,7 @@ import (
 
 	appactions "github.com/VladKovDev/chat-bot/internal/app/actions"
 	appdecision "github.com/VladKovDev/chat-bot/internal/app/decision"
+	appdialogreset "github.com/VladKovDev/chat-bot/internal/app/dialogreset"
 	appoperator "github.com/VladKovDev/chat-bot/internal/app/operator"
 	apppresenter "github.com/VladKovDev/chat-bot/internal/app/presenter"
 	appprocessor "github.com/VladKovDev/chat-bot/internal/app/processor"
@@ -121,6 +122,7 @@ func Run(ctx context.Context) error {
 	userRepo := postgres.NewUserRepo(pool)
 	actionLogRepo := postgres.NewActionLogRepo(pool)
 	operatorRepo := postgres.NewOperatorRepo(pool)
+	dialogResetRepo := postgres.NewDialogResetRepo(pool)
 	messagePersistence := postgres.NewMessagePersistence(pool)
 	semanticCatalogRepo := postgres.NewSemanticCatalogRepository(pool.Pool)
 
@@ -194,6 +196,7 @@ func Run(ctx context.Context) error {
 	decisionService.SetKnowledgeSearcher(knowledgeRetriever)
 
 	operatorService := appoperator.NewService(operatorRepo, sessionRepo)
+	dialogResetService := appdialogreset.NewService(dialogResetRepo, logger)
 
 	// Initialize processor
 	processor := appprocessor.NewProcessor(logger)
@@ -221,7 +224,7 @@ func Run(ctx context.Context) error {
 
 	// Initialize HTTP transport
 	readiness := NewReadinessProvider(pool, nlpConfig)
-	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig, readiness, operatorService)
+	router := http.NewRouter(msgWorker, sessionService, sessionRepo, messageRepo, logger, httpConfig, readiness, dialogResetService, operatorService)
 	httpServer := http.NewServer(httpConfig, logger, router)
 
 	// Initialize application

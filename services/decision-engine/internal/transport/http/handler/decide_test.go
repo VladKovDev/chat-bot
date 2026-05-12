@@ -39,17 +39,18 @@ func TestV1ContractDocumentListsRequiredRoutes(t *testing.T) {
 	}
 
 	expected := map[string]string{
-		"health":           "/api/v1/health",
-		"ready":            "/api/v1/ready",
-		"sessions":         "/api/v1/sessions",
-		"messages":         "/api/v1/messages",
-		"session_messages": "/api/v1/sessions/{session_id}/messages",
-		"domain_schema":    "/api/v1/domain/schema",
-		"operator_request": "/api/v1/operator/queue/{session_id}/request",
-		"operator_queue":   "/api/v1/operator/queue",
-		"operator_accept":  "/api/v1/operator/queue/{handoff_id}/accept",
-		"operator_message": "/api/v1/operator/sessions/{session_id}/messages",
-		"operator_close":   "/api/v1/operator/queue/{handoff_id}/close",
+		"health":              "/api/v1/health",
+		"ready":               "/api/v1/ready",
+		"sessions":            "/api/v1/sessions",
+		"messages":            "/api/v1/messages",
+		"session_messages":    "/api/v1/sessions/{session_id}/messages",
+		"domain_schema":       "/api/v1/domain/schema",
+		"operator_request":    "/api/v1/operator/queue/{session_id}/request",
+		"operator_queue":      "/api/v1/operator/queue",
+		"operator_accept":     "/api/v1/operator/queue/{handoff_id}/accept",
+		"operator_message":    "/api/v1/operator/sessions/{session_id}/messages",
+		"operator_close":      "/api/v1/operator/queue/{handoff_id}/close",
+		"admin_session_reset": "/api/v1/admin/sessions/{session_id}/reset",
 	}
 
 	for key, wantPath := range expected {
@@ -453,6 +454,68 @@ func TestOperatorQueueLifecycleAndHistoryEndpoints(t *testing.T) {
 	}
 }
 
+func TestAdminResetSessionRequiresTokenAndReturnsResetSummary(t *testing.T) {
+	t.Parallel()
+
+	handler, store, messageStore, _ := newTestHandler()
+	sessionID := seedSession(t, store, session.Identity{Channel: session.ChannelWebsite, ClientID: "browser-a"})
+	messageStore.mustCreate(message.Message{
+		SessionID:  sessionID,
+		SenderType: message.SenderTypeUser,
+		Text:       "зависший диалог",
+		CreatedAt:  fixedNow,
+	})
+	resetter := &fakeDialogResetter{
+		summary: DialogResetSummary{
+			SessionID: sessionID,
+			Existed:   true,
+			Deleted: map[string]int64{
+				"messages":       1,
+				"operator_queue": 1,
+			},
+			AuditID:   uuid.MustParse("99999999-9999-9999-9999-999999999999"),
+			CreatedAt: fixedNow,
+		},
+	}
+	handler.resetter = resetter
+	handler.adminToken = "secret-token"
+
+	forbidden := httptest.NewRecorder()
+	forbiddenReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/sessions/"+sessionID.String()+"/reset", strings.NewReader(`{"reason":"local test"}`))
+	withURLParam("session_id", sessionID.String(), handler.ResetSession)(forbidden, forbiddenReq)
+	if forbidden.Code != http.StatusForbidden {
+		t.Fatalf("missing token status = %d, want %d; body=%s", forbidden.Code, http.StatusForbidden, forbidden.Body.String())
+	}
+	if len(resetter.requests) != 0 {
+		t.Fatalf("resetter was called without token: %+v", resetter.requests)
+	}
+
+	allowed := httptest.NewRecorder()
+	allowedReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/sessions/"+sessionID.String()+"/reset", strings.NewReader(`{"reason":"local test"}`))
+	allowedReq.Header.Set("X-Admin-Token", "secret-token")
+	withURLParam("session_id", sessionID.String(), handler.ResetSession)(allowed, allowedReq)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("reset status = %d, want %d; body=%s", allowed.Code, http.StatusOK, allowed.Body.String())
+	}
+
+	var resp SessionResetResponse
+	if err := json.NewDecoder(bytes.NewReader(allowed.Body.Bytes())).Decode(&resp); err != nil {
+		t.Fatalf("decode reset response: %v", err)
+	}
+	if !resp.Existed || resp.SessionID != sessionID.String() {
+		t.Fatalf("reset response = %+v, want existed session %s", resp, sessionID)
+	}
+	if resp.Deleted["messages"] != 1 || resp.Deleted["operator_queue"] != 1 {
+		t.Fatalf("deleted counts = %#v", resp.Deleted)
+	}
+	if len(resetter.requests) != 1 {
+		t.Fatalf("resetter calls = %d, want 1", len(resetter.requests))
+	}
+	if resetter.requests[0].Actor != "admin_http" || resetter.requests[0].Reason != "local test" {
+		t.Fatalf("reset request = %+v", resetter.requests[0])
+	}
+}
+
 func newTestHandler() (*Handler, *fakeSessionStore, *fakeMessageStore, *fakeWorker) {
 	sessionStore := newFakeSessionStore()
 	messageStore := newFakeMessageStore()
@@ -750,6 +813,20 @@ func (f *fakeOperatorQueueService) ListByStatus(
 		}
 	}
 	return items, nil
+}
+
+type fakeDialogResetter struct {
+	summary  DialogResetSummary
+	err      error
+	requests []DialogResetRequest
+}
+
+func (f *fakeDialogResetter) ResetSession(_ context.Context, req DialogResetRequest) (DialogResetSummary, error) {
+	f.requests = append(f.requests, req)
+	if f.err != nil {
+		return DialogResetSummary{}, f.err
+	}
+	return f.summary, nil
 }
 
 func postJSON[T any](t *testing.T, handler http.HandlerFunc, path string, body any) T {

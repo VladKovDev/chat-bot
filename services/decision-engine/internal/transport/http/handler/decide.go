@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/VladKovDev/chat-bot/internal/apperror"
 	"github.com/VladKovDev/chat-bot/internal/contracts"
+	domaindialogreset "github.com/VladKovDev/chat-bot/internal/domain/dialogreset"
 	"github.com/VladKovDev/chat-bot/internal/domain/message"
 	operatorDomain "github.com/VladKovDev/chat-bot/internal/domain/operator"
 	"github.com/VladKovDev/chat-bot/internal/domain/response"
@@ -57,6 +59,14 @@ type OperatorQueueService interface {
 	Accept(ctx context.Context, queueID uuid.UUID, operatorID string) (operatorDomain.QueueItem, error)
 	Close(ctx context.Context, queueID uuid.UUID, operatorID string) (operatorDomain.QueueItem, error)
 	ListByStatus(ctx context.Context, status operatorDomain.QueueStatus, limit int32, offset int32) ([]operatorDomain.QueueItem, error)
+}
+
+type DialogResetRequest = domaindialogreset.Request
+
+type DialogResetSummary = domaindialogreset.Summary
+
+type DialogResetter interface {
+	ResetSession(ctx context.Context, req DialogResetRequest) (DialogResetSummary, error)
 }
 
 type ReadinessProvider func(context.Context) ReadyResponse
@@ -212,15 +222,29 @@ type OperatorMessageResponse struct {
 	Timestamp     string `json:"timestamp"`
 }
 
+type SessionResetRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type SessionResetResponse struct {
+	SessionID string           `json:"session_id"`
+	Existed   bool             `json:"existed"`
+	Deleted   map[string]int64 `json:"deleted"`
+	AuditID   string           `json:"audit_id"`
+	Timestamp string           `json:"timestamp"`
+}
+
 type Handler struct {
-	worker    MessageHandler
-	sessions  SessionService
-	sessionDB SessionRepository
-	messages  MessageRepository
-	operators OperatorQueueService
-	logger    logger.Logger
-	now       func() time.Time
-	ready     ReadinessProvider
+	worker     MessageHandler
+	sessions   SessionService
+	sessionDB  SessionRepository
+	messages   MessageRepository
+	operators  OperatorQueueService
+	resetter   DialogResetter
+	adminToken string
+	logger     logger.Logger
+	now        func() time.Time
+	ready      ReadinessProvider
 }
 
 func NewHandler(
@@ -245,6 +269,11 @@ func NewHandler(
 		now:       func() time.Time { return time.Now().UTC() },
 		ready:     defaultReadiness,
 	}
+}
+
+func (h *Handler) SetDialogResetter(resetter DialogResetter, adminToken string) {
+	h.resetter = resetter
+	h.adminToken = strings.TrimSpace(adminToken)
 }
 
 func (h *Handler) Health(w http.ResponseWriter, _ *http.Request) {
@@ -586,6 +615,64 @@ func (h *Handler) CloseOperatorQueue(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, OperatorQueueActionResponse{
 		Handoff: handoffResponseFromQueue(item),
 	})
+}
+
+func (h *Handler) ResetSession(w http.ResponseWriter, r *http.Request) {
+	requestID := httpmiddleware.RequestIDFromRequest(r)
+	if !h.authorizedAdmin(r) {
+		apperror.WriteJSON(w, http.StatusForbidden, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
+		return
+	}
+	if h.resetter == nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
+
+	sessionID, err := uuid.Parse(chi.URLParam(r, "session_id"))
+	if err != nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
+		return
+	}
+
+	body := SessionResetRequest{}
+	if r.Body != nil {
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&body); err != nil && err.Error() != "EOF" {
+			h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeInvalidRequest, requestID))
+			return
+		}
+	}
+
+	summary, err := h.resetter.ResetSession(r.Context(), DialogResetRequest{
+		SessionID: sessionID,
+		Actor:     "admin_http",
+		Reason:    strings.TrimSpace(body.Reason),
+	})
+	if err != nil {
+		h.respondWithPublicError(w, apperror.NewPublic(apperror.CodeDatabaseUnavailable, requestID))
+		return
+	}
+
+	h.respondJSON(w, http.StatusOK, SessionResetResponse{
+		SessionID: summary.SessionID.String(),
+		Existed:   summary.Existed,
+		Deleted:   summary.Deleted,
+		AuditID:   summary.AuditID.String(),
+		Timestamp: summary.CreatedAt.UTC().Format(time.RFC3339Nano),
+	})
+}
+
+func (h *Handler) authorizedAdmin(r *http.Request) bool {
+	expected := strings.TrimSpace(h.adminToken)
+	if expected == "" {
+		return false
+	}
+	actual := strings.TrimSpace(r.Header.Get("X-Admin-Token"))
+	if actual == "" || len(actual) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(actual), []byte(expected)) == 1
 }
 
 func (h *Handler) respondWithPublicError(w http.ResponseWriter, publicError apperror.PublicError) {

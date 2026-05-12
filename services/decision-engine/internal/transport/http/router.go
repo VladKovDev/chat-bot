@@ -17,6 +17,7 @@ func NewRouter(
 	logger logger.Logger,
 	cfg Config,
 	readiness handler.ReadinessProvider,
+	resetter handler.DialogResetter,
 	operatorQueue ...handler.OperatorQueueService,
 ) http.Handler {
 	r := chi.NewRouter()
@@ -41,6 +42,7 @@ func NewRouter(
 
 	h := handler.NewHandler(messageHandler, sessionService, sessionRepo, messageRepo, logger, operatorQueue...)
 	h.SetReadiness(readiness)
+	h.SetDialogResetter(resetter, cfg.AdminResetToken)
 
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/health", h.Health)
@@ -49,6 +51,7 @@ func NewRouter(
 		api.Post("/messages", h.Message)
 		api.Get("/sessions/{session_id}/messages", h.SessionMessages)
 		api.Get("/domain/schema", h.DomainSchema)
+		api.Post("/admin/sessions/{session_id}/reset", h.ResetSession)
 		api.Post("/operator/queue/{session_id}/request", h.RequestOperator)
 		api.Get("/operator/queue", h.OperatorQueue)
 		api.Post("/operator/queue/{handoff_id}/accept", h.AcceptOperatorQueue)

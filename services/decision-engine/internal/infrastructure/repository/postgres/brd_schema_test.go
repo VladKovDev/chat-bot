@@ -64,6 +64,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		readMigrationForTest(t, "20260510210000_brd_pgvector_catalog.sql"),
 		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
 		readMigrationForTest(t, "20260511120000_decision_candidate_source_alignment.sql"),
+		readMigrationForTest(t, "20260512112000_session_reset_audit.sql"),
 		readQueryForTest(t, "sessions.sql"),
 	}, "\n")
 
@@ -91,6 +92,9 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		"CREATE TABLE IF NOT EXISTS operator_queue",
 		"CREATE TABLE IF NOT EXISTS operator_assignments",
 		"CREATE TABLE IF NOT EXISTS operator_events",
+		"CREATE TABLE IF NOT EXISTS session_reset_audit",
+		"session_id UUID NOT NULL",
+		"deleted_counts JSONB NOT NULL DEFAULT '{}'::jsonb",
 		"CREATE TABLE IF NOT EXISTS actions_log",
 		"CREATE TABLE IF NOT EXISTS transitions_log",
 		"CREATE UNIQUE INDEX idx_session_active_external_user",
