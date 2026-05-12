@@ -5,22 +5,23 @@ const sendButton = document.getElementById('sendButton');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const typingIndicator = document.getElementById('typingIndicator');
+const sessionStartState = {
+    attempts: 0,
+    retryTimer: null,
+    maxAttempts: 3,
+};
 
 function init() {
     wsClient.onOpen(() => {
         updateConnectionStatus('connected');
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-        messageInput.focus();
-        wsClient.send(wsClient.createEvent('session.start', {
-            client_id: wsClient.clientId,
-        }));
+        setInputEnabled(false);
+        startSession();
     });
 
     wsClient.onClose(() => {
         updateConnectionStatus('disconnected');
-        messageInput.disabled = true;
-        sendButton.disabled = true;
+        window.currentSessionId = null;
+        setInputEnabled(false);
     });
 
     wsClient.onError(() => {
@@ -64,6 +65,9 @@ function handleWebSocketMessage(data) {
         case 'session.started':
             window.currentSessionId = data.session_id;
             window.operatorConnected = data.mode === 'operator_connected';
+            sessionStartState.attempts = 0;
+            sessionStartState.retryTimer = null;
+            setInputEnabled(true);
             break;
         case 'message.bot':
             displayBotMessage(data.text, data.quick_replies || []);
@@ -83,10 +87,50 @@ function handleWebSocketMessage(data) {
             displaySystemMessage('Диалог с оператором завершен. Теперь вам снова отвечает бот. Напишите новое сообщение.');
             break;
         case 'error':
+            if (isSessionStartFailure(data) && !window.currentSessionId) {
+                scheduleSessionStartRetry();
+            }
             displayErrorMessage((data.error && data.error.message) || 'Не удалось обработать сообщение. Попробуйте позже.');
             break;
         default:
             debugLog('Unknown message type:', data.type);
+    }
+}
+
+function startSession() {
+    sessionStartState.attempts += 1;
+    wsClient.send(wsClient.createEvent('session.start', {
+        client_id: wsClient.clientId,
+    }));
+}
+
+function scheduleSessionStartRetry() {
+    if (sessionStartState.attempts >= sessionStartState.maxAttempts) {
+        return;
+    }
+    if (sessionStartState.retryTimer !== null) {
+        return;
+    }
+
+    sessionStartState.retryTimer = setTimeout(() => {
+        sessionStartState.retryTimer = null;
+        if (!window.currentSessionId && wsClient.isConnected()) {
+            startSession();
+        }
+    }, 1000);
+}
+
+function isSessionStartFailure(data) {
+    return data && data.type === 'error'
+        && data.error
+        && data.error.code === 'session_start_failed';
+}
+
+function setInputEnabled(enabled) {
+    messageInput.disabled = !enabled;
+    sendButton.disabled = !enabled;
+    if (enabled) {
+        messageInput.focus();
     }
 }
 

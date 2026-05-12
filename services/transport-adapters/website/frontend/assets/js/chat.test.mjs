@@ -123,6 +123,50 @@ test('chat explains what happens after operator handoff is closed', () => {
     assert.equal(sandbox.window.operatorConnected, false);
 });
 
+test('chat keeps input disabled until session.started arrives', () => {
+    const { elements, wsClient } = loadChat();
+
+    assert.equal(elements.messageInput.disabled, true);
+    assert.equal(elements.sendButton.disabled, true);
+
+    wsClient.handlers.open();
+
+    assert.equal(elements.messageInput.disabled, true);
+    assert.equal(elements.sendButton.disabled, true);
+    assert.equal(wsClient.sent.length, 1);
+    assert.equal(wsClient.sent[0].type, 'session.start');
+
+    wsClient.handlers.message({
+        type: 'session.started',
+        session_id: '44444444-4444-4444-4444-444444444444',
+        mode: 'standard',
+    });
+
+    assert.equal(elements.messageInput.disabled, false);
+    assert.equal(elements.sendButton.disabled, false);
+});
+
+test('chat retries session.start after session_start_failed and stays disabled without session', () => {
+    const { elements, wsClient } = loadChat();
+
+    wsClient.handlers.open();
+    assert.equal(wsClient.sent.length, 1);
+    assert.equal(wsClient.sent[0].type, 'session.start');
+
+    wsClient.handlers.message({
+        type: 'error',
+        error: {
+            code: 'session_start_failed',
+            message: 'Не удалось начать сессию.',
+        },
+    });
+
+    assert.equal(elements.messageInput.disabled, true);
+    assert.equal(elements.sendButton.disabled, true);
+    assert.equal(wsClient.sent.length, 2);
+    assert.equal(wsClient.sent[1].type, 'session.start');
+});
+
 function loadChat() {
     const elements = {
         messages: new FakeElement('div'),
@@ -140,6 +184,8 @@ function loadChat() {
     elements.statusDot.id = 'statusDot';
     elements.statusText.id = 'statusText';
     elements.typingIndicator.id = 'typingIndicator';
+    elements.messageInput.disabled = true;
+    elements.sendButton.disabled = true;
 
     const wsClient = {
         clientId: 'browser-a',
@@ -165,6 +211,9 @@ function loadChat() {
             this.sent.push(event);
             return true;
         },
+        isConnected() {
+            return true;
+        },
     };
 
     const document = {
@@ -183,6 +232,10 @@ function loadChat() {
         Date: FixedDate,
         window: {},
         document,
+        setTimeout(callback) {
+            callback();
+            return 1;
+        },
         wsClient,
     };
     sandbox.globalThis = sandbox;
