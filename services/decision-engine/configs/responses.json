@@ -47,9 +47,17 @@
         ]
     },
     "booking_request_identifier": {
-        "message": "Для поиска информации о записи введите:\n• Номер записи\n\nИли номер телефона, связанный с записью",
+        "message": "Чтобы проверить запись, пришлите:\n• номер записи целиком, например BRG-482910\n• или номер телефона, связанный с записью",
         "quick_replies": [
+            { "id": "booking-request-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
             { "id": "booking-request-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
+        ]
+    },
+    "booking_request_identifier_retry": {
+        "message": "Нужен номер записи целиком или телефон, связанный с записью.\n\nСообщение вроде \"2\" без полного номера записи я не смогу проверить.\n\nОтправьте номер в формате BRG-482910 или ваш телефон.",
+        "quick_replies": [
+            { "id": "booking-request-retry-operator", "label": "📞 Связаться с оператором", "action": "request_operator", "payload": {} },
+            { "id": "booking-request-retry-menu", "label": "↩️ Вернуться в главное меню", "action": "select_intent", "payload": { "intent": "return_to_menu", "text": "главное меню" } }
         ]
     },
     "booking_found": {

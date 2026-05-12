@@ -1084,6 +1084,59 @@ func TestDecisionServiceAffirmativePendingFollowUpRepeatsLookupPrompt(t *testing
 	}
 }
 
+func TestDecisionServicePendingBookingNumericFollowUpUsesBookingRetryPrompt(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:                 "ask_booking_status",
+				Category:            "booking",
+				ResolutionType:      "business_lookup",
+				ResponseKey:         "booking_request_identifier",
+				FallbackResponseKey: "booking_request_identifier",
+				Action:              "find_booking",
+				Examples:            []string{"статус записи"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{
+		IntentKey:      "",
+		Confidence:     0.07,
+		LowConfidence:  true,
+		FallbackReason: defaultLowConfidence,
+	}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.Decide(context.Background(), session.Session{
+		State:       state.StateWaitingForIdentifier,
+		ActiveTopic: "booking",
+		LastIntent:  "ask_booking_status",
+	}, nil, "2")
+	if err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if result.Intent != "ask_booking_status" {
+		t.Fatalf("intent = %q, want ask_booking_status", result.Intent)
+	}
+	if result.State != state.StateWaitingForIdentifier {
+		t.Fatalf("state = %q, want waiting_for_identifier", result.State)
+	}
+	if result.ResponseKey != "booking_request_identifier_retry" {
+		t.Fatalf("response_key = %q, want booking_request_identifier_retry", result.ResponseKey)
+	}
+	if result.LowConfidence {
+		t.Fatalf("LowConfidence = true, want false for explicit retry guidance")
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("candidates = %#v, want one retry evidence candidate", result.Candidates)
+	}
+	if got := result.Candidates[0].Metadata["reason"]; got != "pending_identifier_retry" {
+		t.Fatalf("candidate reason = %#v, want pending_identifier_retry", got)
+	}
+}
+
 func TestDecisionServiceKeepsGlobalTopicSwitchWhenMatcherIsConfident(t *testing.T) {
 	t.Parallel()
 

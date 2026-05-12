@@ -131,6 +131,9 @@ func (s *Service) Decide(
 	if contextual, ok := s.resolveContextualFollowUp(sess, text, match); ok {
 		return contextual, nil
 	}
+	if pending, ok := s.resolvePendingBusinessLookupFallback(sess, text, match); ok {
+		return pending, nil
+	}
 
 	confidence := match.Confidence
 	if match.IntentKey == "" {
@@ -647,6 +650,35 @@ func (s *Service) promoteContextualLowConfidence(
 	}
 
 	return resultForIntent(sess, intentDefinition, text, confidencePtr(match.Confidence), match.Candidates), true
+}
+
+func (s *Service) resolvePendingBusinessLookupFallback(sess session.Session, text string, match MatchResult) (Result, bool) {
+	if !s.isLowConfidence(match) {
+		return Result{}, false
+	}
+	intentDefinition, ok := s.pendingBusinessLookupIntent(sess)
+	if !ok {
+		return Result{}, false
+	}
+
+	candidates := []Candidate{
+		{
+			IntentKey:  intentDefinition.Key,
+			Confidence: 1,
+			Source:     CandidateSourceContextualRule,
+			Text:       text,
+			Metadata: map[string]any{
+				"category": intentDefinition.Category,
+				"reason":   "pending_identifier_retry",
+			},
+		},
+	}
+	result := resultForIntent(sess, intentDefinition, text, confidencePtr(1), candidates)
+	if intentDefinition.Key == "ask_booking_status" {
+		result.ResponseKey = "booking_request_identifier_retry"
+	}
+
+	return result, true
 }
 
 func (s *Service) pendingBusinessLookupIntent(sess session.Session) (apppresenter.IntentDefinition, bool) {

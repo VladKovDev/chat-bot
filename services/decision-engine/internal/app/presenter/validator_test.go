@@ -190,6 +190,45 @@ func TestActualBookingInfoUsesSelectIntentForStatusLookup(t *testing.T) {
 	}
 }
 
+func TestActualBookingRetryPromptProvidesOperatorAndMenuQuickReplies(t *testing.T) {
+	t.Parallel()
+
+	configPath, err := filepath.Abs(filepath.Join("..", "..", "..", "configs"))
+	if err != nil {
+		t.Fatalf("config path abs: %v", err)
+	}
+	p, err := NewPresenter(configPath)
+	if err != nil {
+		t.Fatalf("new presenter: %v", err)
+	}
+
+	resp, err := p.Present("booking_request_identifier_retry", state.StateWaitingForIdentifier)
+	if err != nil {
+		t.Fatalf("present booking_request_identifier_retry: %v", err)
+	}
+	if !strings.Contains(resp.Text, "BRG-482910") {
+		t.Fatalf("retry prompt = %q, want explicit booking number example", resp.Text)
+	}
+
+	quickRepliesByID := make(map[string]QuickReplyConfig, len(resp.QuickReplies))
+	for _, quickReply := range resp.QuickReplies {
+		quickRepliesByID[quickReply.ID] = QuickReplyConfig{
+			ID:      quickReply.ID,
+			Label:   quickReply.Label,
+			Action:  quickReply.Action,
+			Payload: quickReply.Payload,
+			Order:   quickReply.Order,
+		}
+	}
+
+	if reply, ok := quickRepliesByID["booking-request-retry-operator"]; !ok || reply.Action != "request_operator" {
+		t.Fatalf("operator retry quick reply missing or invalid: %#v", resp.QuickReplies)
+	}
+	if reply, ok := quickRepliesByID["booking-request-retry-menu"]; !ok || reply.Action != "select_intent" {
+		t.Fatalf("menu retry quick reply missing or invalid: %#v", resp.QuickReplies)
+	}
+}
+
 func TestActualWorkspaceInfoUsesSelectIntentForPrices(t *testing.T) {
 	t.Parallel()
 

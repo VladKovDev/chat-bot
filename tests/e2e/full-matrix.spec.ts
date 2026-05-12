@@ -206,6 +206,30 @@ test('E2E-006b booking info quick reply routes to identifier prompt without clar
   await expectNoAction(session.session_id);
 });
 
+test('E2E-006c booking pending numeric follow-up repeats booking-specific prompt instead of generic clarify', async ({ request }) => {
+  const clientID = client('006c');
+  const session = await startSession(request, clientID);
+
+  const mainMenu = await sendMessage(request, session.session_id, clientID, 'главное меню');
+  const bookingMenuReply = mainMenu.quick_replies?.find((reply) => reply.id === 'menu-booking');
+  expect(bookingMenuReply).toBeTruthy();
+
+  const bookingInfo = await sendQuickReply(request, session.session_id, clientID, bookingMenuReply as QuickReply);
+  const statusReply = bookingInfo.quick_replies?.find((reply) => reply.id === 'booking-status-check');
+  expect(statusReply).toBeTruthy();
+
+  await sendQuickReply(request, session.session_id, clientID, statusReply as QuickReply);
+  const retry = await sendMessage(request, session.session_id, clientID, '2');
+
+  expect(retry.text).toContain('номер записи целиком');
+  expect(retry.text).toContain('BRG-482910');
+  expect(retry.text).not.toContain('Уточните ваш запрос');
+  expect(retry.quick_replies?.some((reply) => /оператор/i.test(reply.label))).toBeTruthy();
+
+  await expectDecision(session.session_id, 'ask_booking_status', 'booking_request_identifier_retry');
+  await expectNoAction(session.session_id);
+});
+
 test('E2E-007 booking not found returns controlled response and operator retry replies', async ({ request }) => {
   const { session, response } = await apiFlow(request, '007', 'проверьте запись BRG-404000');
 
