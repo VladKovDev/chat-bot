@@ -68,6 +68,11 @@ func (s *Service) StartSession(ctx context.Context, identity Identity) (StartRes
 	}
 	createdSession, err := s.repo.Create(ctx, newSession)
 	if err != nil {
+		existing, getErr := s.repo.GetActiveByIdentity(ctx, identity)
+		if getErr == nil {
+			normalizeContext(&existing)
+			return StartResult{Session: existing, Resumed: true}, nil
+		}
 		return StartResult{}, err
 	}
 

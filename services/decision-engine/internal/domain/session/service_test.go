@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/VladKovDev/chat-bot/internal/domain/state"
@@ -261,6 +262,48 @@ func TestStartSessionRejectsMissingIdentity(t *testing.T) {
 	}
 }
 
+func TestStartSessionReturnsExistingSessionWhenCreateRacesWithParallelStarter(t *testing.T) {
+	t.Parallel()
+
+	identity := Identity{Channel: ChannelWebsite, ClientID: "racy-client"}
+	existing := Session{
+		ID:             uuid.New(),
+		UserID:         uuid.New(),
+		Channel:        identity.Channel,
+		ClientID:       identity.ClientID,
+		State:          state.StateNew,
+		Mode:           ModeStandard,
+		OperatorStatus: OperatorStatusNone,
+		Status:         StatusActive,
+		Metadata:       map[string]interface{}{},
+		Version:        1,
+	}
+
+	repo := &startRaceRepo{
+		activeIdentity: identity,
+		activeSession:  existing,
+		createErr:      errors.New("duplicate active session"),
+	}
+	service := NewService(repo)
+
+	result, err := service.StartSession(context.Background(), identity)
+	if err != nil {
+		t.Fatalf("start session with raced create: %v", err)
+	}
+	if !result.Resumed {
+		t.Fatalf("raced start should resume existing session")
+	}
+	if result.Session.ID != existing.ID {
+		t.Fatalf("resumed wrong session: got %s want %s", result.Session.ID, existing.ID)
+	}
+	if repo.getActiveCalls != 2 {
+		t.Fatalf("getActiveByIdentity calls = %d, want 2", repo.getActiveCalls)
+	}
+	if repo.createCalls != 1 {
+		t.Fatalf("create calls = %d, want 1", repo.createCalls)
+	}
+}
+
 type memoryRepo struct {
 	byID        map[uuid.UUID]Session
 	transitions map[uuid.UUID][]ModeTransition
@@ -379,6 +422,81 @@ func (r *memoryRepo) Delete(_ context.Context, id uuid.UUID) error {
 
 func (r *memoryRepo) Count(context.Context) (int64, error) {
 	return int64(len(r.byID)), nil
+}
+
+type startRaceRepo struct {
+	activeIdentity Identity
+	activeSession  Session
+	createErr      error
+	getActiveCalls int
+	createCalls    int
+}
+
+func (r *startRaceRepo) Create(_ context.Context, session Session) (Session, error) {
+	r.createCalls++
+	return Session{}, r.createErr
+}
+
+func (r *startRaceRepo) GetByID(_ context.Context, id uuid.UUID) (Session, error) {
+	if r.activeSession.ID == id {
+		return r.activeSession, nil
+	}
+	return Session{}, ErrNotFound
+}
+
+func (r *startRaceRepo) GetActiveByIdentity(_ context.Context, identity Identity) (Session, error) {
+	r.getActiveCalls++
+	if r.getActiveCalls == 1 {
+		return Session{}, ErrNotFound
+	}
+	if NormalizeIdentity(identity) == NormalizeIdentity(r.activeIdentity) {
+		return r.activeSession, nil
+	}
+	return Session{}, ErrNotFound
+}
+
+func (r *startRaceRepo) GetByUserID(context.Context, uuid.UUID, int32, int32) ([]Session, error) {
+	return nil, nil
+}
+
+func (r *startRaceRepo) Update(_ context.Context, session Session) (Session, error) {
+	return session, nil
+}
+
+func (r *startRaceRepo) UpdateContext(_ context.Context, session Session, transition *ModeTransition) (Session, error) {
+	return session, nil
+}
+
+func (r *startRaceRepo) UpdateState(_ context.Context, id uuid.UUID, st state.State) (Session, error) {
+	return Session{}, ErrNotFound
+}
+
+func (r *startRaceRepo) UpdateStateWithVersion(_ context.Context, id uuid.UUID, st state.State) (Session, error) {
+	return Session{}, ErrNotFound
+}
+
+func (r *startRaceRepo) UpdateStatus(_ context.Context, id uuid.UUID, status Status) (Session, error) {
+	return Session{}, ErrNotFound
+}
+
+func (r *startRaceRepo) List(context.Context, int32, int32) ([]Session, error) {
+	return nil, nil
+}
+
+func (r *startRaceRepo) ListByState(context.Context, state.State, int32, int32) ([]Session, error) {
+	return nil, nil
+}
+
+func (r *startRaceRepo) ListByStatus(context.Context, Status, int32, int32) ([]Session, error) {
+	return nil, nil
+}
+
+func (r *startRaceRepo) Delete(context.Context, uuid.UUID) error {
+	return nil
+}
+
+func (r *startRaceRepo) Count(context.Context) (int64, error) {
+	return 1, nil
 }
 
 func assertTransition(t *testing.T, got ModeTransition, from Mode, to Mode, event Event) {
