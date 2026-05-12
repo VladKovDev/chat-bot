@@ -80,7 +80,7 @@ function handleWebSocketMessage(data) {
             break;
         case 'handoff.closed':
             window.operatorConnected = false;
-            displaySystemMessage('Диалог с оператором завершен.');
+            displaySystemMessage('Диалог с оператором завершен. Теперь вам снова отвечает бот. Напишите новое сообщение.');
             break;
         case 'error':
             displayErrorMessage((data.error && data.error.message) || 'Не удалось обработать сообщение. Попробуйте позже.');

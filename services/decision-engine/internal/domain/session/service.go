@@ -215,7 +215,7 @@ func nextModeForEvent(current Mode, event Event) (Mode, error) {
 		}
 	case EventOperatorClosed:
 		if current == ModeWaitingOperator || current == ModeOperatorConnected {
-			return ModeClosed, nil
+			return ModeStandard, nil
 		}
 	case EventResetConversation:
 		return ModeStandard, nil

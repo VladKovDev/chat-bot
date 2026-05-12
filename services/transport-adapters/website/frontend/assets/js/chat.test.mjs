@@ -97,6 +97,32 @@ test('chat renderer does not serialize quick replies into HTML attributes', () =
     assert.equal(scriptSource.includes('outerHTML'), false);
 });
 
+test('chat explains what happens after operator handoff is closed', () => {
+    const { elements, wsClient, sandbox } = loadChat();
+
+    wsClient.handlers.message({
+        type: 'session.started',
+        session_id: '33333333-3333-3333-3333-333333333333',
+        mode: 'operator_connected',
+    });
+    wsClient.handlers.message({
+        type: 'handoff.closed',
+        handoff: {
+            handoff_id: 'handoff-1',
+            session_id: '33333333-3333-3333-3333-333333333333',
+            status: 'closed',
+        },
+    });
+
+    const closedMessage = elements.messages.children.at(-1);
+    assert.ok(closedMessage, 'closure system message should be rendered');
+    assert.equal(
+        closedMessage.children[0].children[0].textContent,
+        'Диалог с оператором завершен. Теперь вам снова отвечает бот. Напишите новое сообщение.',
+    );
+    assert.equal(sandbox.window.operatorConnected, false);
+});
+
 function loadChat() {
     const elements = {
         messages: new FakeElement('div'),

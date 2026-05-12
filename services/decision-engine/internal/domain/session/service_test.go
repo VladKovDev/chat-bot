@@ -110,8 +110,8 @@ func TestApplyContextDecisionLogsLimitedModeFSM(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("operator closed transition: %v", err)
 	}
-	if sess.Mode != ModeClosed || sess.OperatorStatus != OperatorStatusClosed || sess.Status != StatusClosed {
-		t.Fatalf("closed context = mode %q operator_status %q status %q", sess.Mode, sess.OperatorStatus, sess.Status)
+	if sess.Mode != ModeStandard || sess.OperatorStatus != OperatorStatusNone || sess.Status != StatusActive {
+		t.Fatalf("operator closed context = mode %q operator_status %q status %q", sess.Mode, sess.OperatorStatus, sess.Status)
 	}
 
 	logs := repo.transitions[sess.ID]
@@ -120,7 +120,7 @@ func TestApplyContextDecisionLogsLimitedModeFSM(t *testing.T) {
 	}
 	assertTransition(t, logs[0], ModeStandard, ModeWaitingOperator, EventRequestOperator)
 	assertTransition(t, logs[1], ModeWaitingOperator, ModeOperatorConnected, EventOperatorConnected)
-	assertTransition(t, logs[2], ModeOperatorConnected, ModeClosed, EventOperatorClosed)
+	assertTransition(t, logs[2], ModeOperatorConnected, ModeStandard, EventOperatorClosed)
 }
 
 func TestStartSessionRestoresPersistentContextAfterRestart(t *testing.T) {

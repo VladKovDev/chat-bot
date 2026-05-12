@@ -91,8 +91,8 @@ func TestServiceQueuesAcceptsAndClosesHandoff(t *testing.T) {
 	if closed.Status != operatorDomain.QueueStatusClosed {
 		t.Fatalf("closed status = %q, want closed", closed.Status)
 	}
-	if got := sessions.items[sessionID].Mode; got != session.ModeClosed {
-		t.Fatalf("session mode after close = %q, want %q", got, session.ModeClosed)
+	if got := sessions.items[sessionID].Mode; got != session.ModeStandard {
+		t.Fatalf("session mode after close = %q, want %q", got, session.ModeStandard)
 	}
 	if queue.assignments[0].Status != operatorDomain.QueueStatusClosed {
 		t.Fatalf("assignment status = %q, want closed", queue.assignments[0].Status)

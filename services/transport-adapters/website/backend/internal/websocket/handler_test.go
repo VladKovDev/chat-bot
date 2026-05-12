@@ -420,6 +420,157 @@ func TestHandleConnectionReturnsTypedErrorEventForInvalidPayload(t *testing.T) {
 	}
 }
 
+func TestHandleConnectionContinuesSameSessionAfterHandoffClosed(t *testing.T) {
+	t.Parallel()
+
+	var (
+		messageSessions []string
+	)
+
+	const handoffID = "99999999-9999-9999-9999-999999999999"
+
+	decisionEngine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
+			_ = json.NewEncoder(w).Encode(dto.SessionResponse{
+				SessionID: "11111111-1111-1111-1111-111111111111",
+				UserID:    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+				Mode:      "standard",
+				Resumed:   false,
+			})
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/request"):
+			_ = json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
+				Handoff: dto.Handoff{
+					HandoffID: handoffID,
+					SessionID: "11111111-1111-1111-1111-111111111111",
+					Status:    "waiting",
+					Reason:    "manual_request",
+				},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/queue/"+handoffID+"/close":
+			_ = json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
+				Handoff: dto.Handoff{
+					HandoffID: handoffID,
+					SessionID: "11111111-1111-1111-1111-111111111111",
+					Status:    "closed",
+					Reason:    "manual_request",
+				},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/messages":
+			var capturedMessage dto.DecisionEngineRequest
+			if err := json.NewDecoder(r.Body).Decode(&capturedMessage); err != nil {
+				t.Fatalf("decode message request: %v", err)
+			}
+			messageSessions = append(messageSessions, capturedMessage.SessionID)
+			_ = json.NewEncoder(w).Encode(dto.DecisionEngineResponse{
+				SessionID:     capturedMessage.SessionID,
+				UserMessageID: capturedMessage.EventID,
+				BotMessageID:  "33333333-3333-3333-3333-333333333333",
+				Mode:          "standard",
+				Text:          "Чем еще могу помочь?",
+				CorrelationID: "req-message-after-close",
+				Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+			})
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/operator/queue"):
+			resp := dto.OperatorQueueResponse{}
+			if r.URL.Query().Get("status") == "waiting" {
+				resp.Items = append(resp.Items, dto.OperatorQueueItem{
+					HandoffID: handoffID,
+					SessionID: "11111111-1111-1111-1111-111111111111",
+					Status:    "waiting",
+					Reason:    "manual_request",
+					CreatedAt: websocketFixedNow.Format(time.RFC3339Nano),
+				})
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer decisionEngine.Close()
+
+	conn := dialTestWebSocket(t, decisionEngine.URL)
+	defer conn.Close()
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventSessionStart,
+		EventID:       "evt-session-start",
+		CorrelationID: "corr-session-start",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+		ClientID:      "browser-a",
+	}); err != nil {
+		t.Fatalf("write session.start event: %v", err)
+	}
+
+	started := readEvent[dto.SessionStartedEvent](t, conn)
+	if started.SessionID != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("initial session.started session_id = %q", started.SessionID)
+	}
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventQuickReplySelected,
+		SessionID:     started.SessionID,
+		EventID:       "evt-quick-reply",
+		CorrelationID: "corr-quick-reply",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+		QuickReply: &dto.QuickReply{
+			ID:     "operator",
+			Label:  "Связаться с оператором",
+			Action: "request_operator",
+		},
+	}); err != nil {
+		t.Fatalf("write quick_reply.selected event: %v", err)
+	}
+
+	queued := readEvent[dto.HandoffEvent](t, conn)
+	if queued.Type != dto.EventHandoffQueued {
+		t.Fatalf("handoff queued type = %q", queued.Type)
+	}
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventOperatorClose,
+		SessionID:     started.SessionID,
+		EventID:       "evt-operator-close",
+		CorrelationID: "corr-operator-close",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+	}); err != nil {
+		t.Fatalf("write operator.close event: %v", err)
+	}
+
+	closed := readEvent[dto.HandoffEvent](t, conn)
+	if closed.Type != dto.EventHandoffClosed {
+		t.Fatalf("handoff closed type = %q", closed.Type)
+	}
+
+	if err := conn.WriteJSON(dto.ClientEvent{
+		Type:          dto.EventMessageUser,
+		SessionID:     started.SessionID,
+		EventID:       "evt-user-message-after-close",
+		CorrelationID: "corr-user-message-after-close",
+		Timestamp:     websocketFixedNow.Format(time.RFC3339Nano),
+		Text:          "привет",
+	}); err != nil {
+		t.Fatalf("write message.user after close event: %v", err)
+	}
+
+	botMessage := readEvent[dto.MessageBotEvent](t, conn)
+	if botMessage.Type != dto.EventMessageBot {
+		t.Fatalf("message.bot type = %q", botMessage.Type)
+	}
+	if botMessage.SessionID != started.SessionID {
+		t.Fatalf("message.bot session_id = %q, want original session", botMessage.SessionID)
+	}
+	if botMessage.Text != "Чем еще могу помочь?" {
+		t.Fatalf("message.bot text = %q", botMessage.Text)
+	}
+
+	if len(messageSessions) != 1 || messageSessions[0] != started.SessionID {
+		t.Fatalf("message sessions = %#v, want single original session", messageSessions)
+	}
+}
+
 func TestHandleConnectionStreamsOperatorEventsFromDecisionEngineRuntime(t *testing.T) {
 	t.Parallel()
 
