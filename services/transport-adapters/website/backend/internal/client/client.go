@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/VladKovDev/web-adapter/internal/config"
@@ -101,11 +102,37 @@ func (c *Client) RequestHandoff(ctx context.Context, sessionID string) (dto.Oper
 }
 
 func (c *Client) CloseHandoff(ctx context.Context, sessionID string) (dto.OperatorQueueActionResponse, error) {
+	handoffID, err := c.openHandoffIDBySession(ctx, sessionID)
+	if err != nil {
+		return dto.OperatorQueueActionResponse{}, err
+	}
+
 	var respBody dto.OperatorQueueActionResponse
-	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/close", sessionID), map[string]string{}, &respBody); err != nil {
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/v1/operator/queue/%s/close", handoffID), map[string]string{}, &respBody); err != nil {
 		return dto.OperatorQueueActionResponse{}, err
 	}
 	return respBody, nil
+}
+
+func (c *Client) openHandoffIDBySession(ctx context.Context, sessionID string) (string, error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return "", fmt.Errorf("session id is required")
+	}
+
+	for _, status := range []string{"accepted", "waiting"} {
+		queue, err := c.GetOperatorQueue(ctx, status)
+		if err != nil {
+			return "", err
+		}
+		for _, item := range queue.Items {
+			if item.SessionID == sessionID && strings.TrimSpace(item.HandoffID) != "" {
+				return item.HandoffID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("open handoff not found for session %s", sessionID)
 }
 
 func (c *Client) AcceptHandoff(ctx context.Context, handoffID string, operatorID string) (dto.OperatorQueueActionResponse, error) {

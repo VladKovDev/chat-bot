@@ -79,6 +79,11 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 	t.Parallel()
 
 	var capturedMessage dto.DecisionEngineRequest
+	var capturedClosePath string
+	const (
+		sessionID = "11111111-1111-1111-1111-111111111111"
+		handoffID = "99999999-9999-9999-9999-999999999999"
+	)
 
 	decisionEngine := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -86,7 +91,7 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/sessions":
 			_ = json.NewEncoder(w).Encode(dto.SessionResponse{
-				SessionID: "11111111-1111-1111-1111-111111111111",
+				SessionID: sessionID,
 				UserID:    "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
 				Mode:      "standard",
 				Resumed:   false,
@@ -117,17 +122,30 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/request"):
 			_ = json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
 				Handoff: dto.Handoff{
-					HandoffID: "11111111-1111-1111-1111-111111111111",
-					SessionID: "11111111-1111-1111-1111-111111111111",
+					HandoffID: handoffID,
+					SessionID: sessionID,
 					Status:    "waiting",
 					Reason:    "manual_request",
 				},
 			})
-		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/close"):
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/v1/operator/queue"):
+			resp := dto.OperatorQueueResponse{}
+			if r.URL.Query().Get("status") == "waiting" {
+				resp.Items = append(resp.Items, dto.OperatorQueueItem{
+					HandoffID: handoffID,
+					SessionID: sessionID,
+					Status:    "waiting",
+					Reason:    "manual_request",
+					CreatedAt: websocketFixedNow.Format(time.RFC3339Nano),
+				})
+			}
+			_ = json.NewEncoder(w).Encode(resp)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/queue/"+handoffID+"/close":
+			capturedClosePath = r.URL.Path
 			_ = json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
 				Handoff: dto.Handoff{
-					HandoffID: "11111111-1111-1111-1111-111111111111",
-					SessionID: "11111111-1111-1111-1111-111111111111",
+					HandoffID: handoffID,
+					SessionID: sessionID,
 					Status:    "closed",
 					Reason:    "manual_request",
 				},
@@ -259,6 +277,9 @@ func TestHandleConnectionEmitsTypedV1Events(t *testing.T) {
 	}
 	if closed.Handoff.Status != "closed" {
 		t.Fatalf("handoff closed status = %q, want closed", closed.Handoff.Status)
+	}
+	if capturedClosePath == "" {
+		t.Fatalf("operator.close did not close by handoff_id %s", handoffID)
 	}
 }
 

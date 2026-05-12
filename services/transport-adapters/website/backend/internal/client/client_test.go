@@ -134,17 +134,19 @@ func TestClientUsesOperatorEndpoints(t *testing.T) {
 
 	var accepted dto.OperatorQueueActionRequest
 	var operatorMessage dto.OperatorMessageRequest
+	var closedPath string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/operator/queue":
-			if r.URL.Query().Get("status") != "waiting" {
-				t.Fatalf("queue status query = %q, want waiting", r.URL.RawQuery)
-			}
-			json.NewEncoder(w).Encode(dto.OperatorQueueResponse{
-				Items: []dto.OperatorQueueItem{{
+			status := r.URL.Query().Get("status")
+			resp := dto.OperatorQueueResponse{}
+			switch status {
+			case "accepted":
+			case "waiting":
+				resp.Items = []dto.OperatorQueueItem{{
 					HandoffID:     "handoff-a",
 					SessionID:     "session-a",
 					Status:        "waiting",
@@ -152,14 +154,22 @@ func TestClientUsesOperatorEndpoints(t *testing.T) {
 					FallbackCount: 2,
 					CreatedAt:     "2026-05-10T12:00:00Z",
 					Preview:       "Нужен оператор",
-				}},
-			})
+				}}
+			default:
+				t.Fatalf("queue status query = %q, want waiting or accepted", r.URL.RawQuery)
+			}
+			json.NewEncoder(w).Encode(resp)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/queue/handoff-a/accept":
 			if err := json.NewDecoder(r.Body).Decode(&accepted); err != nil {
 				t.Fatalf("decode accept request: %v", err)
 			}
 			json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
 				Handoff: dto.Handoff{HandoffID: "handoff-a", SessionID: "session-a", Status: "accepted"},
+			})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/queue/handoff-a/close":
+			closedPath = r.URL.Path
+			json.NewEncoder(w).Encode(dto.OperatorQueueActionResponse{
+				Handoff: dto.Handoff{HandoffID: "handoff-a", SessionID: "session-a", Status: "closed"},
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/operator/sessions/session-a/messages":
 			if err := json.NewDecoder(r.Body).Decode(&operatorMessage); err != nil {
@@ -191,6 +201,14 @@ func TestClientUsesOperatorEndpoints(t *testing.T) {
 	}
 	if accepted.OperatorID != "operator-1" {
 		t.Fatalf("accept operator_id = %q", accepted.OperatorID)
+	}
+
+	closed, err := c.CloseHandoff(context.Background(), "session-a")
+	if err != nil {
+		t.Fatalf("close handoff: %v", err)
+	}
+	if closed.Handoff.Status != "closed" || closedPath != "/api/v1/operator/queue/handoff-a/close" {
+		t.Fatalf("close handoff resp=%+v path=%q", closed, closedPath)
 	}
 
 	resp, err := c.SendOperatorMessage(context.Background(), "session-a", "operator-1", "Здравствуйте")
