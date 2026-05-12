@@ -122,6 +122,12 @@ func TestDecisionServiceQuickReplySelectIntentUsesPayloadIntentNotLabel(t *testi
 	if result.ResponseKey != "main_menu" {
 		t.Fatalf("response_key = %q, want main_menu", result.ResponseKey)
 	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("candidates = %#v, want one quick reply evidence candidate", result.Candidates)
+	}
+	if result.Candidates[0].Source != CandidateSourceQuickReplyIntent || result.Candidates[0].Confidence != 1 {
+		t.Fatalf("candidate = %#v, want quick_reply_intent confidence=1", result.Candidates[0])
+	}
 }
 
 func TestDecisionServiceQuickReplySendTextUsesPayloadText(t *testing.T) {
@@ -204,6 +210,53 @@ func TestDecisionServiceQuickReplySelectIntentUsesWorkspaceRulesIntent(t *testin
 
 	if result.Intent != "ask_workspace_rules" {
 		t.Fatalf("intent = %q, want ask_workspace_rules", result.Intent)
+	}
+	if len(result.Candidates) != 1 || result.Candidates[0].Source != CandidateSourceQuickReplyIntent {
+		t.Fatalf("candidates = %#v, want quick_reply_intent evidence", result.Candidates)
+	}
+}
+
+func TestDecisionServiceQuickReplyRequestOperatorUsesDeterministicEvidence(t *testing.T) {
+	t.Parallel()
+
+	service, err := NewService(&apppresenter.IntentCatalog{
+		Intents: []apppresenter.IntentDefinition{
+			{
+				Key:            "request_operator",
+				Category:       "operator",
+				ResolutionType: "operator_handoff",
+				ResponseKey:    "operator_handoff_requested",
+				Examples:       []string{"оператор"},
+			},
+		},
+	}, stubMatcher{result: MatchResult{}}, logger.Noop())
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	result, err := service.DecideQuickReply(
+		context.Background(),
+		session.Session{ActiveTopic: "payment"},
+		nil,
+		QuickReplySelection{
+			ID:      "operator-now",
+			Action:  "request_operator",
+			Payload: map[string]any{},
+		},
+		"",
+	)
+	if err != nil {
+		t.Fatalf("decide quick reply: %v", err)
+	}
+
+	if result.Intent != "request_operator" {
+		t.Fatalf("intent = %q, want request_operator", result.Intent)
+	}
+	if len(result.Candidates) != 1 || result.Candidates[0].Source != CandidateSourceQuickReplyIntent {
+		t.Fatalf("candidates = %#v, want quick_reply_intent evidence", result.Candidates)
+	}
+	if result.Candidates[0].IntentKey != "request_operator" || result.Candidates[0].Confidence != 1 {
+		t.Fatalf("candidate = %#v, want request_operator confidence=1", result.Candidates[0])
 	}
 }
 

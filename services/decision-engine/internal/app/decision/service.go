@@ -248,7 +248,13 @@ func (s *Service) DecideQuickReply(
 		if !ok {
 			return s.lowConfidenceResult(sess, 0, nil, defaultLowConfidence), nil
 		}
-		return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), nil
+		return resultForIntent(
+			sess,
+			intentDefinition,
+			text,
+			confidencePtr(1),
+			[]Candidate{deterministicQuickReplyCandidate(selection, intentKey, text)},
+		), nil
 	case "request_operator":
 		intentDefinition, ok := s.intentsByKey["request_operator"]
 		if !ok {
@@ -258,14 +264,23 @@ func (s *Service) DecideQuickReply(
 				Topic:       sess.ActiveTopic,
 				ResponseKey: "operator_handoff_requested",
 				Confidence:  confidencePtr(1),
-				Event:       session.EventRequestOperator,
-				Actions:     []string{action.ActionEscalateToOperator},
+				Candidates: []Candidate{
+					deterministicQuickReplyCandidate(selection, "request_operator", text),
+				},
+				Event:   session.EventRequestOperator,
+				Actions: []string{action.ActionEscalateToOperator},
 				ActionContext: map[string]any{
 					"handoff_reason": "manual_request",
 				},
 			}, nil
 		}
-		return resultForIntent(sess, intentDefinition, text, confidencePtr(1), nil), nil
+		return resultForIntent(
+			sess,
+			intentDefinition,
+			text,
+			confidencePtr(1),
+			[]Candidate{deterministicQuickReplyCandidate(selection, "request_operator", text)},
+		), nil
 	case "send_text":
 		if strings.TrimSpace(text) == "" {
 			return Result{}, fmt.Errorf("quick reply %q send_text payload.text is required", selection.ID)
@@ -273,6 +288,28 @@ func (s *Service) DecideQuickReply(
 		return s.Decide(ctx, sess, history, text)
 	default:
 		return Result{}, fmt.Errorf("quick reply %q action %q is unsupported", selection.ID, selection.Action)
+	}
+}
+
+func deterministicQuickReplyCandidate(selection QuickReplySelection, intentKey string, text string) Candidate {
+	candidateText := strings.TrimSpace(text)
+	if candidateText == "" {
+		candidateText = firstNonEmpty(
+			quickReplyPayloadString(selection.Payload, "text"),
+			quickReplyPayloadString(selection.Payload, "intent"),
+			strings.TrimSpace(selection.ID),
+			strings.TrimSpace(selection.Action),
+		)
+	}
+	return Candidate{
+		IntentKey:  intentKey,
+		Confidence: 1,
+		Source:     CandidateSourceQuickReplyIntent,
+		Text:       candidateText,
+		Metadata: map[string]any{
+			"quick_reply_id":     strings.TrimSpace(selection.ID),
+			"quick_reply_action": strings.TrimSpace(selection.Action),
+		},
 	}
 }
 

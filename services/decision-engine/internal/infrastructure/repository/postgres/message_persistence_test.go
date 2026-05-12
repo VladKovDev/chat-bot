@@ -11,6 +11,7 @@ func TestAllowedCandidateSource(t *testing.T) {
 		"exact_command",
 		"fallback",
 		"lexical_fuzzy",
+		"quick_reply_intent",
 	}
 	for _, source := range allowed {
 		if !allowedCandidateSource(source) {

@@ -10,12 +10,13 @@ import (
 )
 
 const (
-	CandidateSourceIntentExample  = "intent_example"
-	CandidateSourceExactCommand   = "exact_command"
-	CandidateSourceLexicalFuzzy   = "lexical_fuzzy"
-	CandidateSourceKnowledgeChunk = "knowledge_chunk"
-	CandidateSourceContextualRule = "contextual_rule"
-	CandidateSourceFallback       = "fallback"
+	CandidateSourceIntentExample    = "intent_example"
+	CandidateSourceExactCommand     = "exact_command"
+	CandidateSourceLexicalFuzzy     = "lexical_fuzzy"
+	CandidateSourceKnowledgeChunk   = "knowledge_chunk"
+	CandidateSourceContextualRule   = "contextual_rule"
+	CandidateSourceQuickReplyIntent = "quick_reply_intent"
+	CandidateSourceFallback         = "fallback"
 )
 
 type Embedder interface {

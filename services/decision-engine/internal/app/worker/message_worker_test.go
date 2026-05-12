@@ -655,6 +655,13 @@ func TestHandleMessagePersistsQuickReplyIDAndUsesTypedSelection(t *testing.T) {
 				Topic:       "general",
 				ResponseKey: "main_menu",
 				Event:       session.EventMessageReceived,
+				Candidates: []appdecision.Candidate{
+					{
+						IntentKey:  "return_to_menu",
+						Confidence: 1,
+						Source:     appdecision.CandidateSourceQuickReplyIntent,
+					},
+				},
 			},
 		},
 		processor.NewProcessor(logger.Noop()),
@@ -688,6 +695,13 @@ func TestHandleMessagePersistsQuickReplyIDAndUsesTypedSelection(t *testing.T) {
 	}
 	if messages[0].Intent == nil || *messages[0].Intent != "renamed-menu" {
 		t.Fatalf("stored quick reply id = %#v, want renamed-menu", messages[0].Intent)
+	}
+	logs := persistence.decisionLogs[resp.SessionID]
+	if len(logs) != 1 || len(logs[0].Candidates) != 1 {
+		t.Fatalf("decision logs = %#v, want one logged quick reply candidate", logs)
+	}
+	if logs[0].Candidates[0].Source != appdecision.CandidateSourceQuickReplyIntent || logs[0].Candidates[0].Confidence != 1 {
+		t.Fatalf("logged candidate = %#v, want quick_reply_intent confidence=1", logs[0].Candidates[0])
 	}
 }
 
