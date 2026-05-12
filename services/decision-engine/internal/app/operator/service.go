@@ -55,6 +55,14 @@ func (s *Service) QueueWithDecision(
 		return operatorDomain.QueueItem{}, err
 	}
 
+	existing, err := s.queue.GetOpenBySession(ctx, sessionID)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, operatorDomain.ErrNotFound) {
+		return operatorDomain.QueueItem{}, err
+	}
+
 	queueID := uuid.New()
 	decision.Event = session.EventRequestOperator
 	if decision.Metadata == nil {

@@ -119,6 +119,22 @@ test('E2E-001c @smoke handoff menu quick reply returns to main menu without gene
   await expectDecision(sessionID, 'return_to_menu', 'main_menu');
 });
 
+test('E2E-001d @smoke repeated operator quick reply reuses open handoff without generic public error', async ({ page }) => {
+  const sessionID = await openChat(page);
+  await sendChatMessage(page, 'главное меню');
+
+  await page.locator('button.option-button').filter({ hasText: /Связь с оператором/i }).last().click();
+  await expectLastBotContains(page, /Оператор подключается/i);
+
+  await sendChatMessage(page, 'главное меню');
+  await expectLastBotContains(page, /Главное меню|категори/i);
+  await page.locator('button.option-button').filter({ hasText: /Связь с оператором/i }).last().click();
+
+  await expectLastBotContains(page, /Оператор подключается/i);
+  await expect(page.locator('.message.error-message')).toHaveCount(0);
+  expect(await count('SELECT COUNT(*) FROM operator_queue WHERE session_id = $1 AND status != $2', [sessionID, 'closed'])).toBe(1);
+});
+
 test('E2E-002 изоляция пользователей keeps sessions, history and context separated', async ({ request }) => {
   const first = await apiFlow(request, '002-a', 'как отменить запись');
   const second = await apiFlow(request, '002-b', 'оплата не прошла');

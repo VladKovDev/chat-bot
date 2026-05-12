@@ -197,6 +197,50 @@ func TestServiceQueueWithDecisionPersistsHandoffContext(t *testing.T) {
 	}
 }
 
+func TestServiceQueueWithDecisionReturnsExistingOpenHandoff(t *testing.T) {
+	t.Parallel()
+
+	sessionID := uuid.New()
+	sessions := newFakeSessions(session.Session{
+		ID:             sessionID,
+		UserID:         uuid.New(),
+		State:          state.StateNew,
+		Mode:           session.ModeStandard,
+		Status:         session.StatusActive,
+		OperatorStatus: session.OperatorStatusNone,
+		Metadata:       map[string]interface{}{},
+	})
+	queue := newFakeQueue(sessions)
+	service := NewService(queue, sessions)
+
+	first, err := service.Queue(context.Background(), sessionID, operatorDomain.ReasonManualRequest, operatorDomain.ContextSnapshot{
+		LastIntent: "request_operator",
+	})
+	if err != nil {
+		t.Fatalf("queue first handoff: %v", err)
+	}
+
+	second, err := service.QueueWithDecision(
+		context.Background(),
+		sessionID,
+		operatorDomain.ReasonManualRequest,
+		operatorDomain.ContextSnapshot{LastIntent: "request_operator_again"},
+		session.ContextDecision{Intent: "request_operator"},
+	)
+	if err != nil {
+		t.Fatalf("queue repeated handoff: %v", err)
+	}
+	if second.ID != first.ID {
+		t.Fatalf("repeated handoff id = %s, want existing %s", second.ID, first.ID)
+	}
+	if len(queue.items) != 1 || len(queue.events) != 1 {
+		t.Fatalf("queue side effects = items:%d events:%d, want 1/1", len(queue.items), len(queue.events))
+	}
+	if got := sessions.items[sessionID].Mode; got != session.ModeWaitingOperator {
+		t.Fatalf("session mode = %q, want waiting_operator", got)
+	}
+}
+
 func TestServiceLeavesNoQueueSideEffectWhenAtomicSessionUpdateFails(t *testing.T) {
 	t.Parallel()
 
