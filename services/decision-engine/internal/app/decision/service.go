@@ -831,7 +831,7 @@ var (
 	workspaceIdentifierPattern = regexp.MustCompile(`WS-\d{4}|WRK-(HOT|FIX|OFC1|OFC4)-\d{3}`)
 	paymentIdentifierPattern   = regexp.MustCompile(`PAY-[A-Z0-9-]{3,}`)
 	userIdentifierPattern      = regexp.MustCompile(`usr-\d{6}`)
-	phoneIdentifierPattern     = regexp.MustCompile(`\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}|\b\d{10}\b`)
+	phoneIdentifierPattern     = regexp.MustCompile(`\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}|\b\d{10}\b|\b[78]\d{10}\b`)
 	emailIdentifierPattern     = regexp.MustCompile(`[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}`)
 )
 

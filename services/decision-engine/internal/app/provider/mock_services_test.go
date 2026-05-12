@@ -49,6 +49,18 @@ func TestMockProvidersCoverSuccessNotFoundInvalidAndUnavailable(t *testing.T) {
 		assertAuditFields(t, audit, "booking", StatusNotFound, CodeBookingNotFound)
 
 		response, audit, err = svc.LookupBooking(ctx, BookingLookupRequest{
+			Identifier:     "89991234567",
+			IdentifierType: "phone",
+		})
+		if err != nil {
+			t.Fatalf("lookup by phone with 8-prefix: %v", err)
+		}
+		if !response.Found || response.BookingNumber != "BRG-482910" {
+			t.Fatalf("phone success response = %+v", response)
+		}
+		assertAuditFields(t, audit, "booking", StatusFound, "")
+
+		response, audit, err = svc.LookupBooking(ctx, BookingLookupRequest{
 			Identifier:     "BRG-ABC",
 			IdentifierType: "booking_number",
 		})
@@ -230,6 +242,18 @@ func TestMockProvidersCoverSuccessNotFoundInvalidAndUnavailable(t *testing.T) {
 			t.Fatalf("not_found response = %+v, want found=false", response)
 		}
 		assertAuditFields(t, audit, "user_account", StatusNotFound, CodeAccountNotFound)
+
+		response, audit, err = svc.LookupAccount(ctx, AccountLookupRequest{
+			Identifier:     "89991234567",
+			IdentifierType: "phone",
+		})
+		if err != nil {
+			t.Fatalf("lookup account by phone with 8-prefix: %v", err)
+		}
+		if !response.Found || response.AccountID != "usr-100001" {
+			t.Fatalf("phone success response = %+v", response)
+		}
+		assertAuditFields(t, audit, "user_account", StatusFound, "")
 
 		_, audit, err = svc.LookupAccount(ctx, AccountLookupRequest{
 			Identifier:     "broken-email",

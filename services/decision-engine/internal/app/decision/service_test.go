@@ -888,6 +888,11 @@ func TestExtractIdentifierAcceptsSeedBookingAndWorkspaceIdentifiers(t *testing.T
 	if workspaceIdentifier != "WS-1001" || workspaceType != "workspace_booking" {
 		t.Fatalf("workspace identifier = %q (%q), want WS-1001 (workspace_booking)", workspaceIdentifier, workspaceType)
 	}
+
+	phoneIdentifier, phoneType := extractIdentifier("мой номер 89991234567", "find_booking")
+	if phoneIdentifier != "89991234567" || phoneType != "phone" {
+		t.Fatalf("phone identifier = %q (%q), want 89991234567 (phone)", phoneIdentifier, phoneType)
+	}
 }
 
 func TestDecisionServiceUsesIdentifierOnlyFollowUpForPendingBookingLookup(t *testing.T) {

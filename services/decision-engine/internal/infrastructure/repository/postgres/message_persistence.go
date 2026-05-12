@@ -154,7 +154,7 @@ func (tx *messageTx) LogDecision(ctx context.Context, entry worker.DecisionLog) 
 
 func allowedCandidateSource(source string) bool {
 	switch source {
-	case "intent_example", "knowledge_chunk", "exact_command", "fallback", "lexical_fuzzy", "quick_reply_intent":
+	case "intent_example", "knowledge_chunk", "exact_command", "fallback", "lexical_fuzzy", "quick_reply_intent", "contextual_rule":
 		return true
 	default:
 		return false

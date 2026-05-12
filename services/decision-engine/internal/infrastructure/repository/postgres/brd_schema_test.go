@@ -15,6 +15,7 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 		readMigrationForTest(t, "20260511093000_semantic_catalog_dimension_guard.sql"),
 		readMigrationForTest(t, "20260511120000_decision_candidate_source_alignment.sql"),
 		readMigrationForTest(t, "20260512130000_quick_reply_candidate_source.sql"),
+		readMigrationForTest(t, "20260512134000_contextual_rule_candidate_source.sql"),
 		readQueryForTest(t, "brd_catalog.sql"),
 	}, "\n")
 
@@ -41,6 +42,7 @@ func TestBRDPgvectorCatalogMigrationDocumentsTargetSchema(t *testing.T) {
 		"CREATE TABLE IF NOT EXISTS decision_candidates",
 		"'lexical_fuzzy'",
 		"'quick_reply_intent'",
+		"'contextual_rule'",
 		"CREATE TABLE IF NOT EXISTS demo_accounts",
 		"CREATE TABLE IF NOT EXISTS demo_bookings",
 		"CREATE TABLE IF NOT EXISTS demo_workspace_bookings",
@@ -68,6 +70,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		readMigrationForTest(t, "20260511120000_decision_candidate_source_alignment.sql"),
 		readMigrationForTest(t, "20260512112000_session_reset_audit.sql"),
 		readMigrationForTest(t, "20260512130000_quick_reply_candidate_source.sql"),
+		readMigrationForTest(t, "20260512134000_contextual_rule_candidate_source.sql"),
 		readQueryForTest(t, "sessions.sql"),
 	}, "\n")
 
@@ -89,6 +92,7 @@ func TestFreshSchemaMigrationSetCoversBRDTargetObjects(t *testing.T) {
 		"CREATE TABLE IF NOT EXISTS decision_logs",
 		"CREATE TABLE IF NOT EXISTS decision_candidates",
 		"'quick_reply_intent'",
+		"'contextual_rule'",
 		"CREATE TABLE IF NOT EXISTS demo_accounts",
 		"CREATE TABLE IF NOT EXISTS demo_bookings",
 		"CREATE TABLE IF NOT EXISTS demo_workspace_bookings",

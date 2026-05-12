@@ -58,6 +58,7 @@ func (s *MockBookingService) LookupBooking(ctx context.Context, req BookingLooku
 	if err := providerContextErr(callCtx); err != nil {
 		return BookingLookupResponse{Source: SourceMockExternal}, finalizeErrorAudit(audit, start, StatusUnavailable, CodeProviderUnavailable), providerError("booking", CodeProviderUnavailable, "booking provider unavailable")
 	}
+	req.Identifier = normalizeLookupPhone(req.Identifier, req.IdentifierType)
 
 	if !validBookingIdentifier(req.Identifier, req.IdentifierType) {
 		return BookingLookupResponse{Source: SourceMockExternal}, finalizeErrorAudit(audit, start, StatusInvalid, CodeInvalidIdentifier), providerError("booking", CodeInvalidIdentifier, "invalid booking identifier")
@@ -221,6 +222,7 @@ func (s *MockAccountService) LookupAccount(ctx context.Context, req AccountLooku
 	if err := providerContextErr(callCtx); err != nil {
 		return AccountLookupResponse{Source: SourceMockExternal}, finalizeErrorAudit(audit, start, StatusUnavailable, CodeProviderUnavailable), providerError("user_account", CodeProviderUnavailable, "account provider unavailable")
 	}
+	req.Identifier = normalizeLookupPhone(req.Identifier, req.IdentifierType)
 
 	if !validAccountIdentifier(req.Identifier, req.IdentifierType) {
 		return AccountLookupResponse{Source: SourceMockExternal}, finalizeErrorAudit(audit, start, StatusInvalid, CodeInvalidIdentifier), providerError("user_account", CodeInvalidIdentifier, "invalid account identifier")
@@ -364,7 +366,7 @@ func validBookingIdentifier(identifier, identifierType string) bool {
 	case "", "booking_number":
 		return matchesAny(identifier, "^BRG-\\d{6}$", "^БРГ-\\d{6}$", "^BRG-ERROR-503$")
 	case "phone":
-		return matchesAny(identifier, "^\\+7 \\(\\d{3}\\) \\d{3}-\\d{2}-\\d{2}$", "^\\d{10}$")
+		return matchesAny(identifier, "^\\+7 \\(\\d{3}\\) \\d{3}-\\d{2}-\\d{2}$", "^\\d{10}$", "^[78]\\d{10}$")
 	default:
 		return false
 	}
@@ -404,9 +406,39 @@ func validAccountIdentifier(identifier, identifierType string) bool {
 	case "email":
 		return matchesAny(identifier, "^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$")
 	case "phone":
-		return matchesAny(identifier, "^\\+7 \\(\\d{3}\\) \\d{3}-\\d{2}-\\d{2}$", "^\\d{10}$")
+		return matchesAny(identifier, "^\\+7 \\(\\d{3}\\) \\d{3}-\\d{2}-\\d{2}$", "^\\d{10}$", "^[78]\\d{10}$")
 	default:
 		return false
+	}
+}
+
+func normalizeLookupPhone(identifier, identifierType string) string {
+	if identifierType != "phone" {
+		return identifier
+	}
+
+	trimmed := strings.TrimSpace(identifier)
+	if trimmed == "" {
+		return trimmed
+	}
+
+	digits := make([]rune, 0, len(trimmed))
+	for _, r := range trimmed {
+		if r >= '0' && r <= '9' {
+			digits = append(digits, r)
+		}
+	}
+
+	switch len(digits) {
+	case 10:
+		return "7" + string(digits)
+	case 11:
+		if digits[0] == '8' {
+			digits[0] = '7'
+		}
+		return string(digits)
+	default:
+		return identifier
 	}
 }
 
